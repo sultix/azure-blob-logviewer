@@ -23,9 +23,18 @@ func main() {
 	application := app.New()
 
 	err = wails.Run(&options.App{
-		Title:  "Azure Blob Log Viewer",
-		Width:  1280,
-		Height: 800,
+		Title:     "Azure Blob Log Viewer",
+		Width:     1280,
+		Height:    800,
+		MinWidth:  960,
+		MinHeight: 600,
+		Frameless: true,
+		BackgroundColour: &options.RGBA{
+			R: 0x0b,
+			G: 0x13,
+			B: 0x26,
+			A: 0xff,
+		},
 		AssetServer: &assetserver.Options{
 			Assets: dist,
 		},

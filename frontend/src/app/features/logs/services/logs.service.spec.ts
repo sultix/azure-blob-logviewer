@@ -28,6 +28,8 @@ describe('LogsService', () => {
   it('starts in the idle state', () => {
     expect(service.status()).toBe('idle');
     expect(service.entries()).toEqual([]);
+    expect(service.selectedEntry()).toBeNull();
+    expect(service.selectedContent()).toBe('');
   });
 
   it('transitions to success and exposes the loaded entries', async () => {
@@ -49,6 +51,15 @@ describe('LogsService', () => {
     expect(service.errorMessage()).toBeNull();
   });
 
+  it('falls back to stub entries when the api returns an empty list', async () => {
+    api.listLogEntries.mockResolvedValue([]);
+
+    await service.load();
+
+    expect(service.status()).toBe('success');
+    expect(service.entries().length).toBeGreaterThan(0);
+  });
+
   it('captures an error message when the api fails', async () => {
     api.listLogEntries.mockRejectedValue(new Error('boom'));
 
@@ -56,5 +67,25 @@ describe('LogsService', () => {
 
     expect(service.status()).toBe('error');
     expect(service.errorMessage()).toBe('boom');
+  });
+
+  it('selects an entry and loads its content', async () => {
+    const entries: LogEntry[] = [
+      {
+        id: 'a',
+        container: 'logs',
+        blobName: 'file.log',
+        timestamp: 'now',
+        size: 1,
+      },
+    ];
+    api.listLogEntries.mockResolvedValue(entries);
+    await service.load();
+
+    service.selectEntry('a');
+    await service.loadContent('a');
+
+    expect(service.selectedEntry()?.id).toBe('a');
+    expect(service.selectedContent().length).toBeGreaterThan(0);
   });
 });

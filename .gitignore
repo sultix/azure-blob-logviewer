@@ -45,6 +45,9 @@ frontend/dist/browser/*
 !frontend/dist/browser/.gitkeep
 frontend/node_modules/
 frontend/out-tsc/
+frontend/.angular/
+
+.claude/
 
 # Wails-generated bindings (regenerated on `wails dev` / `wails generate module`)
 frontend/wailsjs/

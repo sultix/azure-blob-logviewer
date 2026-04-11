@@ -1,0 +1,221 @@
+<section class="flex h-full flex-col overflow-auto">
+  <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 p-10">
+    <header class="flex flex-col gap-2">
+      <span class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+        Dashboard
+      </span>
+      <h1 class="font-display text-3xl font-bold text-on-surface">
+        Storage Connections
+      </h1>
+      <p class="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+        Manage and monitor Azure Blob Storage containers across multiple
+        environments with real-time log ingestion.
+      </p>
+    </header>
+
+    <div class="grid grid-cols-4 gap-4">
+      @for (stat of stats(); track stat.label) {
+        <div
+          class="flex items-start justify-between rounded-xl bg-surface-container p-5"
+        >
+          <div class="flex flex-col gap-1">
+            <span
+              class="text-[11px] font-medium uppercase tracking-wider text-on-surface-variant"
+            >
+              {{ stat.label }}
+            </span>
+            <span class="font-display text-2xl font-bold text-on-surface">
+              {{ stat.value }}
+            </span>
+          </div>
+          <span
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high"
+            [class.text-primary]="stat.accent === 'primary'"
+            [class.text-secondary]="stat.accent === 'secondary'"
+            [class.text-tertiary]="stat.accent === 'tertiary'"
+            [class.text-error]="stat.accent === 'error'"
+          >
+            <i class="pi text-sm" [class]="stat.icon"></i>
+          </span>
+        </div>
+      }
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div
+        class="flex flex-1 items-center gap-3 rounded-lg bg-surface-container-lowest px-4 py-2.5"
+      >
+        <i class="pi pi-search text-sm text-on-surface-variant"></i>
+        <input
+          type="text"
+          placeholder="Search connections, environments..."
+          [ngModel]="searchTerm()"
+          (ngModelChange)="onSearch($event)"
+          class="flex-1 bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+          aria-label="Search connections"
+        />
+      </div>
+      <button
+        type="button"
+        (click)="openDialog()"
+        class="flex items-center gap-2 rounded-lg bg-primary-gradient px-5 py-2.5 text-sm font-semibold text-on-primary shadow-ambient transition-transform hover:-translate-y-[1px]"
+      >
+        <i class="pi pi-plus text-xs"></i>
+        Add New Storage
+      </button>
+    </div>
+
+    @if (status() === 'loading') {
+      <p class="text-sm text-on-surface-variant">Loading connections…</p>
+    } @else if (status() === 'error') {
+      <p class="text-sm text-error">{{ errorMessage() }}</p>
+    } @else if (isEmpty()) {
+      <div
+        class="flex flex-col items-center gap-3 rounded-xl bg-surface-container p-12 text-center"
+      >
+        <i class="pi pi-cloud-upload text-3xl text-on-surface-variant"></i>
+        <h3 class="font-display text-lg font-semibold text-on-surface">
+          No storage connections yet
+        </h3>
+        <p class="max-w-sm text-sm text-on-surface-variant">
+          Add your first Azure Blob Storage connection to start streaming logs.
+        </p>
+      </div>
+    } @else {
+      <ul class="flex flex-col gap-2">
+        @for (card of cards(); track card.id) {
+          <li
+            class="group flex items-center gap-5 rounded-xl bg-surface-container p-5 transition-colors hover:bg-surface-container-high"
+          >
+            <span
+              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-container-high"
+              [class]="card.statusColorClass"
+            >
+              <i class="pi text-base" [class]="card.statusIcon"></i>
+            </span>
+
+            <div class="flex min-w-0 flex-1 flex-col gap-1">
+              <div class="flex items-center gap-3">
+                <span class="truncate font-mono text-sm font-medium text-on-surface">
+                  {{ card.name }}
+                </span>
+                <span
+                  class="rounded-full bg-surface-container-highest px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant"
+                >
+                  {{ card.environmentLabel }}
+                </span>
+              </div>
+              <div class="flex items-center gap-4 text-xs text-on-surface-variant">
+                <span>{{ card.displayName }}</span>
+                <span class="text-outline-variant">•</span>
+                <span>Last used {{ card.lastUsedRelative }}</span>
+                <span class="text-outline-variant">•</span>
+                <span>{{ card.accessTier }} tier</span>
+                <span class="text-outline-variant">•</span>
+                <span class="italic">{{ card.stateText }}</span>
+              </div>
+            </div>
+
+            <span
+              class="rounded-full bg-secondary-container px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-on-secondary-container"
+            >
+              {{ card.statusLabel }}
+            </span>
+
+            <button
+              type="button"
+              (click)="openLogs(card)"
+              class="flex shrink-0 items-center gap-2 rounded-lg bg-surface-container-highest px-4 py-2 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright"
+            >
+              @if (card.isOffline) {
+                <i class="pi pi-refresh text-xs"></i>
+                Reconnect
+              } @else {
+                Open Logs
+                <i class="pi pi-arrow-right text-xs"></i>
+              }
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  @if (dialogOpen()) {
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-surface-container-lowest/70 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-connection-title"
+    >
+      <div
+        class="flex w-full max-w-md flex-col gap-5 rounded-xl bg-surface-container-high p-7 shadow-ambient"
+      >
+        <div class="flex items-start justify-between">
+          <div>
+            <h2
+              id="add-connection-title"
+              class="font-display text-lg font-bold text-on-surface"
+            >
+              Add Storage Connection
+            </h2>
+            <p class="mt-1 text-xs text-on-surface-variant">
+              Quick add. Complete credentials in Settings.
+            </p>
+          </div>
+          <button
+            type="button"
+            (click)="closeDialog()"
+            aria-label="Close dialog"
+            class="rounded text-on-surface-variant transition-colors hover:text-on-surface"
+          >
+            <i class="pi pi-times text-sm"></i>
+          </button>
+        </div>
+
+        <label class="flex flex-col gap-1.5">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+            Connection name
+          </span>
+          <input
+            type="text"
+            placeholder="az-prod-logs"
+            [ngModel]="draftName()"
+            (ngModelChange)="draftName.set($event)"
+            class="rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+        </label>
+
+        <label class="flex flex-col gap-1.5">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+            Storage account
+          </span>
+          <input
+            type="text"
+            placeholder="myprodlogs"
+            [ngModel]="draftAccount()"
+            (ngModelChange)="draftAccount.set($event)"
+            class="rounded-lg bg-surface-container-lowest px-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+        </label>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            (click)="closeDialog()"
+            class="rounded-lg px-4 py-2 text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            (click)="saveDraft()"
+            class="rounded-lg bg-primary-gradient px-4 py-2 text-sm font-semibold text-on-primary"
+          >
+            Save Connection
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</section>
