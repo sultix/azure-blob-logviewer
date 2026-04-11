@@ -1,0 +1,29 @@
+<section class="flex flex-col gap-4">
+  <header class="flex items-center justify-between">
+    <h2 class="text-xl font-semibold">Log entries</h2>
+  </header>
+
+  @if (status() === 'loading') {
+    <p class="text-sm text-slate-500">Loading…</p>
+  } @else if (status() === 'error') {
+    <p class="text-sm text-red-600">{{ errorMessage() }}</p>
+  } @else if (isEmpty()) {
+    <p class="text-sm text-slate-500">No log entries yet.</p>
+  } @else {
+    <ul
+      class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white"
+    >
+      @for (entry of entries(); track entry.id) {
+        <li class="flex items-center justify-between px-4 py-3">
+          <div class="flex flex-col">
+            <span class="text-sm font-medium text-slate-900">{{
+              entry.blobName
+            }}</span>
+            <span class="text-xs text-slate-500">{{ entry.container }}</span>
+          </div>
+          <span class="text-xs text-slate-400">{{ entry.timestamp }}</span>
+        </li>
+      }
+    </ul>
+  }
+</section>

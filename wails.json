@@ -1,0 +1,12 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "azure-blob-logviewer",
+  "outputfilename": "azure-blob-logviewer",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run start",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Aleksandr Sultanov"
+  }
+}
