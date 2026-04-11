@@ -1,10 +1,15 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from "@angular/core";
+import { RouterLink, RouterLinkActive } from "@angular/router";
 
-import { WindowControlsService } from '@app/core/services/window-controls.service';
+import { WindowControlsService } from "@app/core/services/window-controls.service";
 
 @Component({
-  selector: 'app-shell',
+  selector: "app-shell",
   imports: [RouterLink, RouterLinkActive],
   template: `
     <div class="flex h-full flex-col bg-surface">
@@ -18,10 +23,14 @@ import { WindowControlsService } from '@app/core/services/window-controls.servic
             >
               <i class="pi pi-database text-[12px]"></i>
             </span>
-            <span class="font-display text-sm font-semibold tracking-wide text-on-surface">
+            <span
+              class="font-display text-sm font-semibold tracking-wide text-on-surface"
+            >
               Azure Blob Log Viewer
             </span>
-            <span class="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant">
+            <span
+              class="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant"
+            >
               v0.1.0
             </span>
           </div>
@@ -67,10 +76,10 @@ import { WindowControlsService } from '@app/core/services/window-controls.servic
           <button
             type="button"
             (click)="controls.toggleMaximize()"
-            aria-label="Maximize window"
+            [attr.aria-label]="maximizeButtonLabel()"
             class="flex h-full w-12 items-center justify-center text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-on-surface"
           >
-            <i class="pi pi-stop text-[11px]"></i>
+            <i [class]="maximizeButtonIconClass()"></i>
           </button>
           <button
             type="button"
@@ -92,4 +101,12 @@ import { WindowControlsService } from '@app/core/services/window-controls.servic
 })
 export class ShellComponent {
   protected readonly controls = inject(WindowControlsService);
+  protected readonly maximizeButtonIconClass = computed(() =>
+    this.controls.isMaximized()
+      ? "pi pi-window-minimize text-[11px]"
+      : "pi pi-stop text-[11px]",
+  );
+  protected readonly maximizeButtonLabel = computed(() =>
+    this.controls.isMaximized() ? "Restore window" : "Maximize window",
+  );
 }

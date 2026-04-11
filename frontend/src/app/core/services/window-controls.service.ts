@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { DestroyRef, Injectable, Signal, inject, signal } from '@angular/core';
 
 interface WailsEnvironment {
   platform: string;
@@ -31,7 +31,29 @@ interface WailsRuntimeWindow {
 
 @Injectable({ providedIn: 'root' })
 export class WindowControlsService {
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly maximizedState = signal(false);
   private environment?: Promise<WailsEnvironment | null>;
+  private readonly syncWindowStateHandler = () => {
+    void this.syncWindowState();
+  };
+
+  readonly isMaximized: Signal<boolean> = this.maximizedState.asReadonly();
+
+  constructor() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.addEventListener('resize', this.syncWindowStateHandler);
+    window.addEventListener('focus', this.syncWindowStateHandler);
+    this.destroyRef.onDestroy(() => {
+      window.removeEventListener('resize', this.syncWindowStateHandler);
+      window.removeEventListener('focus', this.syncWindowStateHandler);
+    });
+
+    void this.syncWindowState();
+  }
 
   minimize(): void {
     this.runtime()?.WindowMinimise();
@@ -44,13 +66,14 @@ export class WindowControlsService {
     }
 
     await this.toggleWindowState(runtime);
+    await this.syncWindowState();
   }
 
   close(): void {
     this.runtime()?.Quit();
   }
 
-  async isMaximized(): Promise<boolean> {
+  private async readWindowState(): Promise<boolean> {
     const runtime = this.runtime();
     if (!runtime) {
       return false;
@@ -61,6 +84,10 @@ export class WindowControlsService {
     }
 
     return runtime.WindowIsMaximised();
+  }
+
+  private async syncWindowState(): Promise<void> {
+    this.maximizedState.set(await this.readWindowState());
   }
 
   private runtime(): WailsRuntime | undefined {

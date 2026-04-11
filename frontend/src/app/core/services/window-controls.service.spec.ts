@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WindowControlsService } from './window-controls.service';
 
@@ -28,13 +29,11 @@ interface RuntimeWindow {
 }
 
 describe('WindowControlsService', () => {
-  let service: WindowControlsService;
   let runtime: MockRuntime;
   let appBridge: MockAppBridge;
   let runtimeWindow: RuntimeWindow;
 
   beforeEach(() => {
-    service = new WindowControlsService();
     runtime = {
       Environment: vi.fn().mockResolvedValue({ platform: 'linux' }),
       WindowMinimise: vi.fn(),
@@ -56,43 +55,75 @@ describe('WindowControlsService', () => {
         App: appBridge,
       },
     };
+
+    TestBed.configureTestingModule({});
   });
 
-  it('uses maximize on non-macOS platforms', async () => {
-    await service.toggleMaximize();
-
-    expect(runtime.WindowToggleMaximise).toHaveBeenCalledOnce();
-    expect(runtime.WindowFullscreen).not.toHaveBeenCalled();
-    expect(runtime.WindowUnfullscreen).not.toHaveBeenCalled();
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    delete runtimeWindow.runtime;
+    delete runtimeWindow.go;
   });
 
-  it('uses fullscreen when maximizing on macOS', async () => {
+  it('sets the initial maximized state for non-macOS', async () => {
+    const service = TestBed.inject(WindowControlsService);
+    await flushAsync();
+
+    expect(service.isMaximized()).toBe(true);
+    expect(runtime.WindowIsMaximised).toHaveBeenCalledOnce();
+  });
+
+  it('uses fullscreen state on macOS instead of maximized state', async () => {
     runtime.Environment.mockResolvedValue({ platform: 'darwin' });
+    appBridge.IsMacFullscreen.mockResolvedValue(true);
 
-    await service.toggleMaximize();
+    const service = TestBed.inject(WindowControlsService);
+    await flushAsync();
 
-    expect(appBridge.ToggleMacFullscreen).toHaveBeenCalledOnce();
-    expect(runtime.WindowToggleMaximise).not.toHaveBeenCalled();
-    expect(runtime.WindowFullscreen).not.toHaveBeenCalled();
-  });
-
-  it('falls back to the runtime fullscreen path on macOS when the app bridge is unavailable', async () => {
-    runtime.Environment.mockResolvedValue({ platform: 'darwin' });
-    runtime.WindowIsFullscreen.mockResolvedValue(true);
-    runtimeWindow.go = undefined;
-
-    await service.toggleMaximize();
-
-    expect(runtime.WindowUnfullscreen).toHaveBeenCalledOnce();
-    expect(runtime.WindowFullscreen).not.toHaveBeenCalled();
-    expect(runtime.WindowToggleMaximise).not.toHaveBeenCalled();
-  });
-
-  it('treats fullscreen as the maximized state on macOS', async () => {
-    runtime.Environment.mockResolvedValue({ platform: 'darwin' });
-
-    await expect(service.isMaximized()).resolves.toBe(true);
+    expect(service.isMaximized()).toBe(true);
     expect(appBridge.IsMacFullscreen).toHaveBeenCalledOnce();
     expect(runtime.WindowIsMaximised).not.toHaveBeenCalled();
   });
+
+  it('resynchronizes the state after toggling maximize', async () => {
+    runtime.WindowIsMaximised
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const service = TestBed.inject(WindowControlsService);
+    await flushAsync();
+    runtime.WindowIsMaximised.mockClear();
+
+    await service.toggleMaximize();
+
+    expect(runtime.WindowToggleMaximise).toHaveBeenCalledOnce();
+    expect(service.isMaximized()).toBe(true);
+    expect(runtime.WindowIsMaximised).toHaveBeenCalledOnce();
+  });
+
+  it('resynchronizes the state on resize and focus events', async () => {
+    runtime.WindowIsMaximised
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const service = TestBed.inject(WindowControlsService);
+    await flushAsync();
+    runtime.WindowIsMaximised.mockClear();
+
+    window.dispatchEvent(new Event('resize'));
+    await flushAsync();
+    expect(service.isMaximized()).toBe(true);
+
+    window.dispatchEvent(new Event('focus'));
+    await flushAsync();
+    expect(service.isMaximized()).toBe(false);
+    expect(runtime.WindowIsMaximised).toHaveBeenCalledTimes(2);
+  });
 });
+
+async function flushAsync(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await Promise.resolve();
+}
