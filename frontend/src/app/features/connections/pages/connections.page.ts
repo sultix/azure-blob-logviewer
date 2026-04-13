@@ -7,13 +7,21 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { DialogService } from 'primeng/dynamicdialog';
+import { lastValueFrom } from 'rxjs';
+
+import { AzureService } from '@app/features/settings/services/azure.service';
 
 import { ConnectionsService } from '../services/connections.service';
 import type {
   ConnectionStatus,
   StorageConnection,
 } from '../models/storage-connection.model';
+import {
+  AddConnectionDialogComponent,
+  type AddConnectionResult,
+} from '../components/add-connection-dialog.component';
 
 interface StatCard {
   label: string;
@@ -40,22 +48,23 @@ interface ConnectionCardVm {
 
 @Component({
   selector: 'app-connections-page',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
+  providers: [DialogService],
   templateUrl: './connections.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ConnectionsPage implements OnInit {
   private readonly connectionsService = inject(ConnectionsService);
   private readonly router = inject(Router);
+  private readonly azure = inject(AzureService);
+  private readonly dialogService = inject(DialogService);
 
   readonly status = this.connectionsService.status;
   readonly errorMessage = this.connectionsService.errorMessage;
   readonly isEmpty = this.connectionsService.isEmpty;
+  readonly isAuthenticated = this.azure.isAuthenticated;
 
   readonly searchTerm = signal('');
-  readonly dialogOpen = signal(false);
-  readonly draftName = signal('');
-  readonly draftAccount = signal('');
 
   readonly cards = computed<ConnectionCardVm[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
@@ -117,32 +126,34 @@ export class ConnectionsPage implements OnInit {
   }
 
   openDialog(): void {
-    this.draftName.set('');
-    this.draftAccount.set('');
-    this.dialogOpen.set(true);
-  }
-
-  closeDialog(): void {
-    this.dialogOpen.set(false);
-  }
-
-  saveDraft(): void {
-    const name = this.draftName().trim();
-    const account = this.draftAccount().trim();
-    if (!name || !account) return;
-    const id = `${name}-${Date.now()}`;
-    this.connectionsService.add({
-      id,
-      name,
-      displayName: account,
-      environment: 'development',
-      status: 'offline',
-      lastUsed: new Date().toISOString(),
-      accessTier: 'Hot',
-      stateText: 'Awaiting credentials',
-      containerCount: 0,
+    const ref = this.dialogService.open(AddConnectionDialogComponent, {
+      header: 'Add Storage Connection',
+      closable: true,
+      modal: true,
+      width: '512px',
+      contentStyle: { overflow: 'visible' },
     });
-    this.dialogOpen.set(false);
+    if (!ref) return;
+    void lastValueFrom(ref.onClose).then((result: AddConnectionResult | null | undefined) => {
+      if (!result) return;
+      const { name, subscription, storageAccount, container } = result;
+      const id = `${storageAccount.name}-${container.name}-${Date.now()}`;
+      this.connectionsService.add({
+        id,
+        name,
+        displayName: `${storageAccount.name} / ${container.name}`,
+        environment: 'production',
+        status: 'online',
+        lastUsed: new Date().toISOString(),
+        accessTier: 'Hot',
+        stateText: 'Connected',
+        containerCount: 1,
+        subscriptionId: subscription.id,
+        resourceGroup: storageAccount.resourceGroup,
+        storageAccountName: storageAccount.name,
+        containerName: container.name,
+      });
+    });
   }
 
   openLogs(card: ConnectionCardVm): void {

@@ -2,12 +2,13 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppApiService } from '@app/core/services/app-api.service';
+import type { AzureBlobItem } from '@app/features/settings/models/azure.model';
 
-import type { LogEntry } from '../models/log-entry.model';
 import { LogsService } from './logs.service';
 
 class AppApiServiceStub implements Partial<AppApiService> {
-  listLogEntries = vi.fn<() => Promise<LogEntry[]>>();
+  listBlobs = vi.fn<() => Promise<AzureBlobItem[]>>();
+  downloadBlobContent = vi.fn<() => Promise<string>>();
 }
 
 describe('LogsService', () => {
@@ -33,59 +34,61 @@ describe('LogsService', () => {
   });
 
   it('transitions to success and exposes the loaded entries', async () => {
-    const entries: LogEntry[] = [
+    const blobs: AzureBlobItem[] = [
       {
-        id: 'a',
-        container: 'logs',
-        blobName: '2026/04/11/log.json',
-        timestamp: '2026-04-11T00:00:00Z',
+        name: '2026/04/11/log.json',
         size: 42,
+        contentType: 'application/json',
+        lastModified: '2026-04-11T00:00:00Z',
+        blobType: 'BlockBlob',
       },
     ];
-    api.listLogEntries.mockResolvedValue(entries);
+    api.listBlobs.mockResolvedValue(blobs);
 
-    await service.load();
+    await service.loadForConnection('myaccount', 'logs');
 
     expect(service.status()).toBe('success');
-    expect(service.entries()).toEqual(entries);
+    expect(service.entries().length).toBe(1);
+    expect(service.entries()[0].blobName).toBe('2026/04/11/log.json');
     expect(service.errorMessage()).toBeNull();
   });
 
-  it('falls back to stub entries when the api returns an empty list', async () => {
-    api.listLogEntries.mockResolvedValue([]);
+  it('sets empty entries when the api returns an empty list', async () => {
+    api.listBlobs.mockResolvedValue([]);
 
-    await service.load();
+    await service.loadForConnection('myaccount', 'logs');
 
     expect(service.status()).toBe('success');
-    expect(service.entries().length).toBeGreaterThan(0);
+    expect(service.entries().length).toBe(0);
   });
 
   it('captures an error message when the api fails', async () => {
-    api.listLogEntries.mockRejectedValue(new Error('boom'));
+    api.listBlobs.mockRejectedValue(new Error('boom'));
 
-    await service.load();
+    await service.loadForConnection('myaccount', 'logs');
 
     expect(service.status()).toBe('error');
     expect(service.errorMessage()).toBe('boom');
   });
 
   it('selects an entry and loads its content', async () => {
-    const entries: LogEntry[] = [
+    const blobs: AzureBlobItem[] = [
       {
-        id: 'a',
-        container: 'logs',
-        blobName: 'file.log',
-        timestamp: 'now',
+        name: 'file.log',
         size: 1,
+        contentType: 'text/plain',
+        lastModified: '2026-04-11T00:00:00Z',
+        blobType: 'BlockBlob',
       },
     ];
-    api.listLogEntries.mockResolvedValue(entries);
-    await service.load();
+    api.listBlobs.mockResolvedValue(blobs);
+    api.downloadBlobContent.mockResolvedValue('log line 1\nlog line 2');
 
-    service.selectEntry('a');
-    await service.loadContent('a');
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await service.loadContent('file.log');
 
-    expect(service.selectedEntry()?.id).toBe('a');
-    expect(service.selectedContent().length).toBeGreaterThan(0);
+    expect(service.selectedEntry()?.id).toBe('file.log');
+    expect(service.selectedContent()).toBe('log line 1\nlog line 2');
   });
 });

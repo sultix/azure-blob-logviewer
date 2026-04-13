@@ -58,12 +58,27 @@
       <button
         type="button"
         (click)="openDialog()"
-        class="flex items-center gap-2 rounded-lg bg-primary-gradient px-5 py-2.5 text-sm font-semibold text-on-primary shadow-ambient transition-transform hover:-translate-y-[1px]"
+        [disabled]="!isAuthenticated()"
+        class="flex items-center gap-2 rounded-lg bg-primary-gradient px-5 py-2.5 text-sm font-semibold text-on-primary shadow-ambient transition-transform hover:-translate-y-[1px] disabled:opacity-40 disabled:hover:translate-y-0"
+        [title]="isAuthenticated() ? 'Add a new storage connection' : 'Please connect to Azure in Settings first'"
       >
         <i class="pi pi-plus text-xs"></i>
         Add New Storage
       </button>
     </div>
+
+    @if (!isAuthenticated()) {
+      <div
+        class="flex items-start gap-3 rounded-xl bg-surface-container p-5"
+      >
+        <i class="pi pi-info-circle mt-0.5 text-sm text-tertiary"></i>
+        <p class="text-xs leading-relaxed text-on-surface-variant">
+          Bitte verbinden Sie sich zuerst mit Azure unter
+          <a routerLink="/settings" class="font-semibold text-primary underline">Settings</a>,
+          um neue Storage-Verbindungen hinzuzufuegen.
+        </p>
+      </div>
+    }
 
     @if (status() === 'loading') {
       <p class="text-sm text-on-surface-variant">Loading connections…</p>
@@ -140,82 +155,4 @@
       </ul>
     }
   </div>
-
-  @if (dialogOpen()) {
-    <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-surface-container-lowest/70 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="add-connection-title"
-    >
-      <div
-        class="flex w-full max-w-md flex-col gap-5 rounded-xl bg-surface-container-high p-7 shadow-ambient"
-      >
-        <div class="flex items-start justify-between">
-          <div>
-            <h2
-              id="add-connection-title"
-              class="font-display text-lg font-bold text-on-surface"
-            >
-              Add Storage Connection
-            </h2>
-            <p class="mt-1 text-xs text-on-surface-variant">
-              Quick add. Complete credentials in Settings.
-            </p>
-          </div>
-          <button
-            type="button"
-            (click)="closeDialog()"
-            aria-label="Close dialog"
-            class="rounded text-on-surface-variant transition-colors hover:text-on-surface"
-          >
-            <i class="pi pi-times text-sm"></i>
-          </button>
-        </div>
-
-        <label class="flex flex-col gap-1.5">
-          <span class="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-            Connection name
-          </span>
-          <input
-            type="text"
-            placeholder="az-prod-logs"
-            [ngModel]="draftName()"
-            (ngModelChange)="draftName.set($event)"
-            class="rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-        </label>
-
-        <label class="flex flex-col gap-1.5">
-          <span class="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-            Storage account
-          </span>
-          <input
-            type="text"
-            placeholder="myprodlogs"
-            [ngModel]="draftAccount()"
-            (ngModelChange)="draftAccount.set($event)"
-            class="rounded-lg bg-surface-container-lowest px-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-        </label>
-
-        <div class="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            (click)="closeDialog()"
-            class="rounded-lg px-4 py-2 text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            (click)="saveDraft()"
-            class="rounded-lg bg-primary-gradient px-4 py-2 text-sm font-semibold text-on-primary"
-          >
-            Save Connection
-          </button>
-        </div>
-      </div>
-    </div>
-  }
 </section>

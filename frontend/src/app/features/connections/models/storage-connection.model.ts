@@ -11,4 +11,8 @@ export interface StorageConnection {
   accessTier: 'Hot' | 'Cool' | 'Archive';
   stateText: string;
   containerCount?: number;
+  subscriptionId?: string;
+  resourceGroup?: string;
+  storageAccountName?: string;
+  containerName?: string;
 }

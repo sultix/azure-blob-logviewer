@@ -9,13 +9,12 @@
           Configuration
         </h1>
         <p class="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
-          Manage Azure authentication, ingestion behavior, and saved storage
-          connections.
+          Manage Azure authentication and configure ingestion behavior.
         </p>
       </div>
       <div class="flex flex-col items-end gap-2">
         <span class="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
-          System Status
+          Azure Status
         </span>
         <span
           class="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
@@ -23,131 +22,20 @@
         >
           {{ statusBadge().label }}
         </span>
-        @if (!pristine()) {
-          <span
-            class="flex items-center gap-1.5 rounded-full bg-tertiary-container px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-on-surface"
-          >
-            <i class="pi pi-exclamation-triangle text-[10px]"></i>
-            Unsaved Changes
-          </span>
-        }
       </div>
     </header>
 
     <!-- Azure Authentication -->
     <div class="flex flex-col gap-5 rounded-xl bg-surface-container p-7">
-      <div class="flex items-center justify-between">
-        <h2 class="font-display text-base font-semibold text-on-surface">
-          Azure Authentication
-        </h2>
-        @if (statusMessage()) {
-          <span class="text-[11px] text-on-surface-variant">
-            {{ statusMessage() }}
-          </span>
-        }
-      </div>
-
-      <div class="grid grid-cols-2 gap-5">
-        <label class="flex flex-col gap-1.5">
-          <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-            Tenant ID
-          </span>
-          <input
-            type="text"
-            placeholder="00000000-0000-0000-0000-000000000000"
-            [ngModel]="auth().tenantId"
-            (ngModelChange)="updateAuthField('tenantId', $event)"
-            class="rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-        </label>
-
-        <label class="flex flex-col gap-1.5">
-          <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-            Client ID
-          </span>
-          <input
-            type="text"
-            placeholder="00000000-0000-0000-0000-000000000000"
-            [ngModel]="auth().clientId"
-            (ngModelChange)="updateAuthField('clientId', $event)"
-            class="rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-        </label>
-
-        <label class="col-span-2 flex flex-col gap-1.5">
-          <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-            Client Secret
-          </span>
-          <div class="relative">
-            <input
-              [type]="secretVisible() ? 'text' : 'password'"
-              placeholder="••••••••••••••••••••"
-              [ngModel]="auth().clientSecret"
-              (ngModelChange)="updateAuthField('clientSecret', $event)"
-              class="w-full rounded-lg bg-surface-container-lowest px-4 py-2.5 pr-12 font-mono text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-            <button
-              type="button"
-              (click)="toggleSecret()"
-              aria-label="Toggle secret visibility"
-              class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant transition-colors hover:text-on-surface"
-            >
-              <i class="pi text-xs" [class]="secretVisible() ? 'pi-eye-slash' : 'pi-eye'"></i>
-            </button>
-          </div>
-        </label>
-
-        <label class="flex flex-col gap-1.5">
-          <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-            Storage Account
-          </span>
-          <input
-            type="text"
-            placeholder="myorglogs"
-            [ngModel]="auth().storageAccount"
-            (ngModelChange)="updateAuthField('storageAccount', $event)"
-            class="rounded-lg bg-surface-container-lowest px-4 py-2.5 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-        </label>
-
-        <label class="flex flex-col gap-1.5">
-          <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-            Default Container
-          </span>
-          <input
-            type="text"
-            placeholder="logs-prod"
-            [ngModel]="auth().defaultContainer"
-            (ngModelChange)="updateAuthField('defaultContainer', $event)"
-            class="rounded-lg bg-surface-container-lowest px-4 py-2.5 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-        </label>
-      </div>
-
-      <div class="flex items-center justify-end gap-2 pt-2">
-        <button
-          type="button"
-          (click)="reset()"
-          class="rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
-        >
-          Reset
-        </button>
-        <button
-          type="button"
-          (click)="testConnection()"
-          class="rounded-lg bg-surface-container-highest px-4 py-2 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright"
-        >
-          Test Connection
-        </button>
-        <button
-          type="button"
-          (click)="applyCredentials()"
-          [disabled]="!canApply()"
-          class="rounded-lg bg-primary-gradient px-5 py-2 text-xs font-semibold uppercase tracking-wider text-on-primary shadow-ambient transition-opacity disabled:opacity-40"
-        >
-          Apply Credentials
-        </button>
-      </div>
+      <h2 class="font-display text-base font-semibold text-on-surface">
+        Azure Authentication
+      </h2>
+      <app-azure-login
+        [authStep]="authStep()"
+        [authError]="authError()"
+        (loginRequested)="onLogin()"
+        (logoutRequested)="onLogout()"
+      />
     </div>
 
     <!-- General Settings -->
@@ -219,6 +107,16 @@
           }
         </div>
       </div>
+
+      <div class="flex justify-end pt-2">
+        <button
+          type="button"
+          (click)="resetSettings()"
+          class="rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
+        >
+          Reset
+        </button>
+      </div>
     </div>
 
     <!-- Saved Connections -->
@@ -279,24 +177,10 @@
     >
       <i class="pi pi-info-circle mt-0.5 text-sm text-primary"></i>
       <p class="text-[11px] leading-relaxed text-on-surface-variant">
-        Credentials are currently stored in local browser storage. Encrypted
-        keychain persistence (RSA-4096) will land once the backend secrets
-        service is wired up.
+        Authentication uses Azure CLI credentials. Run
+        <code class="rounded bg-surface-container px-1 py-0.5 font-mono text-primary">az login</code>
+        in your terminal to authenticate. No credentials are stored by this application.
       </p>
     </div>
-
-    <!-- Footer Metadata -->
-    <footer
-      class="flex items-center justify-between text-[10px] font-medium uppercase tracking-wider text-on-surface-variant"
-    >
-      <span>
-        Last Successful Sync:
-        {{ lastSuccessfulSync() ?? 'never' }}
-      </span>
-      <div class="flex items-center gap-4">
-        <span>API Latency: 42ms</span>
-        <span>Environment: CLUSTER-01</span>
-      </div>
-    </footer>
   </div>
 </section>

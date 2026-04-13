@@ -1,0 +1,258 @@
+import { Injectable, computed, inject, signal } from '@angular/core';
+
+import { AppApiService } from '@app/core/services/app-api.service';
+import type {
+  AzureBlobItem,
+  AzureContainer,
+  AzureStorageAccount,
+  AzureSubscription,
+} from '../models/azure.model';
+
+export type AzureAuthStep = 'disconnected' | 'authenticating' | 'authenticated' | 'error';
+
+type ResourceState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; items: T[] }
+  | { status: 'error'; message: string };
+
+@Injectable({ providedIn: 'root' })
+export class AzureService {
+  private readonly api = inject(AppApiService);
+
+  // --- Authentication state ---
+  readonly authStep = signal<AzureAuthStep>('disconnected');
+  readonly authError = signal<string | null>(null);
+
+  readonly isAuthenticated = computed(() => this.authStep() === 'authenticated');
+
+  // --- Subscriptions ---
+  private readonly subscriptionsState = signal<ResourceState<AzureSubscription>>({ status: 'idle' });
+  readonly subscriptionsStatus = computed(() => this.subscriptionsState().status);
+  readonly subscriptions = computed(() => {
+    const s = this.subscriptionsState();
+    return s.status === 'success' ? s.items : [];
+  });
+  readonly subscriptionsError = computed(() => {
+    const s = this.subscriptionsState();
+    return s.status === 'error' ? s.message : null;
+  });
+  readonly selectedSubscription = signal<AzureSubscription | null>(null);
+
+  // --- Storage Accounts ---
+  private readonly storageAccountsState = signal<ResourceState<AzureStorageAccount>>({ status: 'idle' });
+  readonly storageAccountsStatus = computed(() => this.storageAccountsState().status);
+  readonly storageAccounts = computed(() => {
+    const s = this.storageAccountsState();
+    return s.status === 'success' ? s.items : [];
+  });
+  readonly storageAccountsError = computed(() => {
+    const s = this.storageAccountsState();
+    return s.status === 'error' ? s.message : null;
+  });
+  readonly selectedStorageAccount = signal<AzureStorageAccount | null>(null);
+
+  // --- Containers ---
+  private readonly containersState = signal<ResourceState<AzureContainer>>({ status: 'idle' });
+  readonly containersStatus = computed(() => this.containersState().status);
+  readonly containers = computed(() => {
+    const s = this.containersState();
+    return s.status === 'success' ? s.items : [];
+  });
+  readonly containersError = computed(() => {
+    const s = this.containersState();
+    return s.status === 'error' ? s.message : null;
+  });
+  readonly selectedContainer = signal<AzureContainer | null>(null);
+
+  // --- Blobs ---
+  private readonly blobsState = signal<ResourceState<AzureBlobItem>>({ status: 'idle' });
+  readonly blobsStatus = computed(() => this.blobsState().status);
+  readonly blobs = computed(() => {
+    const s = this.blobsState();
+    return s.status === 'success' ? s.items : [];
+  });
+  readonly blobsError = computed(() => {
+    const s = this.blobsState();
+    return s.status === 'error' ? s.message : null;
+  });
+
+  // --- Blob content ---
+  readonly blobContent = signal<string | null>(null);
+  readonly blobContentLoading = signal(false);
+  readonly selectedBlobName = signal<string | null>(null);
+
+  // --- Authentication actions ---
+
+  async login(): Promise<void> {
+    this.authStep.set('authenticating');
+    this.authError.set(null);
+
+    try {
+      const result = await this.api.startAzureLogin();
+
+      if (result.authenticated) {
+        this.authStep.set('authenticated');
+        this.authError.set(null);
+        void this.loadSubscriptions();
+      } else {
+        this.authStep.set('error');
+        this.authError.set(result.errorMessage ?? 'Authentication failed');
+      }
+    } catch (err) {
+      this.authStep.set('error');
+      this.authError.set(err instanceof Error ? err.message : 'Authentication failed');
+    }
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.api.azureLogout();
+    } catch {
+      // Ignore logout errors
+    }
+    this.authStep.set('disconnected');
+    this.authError.set(null);
+    this.resetAllResources();
+  }
+
+  async checkAuthState(): Promise<void> {
+    try {
+      const state = await this.api.getAzureAuthState();
+      if (state.authenticated) {
+        this.authStep.set('authenticated');
+        void this.loadSubscriptions();
+      }
+    } catch {
+      // Not authenticated, stay disconnected
+    }
+  }
+
+  // --- Resource loading ---
+
+  async loadSubscriptions(): Promise<void> {
+    this.subscriptionsState.set({ status: 'loading' });
+    this.resetDownstreamFrom('subscriptions');
+    try {
+      const items = await this.api.listSubscriptions();
+      this.subscriptionsState.set({ status: 'success', items });
+    } catch (err) {
+      this.subscriptionsState.set({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load subscriptions',
+      });
+    }
+  }
+
+  selectSubscription(sub: AzureSubscription | null): void {
+    this.selectedSubscription.set(sub);
+    this.resetDownstreamFrom('storageAccounts');
+    if (sub) {
+      void this.loadStorageAccounts(sub.id);
+    }
+  }
+
+  async loadStorageAccounts(subscriptionId: string): Promise<void> {
+    this.storageAccountsState.set({ status: 'loading' });
+    try {
+      const items = await this.api.listStorageAccounts(subscriptionId);
+      this.storageAccountsState.set({ status: 'success', items });
+    } catch (err) {
+      this.storageAccountsState.set({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load storage accounts',
+      });
+    }
+  }
+
+  selectStorageAccount(account: AzureStorageAccount | null): void {
+    this.selectedStorageAccount.set(account);
+    this.resetDownstreamFrom('containers');
+    if (account) {
+      const sub = this.selectedSubscription();
+      if (sub) {
+        void this.loadContainers(sub.id, account.resourceGroup, account.name);
+      }
+    }
+  }
+
+  async loadContainers(subscriptionId: string, resourceGroup: string, accountName: string): Promise<void> {
+    this.containersState.set({ status: 'loading' });
+    try {
+      const items = await this.api.listContainers(subscriptionId, resourceGroup, accountName);
+      this.containersState.set({ status: 'success', items });
+    } catch (err) {
+      this.containersState.set({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load containers',
+      });
+    }
+  }
+
+  selectContainer(container: AzureContainer | null): void {
+    this.selectedContainer.set(container);
+    this.blobsState.set({ status: 'idle' });
+    this.blobContent.set(null);
+    this.selectedBlobName.set(null);
+    if (container) {
+      const account = this.selectedStorageAccount();
+      if (account) {
+        void this.loadBlobs(account.name, container.name);
+      }
+    }
+  }
+
+  async loadBlobs(accountName: string, containerName: string, prefix = ''): Promise<void> {
+    this.blobsState.set({ status: 'loading' });
+    try {
+      const items = await this.api.listBlobs(accountName, containerName, prefix);
+      this.blobsState.set({ status: 'success', items });
+    } catch (err) {
+      this.blobsState.set({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load blobs',
+      });
+    }
+  }
+
+  async downloadBlobContent(blobName: string): Promise<void> {
+    const account = this.selectedStorageAccount();
+    const container = this.selectedContainer();
+    if (!account || !container) return;
+
+    this.blobContentLoading.set(true);
+    this.selectedBlobName.set(blobName);
+    try {
+      const content = await this.api.downloadBlobContent(account.name, container.name, blobName);
+      this.blobContent.set(content);
+    } catch (err) {
+      this.blobContent.set(
+        `Error loading blob: ${err instanceof Error ? err.message : 'Unknown error'}`
+      );
+    } finally {
+      this.blobContentLoading.set(false);
+    }
+  }
+
+  // --- Internal helpers ---
+
+  private resetDownstreamFrom(level: 'subscriptions' | 'storageAccounts' | 'containers'): void {
+    if (level === 'subscriptions') {
+      this.selectedSubscription.set(null);
+      this.storageAccountsState.set({ status: 'idle' });
+    }
+    if (level === 'subscriptions' || level === 'storageAccounts') {
+      this.selectedStorageAccount.set(null);
+      this.containersState.set({ status: 'idle' });
+    }
+    this.selectedContainer.set(null);
+    this.blobsState.set({ status: 'idle' });
+    this.blobContent.set(null);
+    this.selectedBlobName.set(null);
+  }
+
+  private resetAllResources(): void {
+    this.subscriptionsState.set({ status: 'idle' });
+    this.resetDownstreamFrom('subscriptions');
+  }
+}

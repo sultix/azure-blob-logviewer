@@ -46,14 +46,6 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
               Dashboard
             </a>
             <a
-              routerLink="/logs"
-              routerLinkActive="text-on-surface border-primary"
-              class="flex items-center gap-2 border-b-2 border-transparent px-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
-            >
-              <i class="pi pi-server text-[13px]"></i>
-              Log Stream
-            </a>
-            <a
               routerLink="/settings"
               routerLinkActive="text-on-surface border-primary"
               class="flex items-center gap-2 border-b-2 border-transparent px-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
@@ -79,7 +71,42 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
             [attr.aria-label]="maximizeButtonLabel()"
             class="flex h-full w-12 items-center justify-center text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-on-surface"
           >
-            <i [class]="maximizeButtonIconClass()"></i>
+            <!-- <i [class]="maximizeButtonIconClass()"></i> -->
+
+            <!-- <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+              class="size-6"
+            >
+              <path
+                stroke-linecap="square"
+                stroke-linejoin="miter"
+                d="M7.5 7.5h9v9h-9z"
+              />
+              <path stroke-linecap="square" d="M7.5 9h9" />
+            </svg> -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+              class="size-6"
+            >
+              <path
+                stroke-linecap="square"
+                stroke-linejoin="miter"
+                d="M9.75 7.5h6.75v6.75"
+              />
+              <path
+                stroke-linecap="square"
+                stroke-linejoin="miter"
+                d="M7.5 9.75h6.75v6.75H7.5z"
+              />
+            </svg>
           </button>
           <button
             type="button"

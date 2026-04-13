@@ -8,52 +8,18 @@ type ConnectionsState =
   | { status: 'success'; connections: StorageConnection[] }
   | { status: 'error'; message: string };
 
-const STUB_CONNECTIONS: StorageConnection[] = [
-  {
-    id: 'az-prod-eus-logs',
-    name: 'az-prod-eus-logs',
-    displayName: 'Production East US',
-    environment: 'production',
-    status: 'online',
-    lastUsed: '2026-04-11T13:58:00Z',
-    accessTier: 'Hot',
-    stateText: 'Syncing logs...',
-    containerCount: 12,
-  },
-  {
-    id: 'az-stage-weu-logs',
-    name: 'az-stage-weu-logs',
-    displayName: 'Staging West Europe',
-    environment: 'staging',
-    status: 'syncing',
-    lastUsed: '2026-04-11T12:14:00Z',
-    accessTier: 'Hot',
-    stateText: 'Idle',
-    containerCount: 8,
-  },
-  {
-    id: 'az-dev-neu-logs',
-    name: 'az-dev-neu-logs',
-    displayName: 'Development North Europe',
-    environment: 'development',
-    status: 'online',
-    lastUsed: '2026-04-10T18:02:00Z',
-    accessTier: 'Cool',
-    stateText: 'Idle',
-    containerCount: 5,
-  },
-  {
-    id: 'az-test-sea-logs',
-    name: 'az-test-sea-logs',
-    displayName: 'Test Southeast Asia',
-    environment: 'test',
-    status: 'offline',
-    lastUsed: '2026-04-08T09:31:00Z',
-    accessTier: 'Archive',
-    stateText: 'Auth expired',
-    containerCount: 3,
-  },
-];
+const STORAGE_KEY = 'obsidian-console:connections';
+
+function loadFromStorage(): StorageConnection[] {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as StorageConnection[];
+  } catch {
+    return [];
+  }
+}
 
 @Injectable({ providedIn: 'root' })
 export class ConnectionsService {
@@ -82,11 +48,15 @@ export class ConnectionsService {
     return this.connections().find((c) => c.id === id) ?? null;
   });
 
-  // TODO: replace stub with AppApiService.listConnections() once backend lands.
+  getById(id: string): StorageConnection | null {
+    return this.connections().find((c) => c.id === id) ?? null;
+  }
+
   async load(): Promise<void> {
     this.state.set({ status: 'loading' });
     await new Promise((resolve) => setTimeout(resolve, 0));
-    this.state.set({ status: 'success', connections: STUB_CONNECTIONS });
+    const saved = loadFromStorage();
+    this.state.set({ status: 'success', connections: saved });
   }
 
   select(id: string | null): void {
@@ -97,12 +67,13 @@ export class ConnectionsService {
     const current = this.state();
     if (current.status !== 'success') {
       this.state.set({ status: 'success', connections: [connection] });
-      return;
+    } else {
+      this.state.set({
+        status: 'success',
+        connections: [...current.connections, connection],
+      });
     }
-    this.state.set({
-      status: 'success',
-      connections: [...current.connections, connection],
-    });
+    this.persist();
   }
 
   remove(id: string): void {
@@ -112,5 +83,11 @@ export class ConnectionsService {
       status: 'success',
       connections: current.connections.filter((c) => c.id !== id),
     });
+    this.persist();
+  }
+
+  private persist(): void {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.connections()));
   }
 }

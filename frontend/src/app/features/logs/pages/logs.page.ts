@@ -5,14 +5,16 @@ import {
   computed,
   inject,
   signal,
-} from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+} from "@angular/core";
+import { FormsModule } from "@angular/forms";
+import { ActivatedRoute } from "@angular/router";
+import { DatePicker } from "primeng/datepicker";
 
-import { LogsService } from '../services/logs.service';
-import type { LogEntry } from '../models/log-entry.model';
+import { ConnectionsService } from "@app/features/connections/services/connections.service";
 
-type SortKey = 'name' | 'date' | 'size';
+import { LogsService } from "../services/logs.service";
+
+type SortDir = "asc" | "desc";
 
 interface FileRowVm {
   id: string;
@@ -23,33 +25,68 @@ interface FileRowVm {
 }
 
 @Component({
-  selector: 'app-logs-page',
-  imports: [FormsModule],
-  templateUrl: './logs.page.html',
+  selector: "app-logs-page",
+  imports: [FormsModule, DatePicker],
+  templateUrl: "./logs.page.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LogsPage implements OnInit {
   private readonly logs = inject(LogsService);
   private readonly route = inject(ActivatedRoute);
+  private readonly connectionsService = inject(ConnectionsService);
 
   readonly status = this.logs.status;
   readonly errorMessage = this.logs.errorMessage;
   readonly isEmpty = this.logs.isEmpty;
   readonly selectedContent = this.logs.selectedContent;
   readonly selectedEntry = this.logs.selectedEntry;
+  readonly contentLoading = this.logs.contentLoading;
 
-  readonly searchTerm = signal('');
-  readonly sortKey = signal<SortKey>('date');
-  readonly copyFeedback = signal<'idle' | 'copied'>('idle');
+  readonly searchTerm = signal("");
+  readonly sortDir = signal<SortDir>("desc");
+  readonly dateFrom = signal<Date | null>(null);
+  readonly dateUntil = signal<Date | null>(null);
+  readonly copyFeedback = signal<"idle" | "copied">("idle");
 
   readonly rows = computed<FileRowVm[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
-    const key = this.sortKey();
+    const dir = this.sortDir();
+    const from = this.dateFrom();
+    const until = this.dateUntil();
     const list = this.logs.entries();
-    const filtered = term
+
+    let filtered = term
       ? list.filter((e) => e.blobName.toLowerCase().includes(term))
       : [...list];
-    filtered.sort((a, b) => this.compareBy(a, b, key));
+
+    if (from || until) {
+      const start = from
+        ? new Date(
+            from.getFullYear(),
+            from.getMonth(),
+            from.getDate(),
+          ).getTime()
+        : 0;
+      const end = until
+        ? new Date(
+            until.getFullYear(),
+            until.getMonth(),
+            until.getDate(),
+          ).getTime() +
+          24 * 60 * 60 * 1000
+        : Infinity;
+      filtered = filtered.filter((e) => {
+        const t = new Date(e.lastModified).getTime();
+        return t >= start && t < end;
+      });
+    }
+
+    const mult = dir === "asc" ? 1 : -1;
+    filtered.sort((a, b) => {
+      const dateCmp = a.lastModified.localeCompare(b.lastModified);
+      if (dateCmp !== 0) return dateCmp * mult;
+      return a.blobName.localeCompare(b.blobName) * mult;
+    });
     return filtered.map((e) => ({
       id: e.id,
       blobName: e.blobName,
@@ -70,16 +107,9 @@ export class LogsPage implements OnInit {
     };
   });
 
-  readonly sortLabel = computed(() => {
-    switch (this.sortKey()) {
-      case 'name':
-        return 'Name';
-      case 'date':
-        return 'Date';
-      case 'size':
-        return 'Size';
-    }
-  });
+  readonly sortLabel = computed(() =>
+    this.sortDir() === "desc" ? "Newest first" : "Oldest first",
+  );
 
   ngOnInit(): void {
     void this.initialize();
@@ -89,13 +119,21 @@ export class LogsPage implements OnInit {
     this.searchTerm.set(value);
   }
 
-  cycleSort(): void {
-    const next: Record<SortKey, SortKey> = {
-      date: 'name',
-      name: 'size',
-      size: 'date',
-    };
-    this.sortKey.set(next[this.sortKey()]);
+  toggleSort(): void {
+    this.sortDir.set(this.sortDir() === "desc" ? "asc" : "desc");
+  }
+
+  onDateFromChange(value: Date | null): void {
+    this.dateFrom.set(value);
+  }
+
+  onDateUntilChange(value: Date | null): void {
+    this.dateUntil.set(value);
+  }
+
+  clearFilters(): void {
+    this.dateFrom.set(null);
+    this.dateUntil.set(null);
   }
 
   select(id: string): void {
@@ -111,28 +149,43 @@ export class LogsPage implements OnInit {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
-      this.copyFeedback.set('copied');
-      setTimeout(() => this.copyFeedback.set('idle'), 1500);
+      this.copyFeedback.set("copied");
+      setTimeout(() => this.copyFeedback.set("idle"), 1500);
     } catch {
-      this.copyFeedback.set('idle');
+      this.copyFeedback.set("idle");
     }
   }
 
   private async initialize(): Promise<void> {
-    await this.logs.load();
-    const entries = this.logs.entries();
-    if (entries.length === 0) return;
-    const requestedId = this.route.snapshot.paramMap.get('connectionId');
-    const match = requestedId
-      ? entries.find((e) => e.id === requestedId)
-      : undefined;
-    this.logs.selectEntry((match ?? entries[0]).id);
-  }
+    const connectionId = this.route.snapshot.paramMap.get("connectionId");
+    console.log("[LogsPage] connectionId from route:", connectionId);
+    if (!connectionId) return;
 
-  private compareBy(a: LogEntry, b: LogEntry, key: SortKey): number {
-    if (key === 'name') return a.blobName.localeCompare(b.blobName);
-    if (key === 'size') return b.size - a.size;
-    return a.timestamp.localeCompare(b.timestamp) * -1;
+    await this.connectionsService.load();
+    const connection = this.connectionsService.getById(connectionId);
+    console.log("[LogsPage] resolved connection:", connection);
+    if (!connection?.storageAccountName || !connection?.containerName) {
+      console.warn(
+        "[LogsPage] connection missing storageAccountName or containerName",
+      );
+      return;
+    }
+
+    console.log(
+      "[LogsPage] loading blobs for",
+      connection.storageAccountName,
+      connection.containerName,
+    );
+    await this.logs.loadForConnection(
+      connection.storageAccountName,
+      connection.containerName,
+    );
+
+    const entries = this.logs.entries();
+    console.log("[LogsPage] loaded entries:", entries.length);
+    if (entries.length > 0) {
+      this.logs.selectEntry(entries[0].id);
+    }
   }
 
   private formatSize(bytes: number): string {

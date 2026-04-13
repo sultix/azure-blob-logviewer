@@ -1,9 +1,7 @@
-export interface AzureAuthConfig {
-  tenantId: string;
-  clientId: string;
-  clientSecret: string;
-  storageAccount: string;
-  defaultContainer: string;
+export interface AzurePreferences {
+  lastSubscriptionId: string;
+  lastStorageAccountName: string;
+  lastContainerName: string;
 }
 
 export type RefreshInterval = 5 | 15 | 60;
@@ -14,20 +12,16 @@ export interface GeneralConfig {
   retentionPolicy: RetentionPolicy;
 }
 
-export type AuthStatus = 'awaiting' | 'testing' | 'authenticated' | 'failed';
-
 export interface AppConfig {
-  auth: AzureAuthConfig;
+  azure: AzurePreferences;
   general: GeneralConfig;
 }
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
-  auth: {
-    tenantId: '',
-    clientId: '',
-    clientSecret: '',
-    storageAccount: '',
-    defaultContainer: '',
+  azure: {
+    lastSubscriptionId: '',
+    lastStorageAccountName: '',
+    lastContainerName: '',
   },
   general: {
     refreshIntervalMinutes: 15,

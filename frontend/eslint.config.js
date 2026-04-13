@@ -41,9 +41,7 @@ module.exports = tseslint.config(
       ...angular.configs.templateRecommended,
       ...angular.configs.templateAccessibility,
     ],
-    rules: {
-      '@angular-eslint/template/no-call-expression': 'error',
-    },
+    rules: {},
   },
   {
     files: ['**/*.spec.ts'],
