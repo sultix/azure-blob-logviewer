@@ -1,7 +1,8 @@
 import { signal } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ComponentFixture } from '@angular/core/testing';
 
 import { WindowControlsService } from '@app/core/services/window-controls.service';
 
@@ -35,10 +36,10 @@ describe('ShellComponent', () => {
 
   it('renders the maximize icon and label in the normal window state', () => {
     const maximizeButton = getMaximizeButton(fixture);
-    const maximizeIcon = maximizeButton.querySelector('i');
+    const maximizeIcon = maximizeButton.querySelector('rect');
 
     expect(maximizeButton.getAttribute('aria-label')).toBe('Maximize window');
-    expect(maximizeIcon?.className).toContain('pi-window-maximize');
+    expect(maximizeIcon).not.toBeNull();
   });
 
   it('renders the restore icon and label in the maximized window state', () => {
@@ -46,10 +47,10 @@ describe('ShellComponent', () => {
     fixture.detectChanges();
 
     const maximizeButton = getMaximizeButton(fixture);
-    const maximizeIcon = maximizeButton.querySelector('i');
+    const maximizeIconPaths = maximizeButton.querySelectorAll('path');
 
     expect(maximizeButton.getAttribute('aria-label')).toBe('Restore window');
-    expect(maximizeIcon?.className).toContain('pi-clone');
+    expect(maximizeIconPaths).toHaveLength(2);
   });
 });
 

@@ -43,30 +43,36 @@
           appendTo="body"
         />
       </div>
-      <div class="flex justify-end">
+      <div class="flex items-center justify-start gap-4">
         <button
+          pButton
           type="button"
+          severity="secondary"
+          size="small"
+          icon="pi pi-times"
+          [text]="true"
+          (click)="clearFilters()"
+        >
+          Clear filters
+        </button>
+
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          size="small"
+          [text]="true"
           (click)="toggleSort()"
           aria-label="Sort logs"
-          class="flex shrink-0 items-center gap-1.5 rounded-md bg-surface-container px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
         >
           <i
-            class="pi text-[10px]"
+            class="pi text-xs"
             [class.pi-sort-amount-down]="sortDir() === 'desc'"
             [class.pi-sort-amount-up-alt]="sortDir() === 'asc'"
           ></i>
           {{ sortLabel() }}
         </button>
       </div>
-
-      <button
-        type="button"
-        (click)="clearFilters()"
-        class="flex items-center gap-1.5 self-start text-[10px] text-primary transition-colors hover:text-primary/80"
-      >
-        <i class="pi pi-times text-[10px]"></i>
-        Clear filters
-      </button>
     </div>
 
     <div class="px-5 pb-2">

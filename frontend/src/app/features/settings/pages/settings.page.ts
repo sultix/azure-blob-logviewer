@@ -1,10 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  OnInit,
   computed,
   inject,
 } from '@angular/core';
+import type { OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ConnectionsService } from '@app/features/connections/services/connections.service';

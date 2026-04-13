@@ -17,9 +17,9 @@ import type {
 
       <!-- Subscription -->
       <div class="flex flex-col gap-2">
-        <label class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+        <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
           Subscription
-        </label>
+        </span>
         @if (subscriptionsLoading()) {
           <div class="flex items-center gap-2 text-sm text-on-surface-variant">
             <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -51,9 +51,9 @@ import type {
 
       <!-- Storage Account -->
       <div class="flex flex-col gap-2">
-        <label class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+        <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
           Storage Account
-        </label>
+        </span>
         @if (storageAccountsLoading()) {
           <div class="flex items-center gap-2 text-sm text-on-surface-variant">
             <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -83,9 +83,9 @@ import type {
 
       <!-- Container -->
       <div class="flex flex-col gap-2">
-        <label class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+        <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
           Blob Container
-        </label>
+        </span>
         @if (containersLoading()) {
           <div class="flex items-center gap-2 text-sm text-on-surface-variant">
             <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">

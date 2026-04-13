@@ -73,40 +73,44 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
           >
             <!-- <i [class]="maximizeButtonIconClass()"></i> -->
 
-            <!-- <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="1.5"
-              class="size-6"
-            >
-              <path
-                stroke-linecap="square"
-                stroke-linejoin="miter"
-                d="M7.5 7.5h9v9h-9z"
-              />
-              <path stroke-linecap="square" d="M7.5 9h9" />
-            </svg> -->
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="1.5"
-              class="size-6"
-            >
-              <path
-                stroke-linecap="square"
-                stroke-linejoin="miter"
-                d="M9.75 7.5h6.75v6.75"
-              />
-              <path
-                stroke-linecap="square"
-                stroke-linejoin="miter"
-                d="M7.5 9.75h6.75v6.75H7.5z"
-              />
-            </svg>
+            @if (isMaximized()) {
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="1.5"
+                class="size-8"
+              >
+                <path
+                  stroke-linecap="square"
+                  stroke-linejoin="miter"
+                  d="M9.75 7.5h6.75v6.75"
+                />
+                <path
+                  stroke-linecap="square"
+                  stroke-linejoin="miter"
+                  d="M7.5 9.75h6.75v6.75H7.5z"
+                />
+              </svg>
+            } @else {
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="1.5"
+                class="size-8"
+              >
+                <rect
+                  x="7.5"
+                  y="7.5"
+                  width="9"
+                  height="9"
+                  stroke-linejoin="miter"
+                />
+              </svg>
+            }
           </button>
           <button
             type="button"
@@ -128,11 +132,7 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
 })
 export class ShellComponent {
   protected readonly controls = inject(WindowControlsService);
-  protected readonly maximizeButtonIconClass = computed(() =>
-    this.controls.isMaximized()
-      ? "pi pi-window-minimize text-[11px]"
-      : "pi pi-stop text-[11px]",
-  );
+  protected readonly isMaximized = computed(() => this.controls.isMaximized());
   protected readonly maximizeButtonLabel = computed(() =>
     this.controls.isMaximized() ? "Restore window" : "Maximize window",
   );

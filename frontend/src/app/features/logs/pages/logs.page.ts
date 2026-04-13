@@ -1,13 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  OnInit,
   computed,
   inject,
   signal,
 } from "@angular/core";
+import type { OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute } from "@angular/router";
+import { ButtonDirective } from "primeng/button";
 import { DatePicker } from "primeng/datepicker";
 
 import { ConnectionsService } from "@app/features/connections/services/connections.service";
@@ -26,7 +27,7 @@ interface FileRowVm {
 
 @Component({
   selector: "app-logs-page",
-  imports: [FormsModule, DatePicker],
+  imports: [FormsModule, DatePicker, ButtonDirective],
   templateUrl: "./logs.page.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

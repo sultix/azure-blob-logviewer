@@ -1,4 +1,5 @@
-import { DestroyRef, Injectable, Signal, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
+import type { Signal } from '@angular/core';
 
 interface WailsEnvironment {
   platform: string;
