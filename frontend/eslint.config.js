@@ -5,8 +5,10 @@ const angular = require("angular-eslint");
 
 module.exports = tseslint.config(
   {
+    ignores: [".angular/**", "dist/**", "out-tsc/**", "wailsjs/**"],
+  },
+  {
     files: ["**/*.ts"],
-    ignores: ["dist/**", "out-tsc/**", "wailsjs/**"],
     languageOptions: {
       parserOptions: {
         projectService: true,
