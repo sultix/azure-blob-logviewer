@@ -19,6 +19,7 @@ import { ToggleSwitch } from "primeng/toggleswitch";
 import { Tooltip } from "primeng/tooltip";
 
 import { AppI18nService } from "@app/core/i18n/app-i18n.service";
+import { SettingsService } from "@app/features/settings/services/settings.service";
 import type {
   LogFooterVm,
   LogsStatus,
@@ -244,6 +245,7 @@ const CONTENT_SEARCH_DELAY_MS = 120;
 })
 export class LogsDetailPanelComponent implements OnDestroy {
   private readonly i18n = inject(AppI18nService);
+  private readonly settings = inject(SettingsService);
 
   readonly status = input.required<LogsStatus>();
   readonly errorMessage = input<string | null>(null);
@@ -269,10 +271,12 @@ export class LogsDetailPanelComponent implements OnDestroy {
       read: ElementRef<HTMLDivElement>,
     },
   );
-  private readonly wordWrapEnabled = signal(false);
   private readonly contentSearchInput = signal("");
   private readonly contentSearchQuery = signal("");
   private readonly requestedMatchIndex = signal(0);
+  private readonly wordWrapEnabled = computed(
+    () => this.settings.logs().wordWrapEnabled,
+  );
   private readonly contentClass = computed(() =>
     this.wordWrapEnabled() ? "whitespace-pre-wrap break-all" : "whitespace-pre",
   );
@@ -438,11 +442,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
   }
 
   onWordWrapChange(value: boolean): void {
-    this.wordWrapEnabled.set(value);
+    this.settings.updateLogsPreferences({ wordWrapEnabled: value });
   }
 
   toggleWordWrap(): void {
-    this.wordWrapEnabled.set(!this.wordWrapEnabled());
+    this.settings.updateLogsPreferences({
+      wordWrapEnabled: !this.wordWrapEnabled(),
+    });
   }
 
   onContentSearchChange(value: string): void {

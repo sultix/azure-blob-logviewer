@@ -6,6 +6,7 @@ import type {
   AppConfig,
   AzurePreferences,
   GeneralConfig,
+  LogsPreferences,
 } from '../models/app-config.model';
 import { createDefaultAppConfig } from '../models/app-config.model';
 
@@ -30,6 +31,10 @@ function loadFromStorage(): AppConfig {
           ? parsed.general.language
           : defaults.general.language,
       },
+      logs: {
+        ...defaults.logs,
+        ...(parsed.logs ?? {}),
+      },
     };
   } catch {
     return structuredClone(defaults);
@@ -42,6 +47,7 @@ export class SettingsService {
 
   readonly azure = signal<AzurePreferences>(this.initial.azure);
   readonly general = signal<GeneralConfig>(this.initial.general);
+  readonly logs = signal<LogsPreferences>(this.initial.logs);
 
   updateAzurePreferences(partial: Partial<AzurePreferences>): void {
     this.azure.update((current) => ({ ...current, ...partial }));
@@ -53,10 +59,16 @@ export class SettingsService {
     this.persist();
   }
 
+  updateLogsPreferences(partial: Partial<LogsPreferences>): void {
+    this.logs.update((current) => ({ ...current, ...partial }));
+    this.persist();
+  }
+
   reset(): void {
     const defaults = createDefaultAppConfig();
     this.azure.set(structuredClone(defaults.azure));
     this.general.set(structuredClone(defaults.general));
+    this.logs.set(structuredClone(defaults.logs));
     this.persist();
   }
 
@@ -65,6 +77,7 @@ export class SettingsService {
     const payload: AppConfig = {
       azure: this.azure(),
       general: this.general(),
+      logs: this.logs(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }

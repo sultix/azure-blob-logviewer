@@ -7,6 +7,10 @@ export interface AzurePreferences {
   lastContainerName: string;
 }
 
+export interface LogsPreferences {
+  wordWrapEnabled: boolean;
+}
+
 export type RefreshInterval = 5 | 15 | 60;
 export type RetentionPolicy = '30d' | '90d' | 'manual';
 
@@ -19,6 +23,7 @@ export interface GeneralConfig {
 export interface AppConfig {
   azure: AzurePreferences;
   general: GeneralConfig;
+  logs: LogsPreferences;
 }
 
 export const DEFAULT_APP_CONFIG: AppConfig = createDefaultAppConfig('en');
@@ -34,6 +39,9 @@ export function createDefaultAppConfig(language = detectPreferredLanguage()): Ap
       refreshIntervalMinutes: 15,
       retentionPolicy: '30d',
       language,
+    },
+    logs: {
+      wordWrapEnabled: false,
     },
   };
 }

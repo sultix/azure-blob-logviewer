@@ -5,18 +5,23 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { Tooltip } from 'primeng/tooltip';
 
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
+import { SettingsService } from '@app/features/settings/services/settings.service';
 
 import type { LogFooterVm, LogToolbarVm } from '../models/logs-view.model';
 
 import { LogsDetailPanelComponent } from './logs-detail-panel.component';
 
+const SETTINGS_STORAGE_KEY = 'obsidian-console:config';
+
 describe('LogsDetailPanelComponent', () => {
   let fixture: ComponentFixture<LogsDetailPanelComponent>;
   let component: LogsDetailPanelComponent;
   let scrollToSpy: ReturnType<typeof vi.fn>;
+  let settings: SettingsService;
 
   beforeEach(async () => {
     vi.useFakeTimers();
+    localStorage.clear();
     scrollToSpy = vi.fn();
     Object.defineProperty(HTMLDivElement.prototype, 'scrollTo', {
       configurable: true,
@@ -31,6 +36,7 @@ describe('LogsDetailPanelComponent', () => {
     await initializeI18nForTests();
     fixture = TestBed.createComponent(LogsDetailPanelComponent);
     component = fixture.componentInstance;
+    settings = TestBed.inject(SettingsService);
   });
 
   afterEach(() => {
@@ -231,6 +237,56 @@ describe('LogsDetailPanelComponent', () => {
     fixture.detectChanges();
 
     const content = fixture.nativeElement.querySelector('pre');
+    expect(content.className).toContain('whitespace-pre-wrap');
+    expect(content.className).toContain('break-all');
+    expect(settings.logs().wordWrapEnabled).toBe(true);
+    expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toContain('"wordWrapEnabled":true');
+  });
+
+  it('uses the persisted word wrap preference on startup', async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        azure: {
+          lastSubscriptionId: '',
+          lastStorageAccountName: '',
+          lastContainerName: '',
+        },
+        general: {
+          refreshIntervalMinutes: 15,
+          retentionPolicy: '30d',
+          language: 'en',
+        },
+        logs: {
+          wordWrapEnabled: true,
+        },
+      }),
+    );
+
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [LogsDetailPanelComponent],
+      providers: [provideTranslateTesting()],
+    }).compileComponents();
+
+    await initializeI18nForTests();
+    fixture = TestBed.createComponent(LogsDetailPanelComponent);
+    component = fixture.componentInstance;
+
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '1.5 KB',
+      modified: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('content', 'averyveryveryverylongloglinewithoutspaces');
+    fixture.detectChanges();
+
+    const content = fixture.nativeElement.querySelector('pre') as HTMLPreElement;
     expect(content.className).toContain('whitespace-pre-wrap');
     expect(content.className).toContain('break-all');
   });

@@ -35,6 +35,7 @@ describe('SettingsService', () => {
 
     expect(service.azure()).toEqual(createDefaultAppConfig('de').azure);
     expect(service.general()).toEqual(createDefaultAppConfig('de').general);
+    expect(service.logs()).toEqual(createDefaultAppConfig('de').logs);
   });
 
   it('merges stored partial configuration with detected defaults when language is missing', () => {
@@ -62,6 +63,9 @@ describe('SettingsService', () => {
       retentionPolicy: 'manual',
       language: 'de',
     });
+    expect(service.logs()).toEqual({
+      wordWrapEnabled: false,
+    });
   });
 
   it('falls back to defaults when persisted JSON is invalid', () => {
@@ -76,9 +80,10 @@ describe('SettingsService', () => {
     const defaults = createDefaultAppConfig('de');
     expect(service.azure()).toEqual(defaults.azure);
     expect(service.general()).toEqual(defaults.general);
+    expect(service.logs()).toEqual(defaults.logs);
   });
 
-  it('updates and persists azure and general preferences', () => {
+  it('updates and persists azure, general, and logs preferences', () => {
     TestBed.configureTestingModule({
       providers: [SettingsService],
     });
@@ -93,6 +98,9 @@ describe('SettingsService', () => {
       retentionPolicy: '90d',
       language: 'de',
     });
+    service.updateLogsPreferences({
+      wordWrapEnabled: true,
+    });
 
     expect(service.azure()).toEqual({
       lastSubscriptionId: 'sub-1',
@@ -104,10 +112,14 @@ describe('SettingsService', () => {
       retentionPolicy: '90d',
       language: 'de',
     });
+    expect(service.logs()).toEqual({
+      wordWrapEnabled: true,
+    });
     expect(localStorage.getItem(STORAGE_KEY)).toBe(
       JSON.stringify({
         azure: service.azure(),
         general: service.general(),
+        logs: service.logs(),
       }),
     );
   });
@@ -127,6 +139,7 @@ describe('SettingsService', () => {
     const defaults = createDefaultAppConfig('de');
     expect(service.azure()).toEqual(defaults.azure);
     expect(service.general()).toEqual(defaults.general);
+    expect(service.logs()).toEqual(defaults.logs);
     expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(defaults));
   });
 });
