@@ -52,6 +52,10 @@ func (a *App) StartAzureLogin() (*models.AzureAuthState, error) {
 	return a.azureAuth.Login(a.ctx)
 }
 
+func (a *App) RestoreAzureSession() *models.AzureAuthState {
+	return a.azureAuth.RestoreSession(a.ctx)
+}
+
 func (a *App) AzureLogout() error {
 	a.azureAuth.Logout()
 	return nil

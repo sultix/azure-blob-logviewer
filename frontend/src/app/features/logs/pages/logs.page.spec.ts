@@ -1,7 +1,8 @@
 import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MessageService } from 'primeng/api';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
 import type { StorageConnection } from '@app/features/connections/models/storage-connection.model';
@@ -18,6 +19,8 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly errorState = signal<string | null>(null);
   readonly selectedEntryId = signal<string | null>(null);
   readonly selectedContentState = signal('');
+  readonly selectedContentLoadedState = signal(false);
+  readonly selectedContentErrorState = signal<string | null>(null);
   readonly contentLoading = signal(false);
 
   readonly status = computed(() => this.statusState());
@@ -34,10 +37,13 @@ class LogsServiceStub implements Partial<LogsService> {
     return this.entriesState().find((entry) => entry.id === id) ?? null;
   });
   readonly selectedContent = computed(() => this.selectedContentState());
+  readonly selectedContentLoaded = computed(() => this.selectedContentLoadedState());
+  readonly selectedContentError = computed(() => this.selectedContentErrorState());
 
   readonly loadForConnection = vi.fn<(accountName: string, containerName: string) => Promise<void>>(
     async () => undefined,
   );
+  readonly loadContent = vi.fn<(id: string) => Promise<void>>(async () => undefined);
   readonly selectEntry = vi.fn<(id: string | null) => void>((id) => {
     this.selectedEntryId.set(id);
   });
@@ -49,29 +55,44 @@ class ConnectionsServiceStub implements Partial<ConnectionsService> {
   readonly getById = vi.fn<(id: string) => StorageConnection | null>(() => null);
 }
 
+class MessageServiceStub implements Partial<MessageService> {
+  readonly add = vi.fn<(message: { severity?: string; summary?: string; detail?: string }) => void>();
+}
+
 describe('LogsPage', () => {
   let fixture: ComponentFixture<LogsPage>;
   let component: LogsPage;
   let logs: LogsServiceStub;
   let connections: ConnectionsServiceStub;
   let route: ActivatedRoute;
-  let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
+  let messageService: MessageServiceStub;
+  let createObjectUrlSpy: ReturnType<typeof vi.fn>;
+  let revokeObjectUrlSpy: ReturnType<typeof vi.fn>;
+  let anchorClickSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
+    vi.useFakeTimers();
     logs = new LogsServiceStub();
     connections = new ConnectionsServiceStub();
+    messageService = new MessageServiceStub();
+    createObjectUrlSpy = vi.fn(() => 'blob:logs-download');
+    revokeObjectUrlSpy = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectUrlSpy,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: revokeObjectUrlSpy,
+    });
+    anchorClickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
     route = {
       snapshot: {
         paramMap: convertToParamMap({}),
       },
     } as ActivatedRoute;
-    writeText = vi.fn(async () => undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: {
-        writeText,
-      },
-    });
 
     await TestBed.configureTestingModule({
       imports: [LogsPage],
@@ -79,6 +100,7 @@ describe('LogsPage', () => {
         { provide: LogsService, useValue: logs },
         { provide: ConnectionsService, useValue: connections },
         { provide: ActivatedRoute, useValue: route },
+        { provide: MessageService, useValue: messageService },
       ],
     }).compileComponents();
 
@@ -86,18 +108,23 @@ describe('LogsPage', () => {
     component = fixture.componentInstance;
   });
 
-  it('loads the selected connection on init and auto-selects the first entry', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    anchorClickSpy.mockRestore();
+  });
+
+  it('loads the selected connection on init and auto-selects the first visible entry', async () => {
     const connection = createConnection();
     const entries = [
       createLogEntry({
-        id: 'entry-1',
+        id: 'entry-older',
         blobName: 'application.log',
-        lastModified: '2026-04-13T11:00:00Z',
+        lastModified: '2026-04-13T10:00:00Z',
       }),
       createLogEntry({
-        id: 'entry-2',
+        id: 'entry-newer',
         blobName: 'worker.log',
-        lastModified: '2026-04-13T10:00:00Z',
+        lastModified: '2026-04-13T11:00:00Z',
       }),
     ];
     route.snapshot.paramMap = convertToParamMap({ connectionId: 'conn-1' });
@@ -114,7 +141,7 @@ describe('LogsPage', () => {
     expect(connections.load).toHaveBeenCalledOnce();
     expect(connections.getById).toHaveBeenCalledWith('conn-1');
     expect(logs.loadForConnection).toHaveBeenCalledWith('storage-a', 'logs');
-    expect(logs.selectEntry).toHaveBeenCalledWith('entry-1');
+    expect(logs.selectEntry).toHaveBeenCalledWith('entry-newer');
   });
 
   it('does nothing on init when no connection id is present', async () => {
@@ -153,6 +180,7 @@ describe('LogsPage', () => {
         id: 'entry-2',
         blobName: 'alpha.log',
         size: 1536,
+        contentType: 'text/plain',
         lastModified: '2026-04-13T09:00:00Z',
         timestamp: 'Today, 09:00',
         modifiedRelative: '1 hr ago',
@@ -167,19 +195,29 @@ describe('LogsPage', () => {
       }),
     ]);
     logs.selectEntry('entry-2');
+    logs.selectedContentLoadedState.set(true);
+    logs.selectedContentState.set('line 1\nline 2');
 
     fixture.detectChanges();
+
+    const layout = fixture.nativeElement.querySelector('section') as HTMLElement;
 
     expect(component.rows().map((row) => row.blobName)).toEqual([
       'alpha.log',
       'beta.log',
       'archive.log',
     ]);
+    expect(layout.className).toContain('grid-cols-[var(--layout-sidebar-width)_1fr]');
     expect(component.toolbar()).toEqual({
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
       modified: '1 hr ago',
+    });
+    expect(component.footer()).toEqual({
+      typeLabel: 'text/plain',
+      lineCountLabel: 'Lines: 2',
+      lineEndingsLabel: 'LF',
     });
 
     component.onSearch('beta');
@@ -208,36 +246,82 @@ describe('LogsPage', () => {
     expect(logs.refreshContent).toHaveBeenCalledOnce();
   });
 
-  it('copies content and resets the feedback label after the timeout', async () => {
-    vi.useFakeTimers();
+  it('downloads the selected log content and shows success feedback', async () => {
     logs.statusState.set('success');
     logs.entriesState.set([createLogEntry({ id: 'entry-1', blobName: 'alpha.log' })]);
     logs.selectEntry('entry-1');
     logs.selectedContentState.set('line 1\nline 2');
-    fixture.detectChanges();
+    logs.selectedContentLoadedState.set(true);
 
-    await component.copyContent();
-    fixture.detectChanges();
+    await component.download();
 
-    expect(writeText).toHaveBeenCalledWith('line 1\nline 2');
-    expect(component.copyFeedback()).toBe('copied');
-    expect(fixture.nativeElement.textContent).toContain('Copied');
-
-    vi.advanceTimersByTime(1500);
-    fixture.detectChanges();
-
-    expect(component.copyFeedback()).toBe('idle');
-    expect(fixture.nativeElement.textContent).toContain('Copy');
-    vi.useRealTimers();
+    expect(createObjectUrlSpy).toHaveBeenCalledOnce();
+    expect(anchorClickSpy).toHaveBeenCalledOnce();
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:logs-download');
+    expect(messageService.add).toHaveBeenCalledWith({
+      severity: 'success',
+      summary: 'Download complete',
+      detail: 'alpha.log downloaded',
+      life: 2500,
+    });
   });
 
-  it('keeps the copy feedback idle when clipboard writing fails', async () => {
-    writeText.mockRejectedValue(new Error('clipboard failed'));
-    logs.selectedContentState.set('line 1');
+  it('keeps only blob metadata in the footer when content failed to load', () => {
+    logs.statusState.set('success');
+    logs.entriesState.set([
+      createLogEntry({
+        id: 'entry-1',
+        blobName: 'alpha.log',
+        contentType: 'application/json',
+      }),
+    ]);
+    logs.selectEntry('entry-1');
+    logs.selectedContentErrorState.set('Error loading content: network failed');
 
-    await component.copyContent();
+    fixture.detectChanges();
 
-    expect(component.copyFeedback()).toBe('idle');
+    expect(component.footer()).toEqual({
+      typeLabel: 'application/json',
+    });
+  });
+
+  it('derives footer stats for empty, CRLF, mixed, and newline-free content', () => {
+    logs.statusState.set('success');
+    logs.entriesState.set([createLogEntry({ id: 'entry-1', contentType: 'text/plain' })]);
+    logs.selectEntry('entry-1');
+    logs.selectedContentLoadedState.set(true);
+
+    logs.selectedContentState.set('');
+    fixture.detectChanges();
+    expect(component.footer()).toEqual({
+      typeLabel: 'text/plain',
+      lineCountLabel: 'Lines: 0',
+      lineEndingsLabel: 'None',
+    });
+
+    logs.selectedContentState.set('line 1\r\nline 2\r\n');
+    fixture.detectChanges();
+    expect(component.footer()).toEqual({
+      typeLabel: 'text/plain',
+      lineCountLabel: 'Lines: 3',
+      lineEndingsLabel: 'CRLF',
+    });
+
+    logs.selectedContentState.set('line 1\nline 2\rline 3');
+    fixture.detectChanges();
+    expect(component.footer()).toEqual({
+      typeLabel: 'text/plain',
+      lineCountLabel: 'Lines: 3',
+      lineEndingsLabel: 'Mixed',
+    });
+
+    logs.selectedContentState.set('single line');
+    fixture.detectChanges();
+    expect(component.footer()).toEqual({
+      typeLabel: 'text/plain',
+      lineCountLabel: 'Lines: 1',
+      lineEndingsLabel: 'None',
+    });
   });
 
   it('renders loading, error, empty, and selected-entry states', () => {
@@ -294,6 +378,7 @@ function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
     timestamp: 'Today, 10:30',
     lastModified: '2026-04-13T10:30:00Z',
     size: 512,
+    contentType: 'text/plain',
     path: 'storage-a/logs/application.log',
     modifiedRelative: 'just now',
     storageAccountName: 'storage-a',

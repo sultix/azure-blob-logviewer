@@ -5,6 +5,10 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --layout-sidebar-width: 20rem;
+  }
+
   html,
   body {
     height: 100%;

@@ -1,8 +1,8 @@
 # azure-blob-logviewer
 
-Desktop application for browsing Azure Blob Storage log artifacts. Built with
-**Wails v2**, **Go**, **Angular 20** (standalone + signals), **Tailwind CSS**,
-**PrimeNG**, and **Vitest**.
+A desktop application for exploring and reviewing log artifacts stored in Azure
+Blob Storage. Built with **Wails v2**, **Go**, **Angular 20** (standalone +
+signals), **Tailwind CSS**, **PrimeNG**, and **Vitest**.
 
 See [AGENTS.md](./AGENTS.md) for the engineering rules that govern this
 repository.
@@ -64,3 +64,30 @@ npm run lint     # ESLint (Angular + TypeScript + templates)
 - Keep `frontend/dist/` under version control only via the `.gitkeep` stubs so
   the `go:embed` directive in `main.go` compiles before the first frontend
   build.
+
+## Build a Windows client
+
+```bash
+wails build -platform windows/amd64 -clean
+```
+
+The resulting executable is written to:
+[build/bin/azure-blob-logviewer.exe](build/bin/azure-blob-logviewer.exe)
+
+This is the correct build path for this repository because
+[wails.json](./wails.json) already wires up `npm install` and `npm run build`
+for the frontend. The prerequisites are Go `1.24+`, Node `20+`, and the Wails
+CLI:
+
+```bash
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+```
+
+Optional:
+
+- Generate an installer instead of only a `.exe`:
+  `wails build -platform windows/amd64 -clean -nsis`
+- Use a custom output name:
+  `wails build -platform windows/amd64 -clean -o logviewer`
+- Build for Windows on ARM:
+  `wails build -platform windows/arm64 -clean`

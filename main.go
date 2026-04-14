@@ -26,7 +26,7 @@ func main() {
 		Title:     "Azure Blob Log Viewer",
 		Width:     1280,
 		Height:    800,
-		MinWidth:  960,
+		MinWidth:  1280,
 		MinHeight: 600,
 		Frameless: true,
 		BackgroundColour: &options.RGBA{

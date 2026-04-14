@@ -18,6 +18,9 @@ interface MockBridge {
   StartAzureLogin: ReturnType<
     typeof vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string } | null>>
   >;
+  RestoreAzureSession: ReturnType<
+    typeof vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string } | null>>
+  >;
   AzureLogout: ReturnType<typeof vi.fn<() => Promise<void>>>;
   GetAzureAuthState: ReturnType<
     typeof vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string } | null>>
@@ -81,6 +84,7 @@ describe('AppApiService', () => {
   it('normalizes null responses to safe defaults', async () => {
     bridge.ListLogEntries.mockResolvedValue(null);
     bridge.StartAzureLogin.mockResolvedValue(null);
+    bridge.RestoreAzureSession.mockResolvedValue(null);
     bridge.GetAzureAuthState.mockResolvedValue(null);
     bridge.ListSubscriptions.mockResolvedValue(null);
     bridge.ListStorageAccounts.mockResolvedValue(null);
@@ -92,6 +96,7 @@ describe('AppApiService', () => {
       authenticated: false,
       errorMessage: 'No response from backend',
     });
+    await expect(service.restoreAzureSession()).resolves.toEqual({ authenticated: false });
     await expect(service.getAzureAuthState()).resolves.toEqual({ authenticated: false });
     await expect(service.listSubscriptions()).resolves.toEqual([]);
     await expect(service.listStorageAccounts('sub-1')).resolves.toEqual([]);
@@ -138,6 +143,7 @@ describe('AppApiService', () => {
     bridge.ListLogEntries.mockResolvedValue([entry]);
     bridge.GetLogEntry.mockResolvedValue(entry);
     bridge.StartAzureLogin.mockResolvedValue({ authenticated: true });
+    bridge.RestoreAzureSession.mockResolvedValue({ authenticated: true });
     bridge.GetAzureAuthState.mockResolvedValue({ authenticated: true });
     bridge.ListSubscriptions.mockResolvedValue(subscriptions);
     bridge.ListStorageAccounts.mockResolvedValue(accounts);
@@ -149,6 +155,7 @@ describe('AppApiService', () => {
     await expect(service.listLogEntries()).resolves.toEqual([entry]);
     await expect(service.getLogEntry('log-1')).resolves.toEqual(entry);
     await expect(service.startAzureLogin()).resolves.toEqual({ authenticated: true });
+    await expect(service.restoreAzureSession()).resolves.toEqual({ authenticated: true });
     await expect(service.getAzureAuthState()).resolves.toEqual({ authenticated: true });
     await expect(service.listSubscriptions()).resolves.toEqual(subscriptions);
     await expect(service.listStorageAccounts('sub-1')).resolves.toEqual(accounts);
@@ -175,6 +182,7 @@ function createMockBridge(): MockBridge {
     ListLogEntries: vi.fn(),
     GetLogEntry: vi.fn(),
     StartAzureLogin: vi.fn(),
+    RestoreAzureSession: vi.fn(),
     AzureLogout: vi.fn().mockResolvedValue(undefined),
     GetAzureAuthState: vi.fn(),
     ListSubscriptions: vi.fn(),

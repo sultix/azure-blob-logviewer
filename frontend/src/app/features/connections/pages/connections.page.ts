@@ -8,6 +8,8 @@ import {
 import type { OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { ConfirmationService } from 'primeng/api';
+import { ConfirmDialog } from 'primeng/confirmdialog';
 import { DialogService } from 'primeng/dynamicdialog';
 import { lastValueFrom } from 'rxjs';
 
@@ -23,22 +25,13 @@ import {
   type AddConnectionResult,
 } from '../components/add-connection-dialog.component';
 
-interface StatCard {
-  label: string;
-  value: string;
-  icon: string;
-  accent: 'primary' | 'secondary' | 'tertiary' | 'error';
-}
-
 interface ConnectionCardVm {
   id: string;
   name: string;
   displayName: string;
   environment: string;
-  environmentLabel: string;
   accessTier: string;
   stateText: string;
-  statusLabel: string;
   statusIcon: string;
   statusColorClass: string;
   lastUsedRelative: string;
@@ -48,8 +41,8 @@ interface ConnectionCardVm {
 
 @Component({
   selector: 'app-connections-page',
-  imports: [FormsModule, RouterLink],
-  providers: [DialogService],
+  imports: [FormsModule, RouterLink, ConfirmDialog],
+  providers: [DialogService, ConfirmationService],
   templateUrl: './connections.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -58,6 +51,7 @@ export class ConnectionsPage implements OnInit {
   private readonly router = inject(Router);
   private readonly azure = inject(AzureService);
   private readonly dialogService = inject(DialogService);
+  private readonly confirmationService = inject(ConfirmationService);
 
   readonly status = this.connectionsService.status;
   readonly errorMessage = this.connectionsService.errorMessage;
@@ -65,6 +59,13 @@ export class ConnectionsPage implements OnInit {
   readonly isAuthenticated = this.azure.isAuthenticated;
 
   readonly searchTerm = signal('');
+
+  readonly totalContainers = computed(() => {
+    const total = this.connectionsService
+      .connections()
+      .reduce((sum, connection) => sum + (connection.containerCount ?? 0), 0);
+    return total.toString().padStart(2, '0');
+  });
 
   readonly cards = computed<ConnectionCardVm[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
@@ -78,43 +79,6 @@ export class ConnectionsPage implements OnInit {
         )
       : list;
     return filtered.map((c) => this.toCardVm(c));
-  });
-
-  readonly stats = computed<StatCard[]>(() => {
-    const list = this.connectionsService.connections();
-    const total = list.reduce((sum, c) => sum + (c.containerCount ?? 0), 0);
-    const active = list.filter(
-      (c) => c.status === 'online' || c.status === 'syncing'
-    ).length;
-    const errors = list.filter(
-      (c) => c.status === 'error' || c.status === 'offline'
-    ).length;
-    return [
-      {
-        label: 'Total Containers',
-        value: total.toString().padStart(2, '0'),
-        icon: 'pi-database',
-        accent: 'primary',
-      },
-      {
-        label: 'Active Streams',
-        value: active.toString().padStart(2, '0'),
-        icon: 'pi-wave-pulse',
-        accent: 'secondary',
-      },
-      {
-        label: 'Error Events',
-        value: errors.toString().padStart(2, '0'),
-        icon: 'pi-exclamation-triangle',
-        accent: 'error',
-      },
-      {
-        label: 'Uptime',
-        value: '99.9%',
-        icon: 'pi-clock',
-        accent: 'tertiary',
-      },
-    ];
   });
 
   ngOnInit(): void {
@@ -161,35 +125,37 @@ export class ConnectionsPage implements OnInit {
     void this.router.navigate(['/logs', card.id]);
   }
 
+  requestRemove(card: ConnectionCardVm): void {
+    this.confirmationService.confirm({
+      header: 'Remove Connection',
+      message: `Remove ${card.name} from saved storage connections?`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Remove',
+      rejectLabel: 'Cancel',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
+      closeOnEscape: true,
+      dismissableMask: true,
+      accept: () => {
+        this.connectionsService.remove(card.id);
+      },
+    });
+  }
+
   private toCardVm(c: StorageConnection): ConnectionCardVm {
     return {
       id: c.id,
       name: c.name,
       displayName: c.displayName,
       environment: c.environment,
-      environmentLabel: c.environment.toUpperCase(),
       accessTier: c.accessTier,
       stateText: c.stateText,
-      statusLabel: this.mapStatusLabel(c.status),
       statusIcon: this.mapStatusIcon(c.status),
       statusColorClass: this.mapStatusColor(c.status),
       lastUsedRelative: this.formatRelative(c.lastUsed),
       isOffline: c.status === 'offline' || c.status === 'error',
       raw: c,
     };
-  }
-
-  private mapStatusLabel(status: ConnectionStatus): string {
-    switch (status) {
-      case 'online':
-        return 'Online';
-      case 'syncing':
-        return 'Syncing';
-      case 'offline':
-        return 'Offline';
-      case 'error':
-        return 'Error';
-    }
   }
 
   private mapStatusIcon(status: ConnectionStatus): string {

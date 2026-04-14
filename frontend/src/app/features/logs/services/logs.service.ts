@@ -18,6 +18,7 @@ export class LogsService {
   private readonly state = signal<LogsState>({ status: 'idle' });
   private readonly selectedEntryId = signal<string | null>(null);
   private readonly contentMap = signal<Record<string, string>>({});
+  private readonly contentErrorMap = signal<Record<string, string>>({});
   private readonly _contentLoading = signal(false);
 
   readonly status = computed(() => this.state().status);
@@ -48,12 +49,25 @@ export class LogsService {
     return this.contentMap()[id] ?? '';
   });
 
+  readonly selectedContentLoaded = computed<boolean>(() => {
+    const id = this.selectedEntryId();
+    if (!id) return false;
+    return hasStoredContent(this.contentMap(), id);
+  });
+
+  readonly selectedContentError = computed<string | null>(() => {
+    const id = this.selectedEntryId();
+    if (!id) return null;
+    return this.contentErrorMap()[id] ?? null;
+  });
+
   readonly contentLoading = this._contentLoading.asReadonly();
 
   async loadForConnection(accountName: string, containerName: string): Promise<void> {
     this.state.set({ status: 'loading' });
     this.selectedEntryId.set(null);
     this.contentMap.set({});
+    this.contentErrorMap.set({});
 
     try {
       console.log('[LogsService] calling listBlobs:', accountName, containerName);
@@ -72,7 +86,11 @@ export class LogsService {
 
   selectEntry(id: string | null): void {
     this.selectedEntryId.set(id);
-    if (id && !this.contentMap()[id]) {
+    if (
+      id &&
+      !hasStoredContent(this.contentMap(), id) &&
+      !hasStoredContent(this.contentErrorMap(), id)
+    ) {
       void this.loadContent(id);
     }
   }
@@ -82,6 +100,11 @@ export class LogsService {
     if (!entry?.storageAccountName || !entry?.containerName) return;
 
     this._contentLoading.set(true);
+    this.contentErrorMap.update((map) => {
+      const next = { ...map };
+      delete next[id];
+      return next;
+    });
     try {
       const content = await this.api.downloadBlobContent(
         entry.storageAccountName,
@@ -91,7 +114,10 @@ export class LogsService {
       this.contentMap.update((map) => ({ ...map, [id]: content }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.contentMap.update((map) => ({ ...map, [id]: `Error loading content: ${message}` }));
+      this.contentErrorMap.update((map) => ({
+        ...map,
+        [id]: `Error loading content: ${message}`,
+      }));
     } finally {
       this._contentLoading.set(false);
     }
@@ -101,6 +127,11 @@ export class LogsService {
     const id = this.selectedEntryId();
     if (!id) return;
     this.contentMap.update((map) => {
+      const next = { ...map };
+      delete next[id];
+      return next;
+    });
+    this.contentErrorMap.update((map) => {
       const next = { ...map };
       delete next[id];
       return next;
@@ -116,6 +147,7 @@ export class LogsService {
       timestamp: this.formatTimestamp(blob.lastModified),
       lastModified: blob.lastModified,
       size: blob.size,
+      contentType: blob.contentType,
       path: `${accountName}/${containerName}/${blob.name}`,
       modifiedRelative: this.relativeTime(blob.lastModified),
       storageAccountName: accountName,
@@ -154,4 +186,8 @@ export class LogsService {
     const diffDay = Math.floor(diffHr / 24);
     return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
   }
+}
+
+function hasStoredContent(map: Record<string, string>, id: string): boolean {
+  return Object.prototype.hasOwnProperty.call(map, id);
 }

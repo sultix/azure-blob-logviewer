@@ -2,6 +2,7 @@ import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
+import { ConfirmationService } from 'primeng/api';
 import { DialogService } from 'primeng/dynamicdialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
@@ -35,6 +36,7 @@ class ConnectionsServiceStub implements Partial<ConnectionsService> {
   readonly load = vi.fn<() => Promise<void>>(async () => undefined);
   readonly select = vi.fn<(id: string | null) => void>();
   readonly add = vi.fn<(connection: StorageConnection) => void>();
+  readonly remove = vi.fn<(id: string) => void>();
 }
 
 class AzureServiceStub implements Partial<AzureService> {
@@ -49,12 +51,29 @@ class DialogServiceStub implements Partial<DialogService> {
   }));
 }
 
+class ConfirmationServiceStub implements Partial<ConfirmationService> {
+  private readonly requireConfirmationSource = new Subject<unknown>();
+  private readonly acceptConfirmationSource = new Subject<unknown>();
+
+  readonly requireConfirmation$ = this.requireConfirmationSource.asObservable();
+  readonly accept = this.acceptConfirmationSource.asObservable();
+  readonly confirm = vi.fn<(options: Record<string, unknown>) => ConfirmationService>(() => {
+    this.requireConfirmationSource.next(null);
+    return this as ConfirmationService;
+  });
+  readonly close = vi.fn<() => ConfirmationService>(() => this as ConfirmationService);
+  readonly onAccept = vi.fn<() => void>(() => {
+    this.acceptConfirmationSource.next(null);
+  });
+}
+
 describe('ConnectionsPage', () => {
   let fixture: ComponentFixture<ConnectionsPage>;
   let component: ConnectionsPage;
   let connections: ConnectionsServiceStub;
   let azure: AzureServiceStub;
   let dialog: DialogServiceStub;
+  let confirmation: ConfirmationServiceStub;
   let router: { navigate: ReturnType<typeof vi.fn<(commands: string[]) => Promise<boolean>>> };
 
   beforeEach(async () => {
@@ -65,13 +84,17 @@ describe('ConnectionsPage', () => {
     connections = new ConnectionsServiceStub();
     azure = new AzureServiceStub();
     dialog = new DialogServiceStub();
+    confirmation = new ConfirmationServiceStub();
     router = {
       navigate: vi.fn(async () => true),
     };
 
     TestBed.overrideComponent(ConnectionsPage, {
       set: {
-        providers: [{ provide: DialogService, useValue: dialog }],
+        providers: [
+          { provide: DialogService, useValue: dialog },
+          { provide: ConfirmationService, useValue: confirmation },
+        ],
       },
     });
 
@@ -94,7 +117,7 @@ describe('ConnectionsPage', () => {
     expect(connections.load).toHaveBeenCalledOnce();
   });
 
-  it('derives stats and filters the visible cards', () => {
+  it('derives the total container stat, renders the compact Azure CLI card, and filters the visible cards', () => {
     connections.connectionsState.set([
       createConnection({
         id: 'conn-1',
@@ -115,32 +138,12 @@ describe('ConnectionsPage', () => {
 
     fixture.detectChanges();
 
-    expect(component.stats()).toEqual([
-      {
-        label: 'Total Containers',
-        value: '03',
-        icon: 'pi-database',
-        accent: 'primary',
-      },
-      {
-        label: 'Active Streams',
-        value: '01',
-        icon: 'pi-wave-pulse',
-        accent: 'secondary',
-      },
-      {
-        label: 'Error Events',
-        value: '01',
-        icon: 'pi-exclamation-triangle',
-        accent: 'error',
-      },
-      {
-        label: 'Uptime',
-        value: '99.9%',
-        icon: 'pi-clock',
-        accent: 'tertiary',
-      },
-    ]);
+    expect(component.totalContainers()).toBe('03');
+    expect(fixture.nativeElement.textContent).toContain('Azure CLI is required');
+    expect(fixture.nativeElement.textContent).toContain(
+      'The app uses your Azure CLI session, does not persist Azure tokens',
+    );
+    expect(fixture.nativeElement.textContent).toContain('az login');
     expect(fixture.nativeElement.textContent).toContain('prod-logs');
     expect(fixture.nativeElement.textContent).toContain('staging-archive');
 
@@ -198,6 +201,33 @@ describe('ConnectionsPage', () => {
 
     expect(connections.select).toHaveBeenCalledWith(card.id);
     expect(router.navigate).toHaveBeenCalledWith(['/logs', card.id]);
+  });
+
+  it('opens a confirmation dialog before removing a connection', () => {
+    const card = createCardInput();
+
+    component.requestRemove(card);
+
+    expect(confirmation.confirm).toHaveBeenCalledOnce();
+    expect(confirmation.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        header: 'Remove Connection',
+        message: 'Remove prod-logs from saved storage connections?',
+        acceptLabel: 'Remove',
+        rejectLabel: 'Cancel',
+      }),
+    );
+    expect(connections.remove).not.toHaveBeenCalled();
+  });
+
+  it('removes the connection when the confirmation is accepted', () => {
+    const card = createCardInput();
+
+    component.requestRemove(card);
+    const options = confirmation.confirm.mock.calls[0]?.[0];
+    options?.accept?.();
+
+    expect(connections.remove).toHaveBeenCalledWith(card.id);
   });
 });
 

@@ -5,6 +5,7 @@ export interface LogEntry {
   timestamp: string;
   lastModified: string;
   size: number;
+  contentType?: string;
   isLive?: boolean;
   path?: string;
   modifiedRelative?: string;

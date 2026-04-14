@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { MessageService } from 'primeng/api';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
@@ -26,6 +27,7 @@ describe('ShellComponent', () => {
       imports: [ShellComponent],
       providers: [
         provideRouter([]),
+        MessageService,
         { provide: WindowControlsService, useValue: controls },
       ],
     }).compileComponents();
@@ -35,9 +37,12 @@ describe('ShellComponent', () => {
   });
 
   it('renders the maximize icon and label in the normal window state', () => {
+    const branding = getBrandingBlock(fixture);
     const maximizeButton = getMaximizeButton(fixture);
     const maximizeIcon = maximizeButton.querySelector('rect');
 
+    expect(branding.className).toContain('w-[var(--layout-sidebar-width)]');
+    expect(branding.className).toContain('shrink-0');
     expect(maximizeButton.getAttribute('aria-label')).toBe('Maximize window');
     expect(maximizeIcon).not.toBeNull();
   });
@@ -57,4 +62,10 @@ describe('ShellComponent', () => {
 function getMaximizeButton(fixture: ComponentFixture<ShellComponent>): HTMLButtonElement {
   const buttons = fixture.nativeElement.querySelectorAll('button');
   return buttons[1] as HTMLButtonElement;
+}
+
+function getBrandingBlock(fixture: ComponentFixture<ShellComponent>): HTMLDivElement {
+  return fixture.nativeElement.querySelector(
+    '.w-\\[var\\(--layout-sidebar-width\\)\\]',
+  ) as HTMLDivElement;
 }

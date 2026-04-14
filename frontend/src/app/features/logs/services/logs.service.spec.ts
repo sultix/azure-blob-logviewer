@@ -31,6 +31,8 @@ describe('LogsService', () => {
     expect(service.entries()).toEqual([]);
     expect(service.selectedEntry()).toBeNull();
     expect(service.selectedContent()).toBe('');
+    expect(service.selectedContentLoaded()).toBe(false);
+    expect(service.selectedContentError()).toBeNull();
   });
 
   it('transitions to success and exposes the loaded entries', async () => {
@@ -50,6 +52,7 @@ describe('LogsService', () => {
     expect(service.status()).toBe('success');
     expect(service.entries().length).toBe(1);
     expect(service.entries()[0].blobName).toBe('2026/04/11/log.json');
+    expect(service.entries()[0].contentType).toBe('application/json');
     expect(service.errorMessage()).toBeNull();
   });
 
@@ -90,5 +93,30 @@ describe('LogsService', () => {
 
     expect(service.selectedEntry()?.id).toBe('file.log');
     expect(service.selectedContent()).toBe('log line 1\nlog line 2');
+    expect(service.selectedContentLoaded()).toBe(true);
+    expect(service.selectedContentError()).toBeNull();
+  });
+
+  it('tracks content loading errors separately from the rendered content', async () => {
+    const blobs: AzureBlobItem[] = [
+      {
+        name: 'file.log',
+        size: 1,
+        contentType: 'text/plain',
+        lastModified: '2026-04-11T00:00:00Z',
+        blobType: 'BlockBlob',
+      },
+    ];
+    api.listBlobs.mockResolvedValue(blobs);
+    api.downloadBlobContent.mockRejectedValue(new Error('network failed'));
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(service.selectedContent()).toBe('');
+    expect(service.selectedContentLoaded()).toBe(false);
+    expect(service.selectedContentError()).toBe('Error loading content: network failed');
   });
 });

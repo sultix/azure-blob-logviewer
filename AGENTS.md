@@ -412,7 +412,7 @@ export interface AppApi {
 
 ### Suggested Angular naming
 
-- `feature-name.page.ts` for route-level containers
+- `feature-name.page.component.ts` for route-level containers
 - `thing-card.component.ts` for presentational components
 - `feature-name.service.ts` for focused business services
 - `feature-name.store.ts` only when there is a real local store abstraction

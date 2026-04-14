@@ -1,44 +1,70 @@
 <section class="flex h-full flex-col overflow-auto">
+  <p-confirmdialog appendTo="body" />
+
   <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 p-10">
     <header class="flex flex-col gap-2">
-      <span class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+      <span
+        class="text-xs font-semibold uppercase tracking-[0.2em] text-primary"
+      >
         Dashboard
       </span>
       <h1 class="font-display text-3xl font-bold text-on-surface">
         Storage Connections
       </h1>
       <p class="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
-        Manage and monitor Azure Blob Storage containers across multiple
-        environments with real-time log ingestion.
+        Manage saved Azure Blob Storage connections and open logs from selected
+        containers.
       </p>
     </header>
-
-    <div class="grid grid-cols-4 gap-4">
-      @for (stat of stats(); track stat.label) {
-        <div
-          class="flex items-start justify-between rounded-xl bg-surface-container p-5"
+    <div class="flex items-center justify-between">
+      <h2 class="font-display text-lg font-semibold text-on-surface">
+        Overview
+      </h2>
+    </div>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-4">
+      <div
+        class="flex items-start justify-between rounded-xl bg-surface-container p-5"
+      >
+        <div class="flex flex-col gap-1">
+          <span
+            class="text-[11px] font-medium uppercase tracking-wider text-on-surface-variant"
+          >
+            Total Containers
+          </span>
+          <span class="font-display text-2xl font-bold text-on-surface">
+            {{ totalContainers() }}
+          </span>
+        </div>
+        <span
+          class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-primary"
         >
-          <div class="flex flex-col gap-1">
+          <i class="pi pi-database text-sm"></i>
+        </span>
+      </div>
+
+      <article
+        class="flex flex-col gap-3 rounded-xl border border-primary/15 bg-surface-container p-4 text-on-primary xl:col-span-3"
+      >
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex min-w-0 flex-col gap-2">
             <span
               class="text-[11px] font-medium uppercase tracking-wider text-on-surface-variant"
             >
-              {{ stat.label }}
+              Azure CLI is required
             </span>
-            <span class="font-display text-2xl font-bold text-on-surface">
-              {{ stat.value }}
-            </span>
+            <p class="max-w-3xl text-sm leading-relaxed text-on-surface">
+              The app uses your Azure CLI session, does not persist Azure
+              tokens, and requires
+              <span class="font-mono text-primary-100">az login</span>.
+            </p>
           </div>
           <span
-            class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high"
-            [class.text-primary]="stat.accent === 'primary'"
-            [class.text-secondary]="stat.accent === 'secondary'"
-            [class.text-tertiary]="stat.accent === 'tertiary'"
-            [class.text-error]="stat.accent === 'error'"
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-on-surface-variant"
           >
-            <i class="pi text-sm" [class]="stat.icon"></i>
+            <i class="pi pi-microsoft text-base"></i>
           </span>
         </div>
-      }
+      </article>
     </div>
 
     <div class="flex items-center gap-3">
@@ -68,91 +94,88 @@
     </div>
 
     @if (!isAuthenticated()) {
-      <div
-        class="flex items-start gap-3 rounded-xl bg-surface-container p-5"
-      >
-        <i class="pi pi-info-circle mt-0.5 text-sm text-tertiary"></i>
-        <p class="text-xs leading-relaxed text-on-surface-variant">
-          Bitte verbinden Sie sich zuerst mit Azure unter
-          <a routerLink="/settings" class="font-semibold text-primary underline">Settings</a>,
-          um neue Storage-Verbindungen hinzuzufuegen.
-        </p>
-      </div>
-    }
-
-    @if (status() === 'loading') {
-      <p class="text-sm text-on-surface-variant">Loading connections…</p>
+    <div class="flex items-start gap-3 rounded-xl bg-surface-container p-5">
+      <i class="pi pi-info-circle mt-0.5 text-sm text-tertiary"></i>
+      <p class="text-xs leading-relaxed text-on-surface-variant">
+        Bitte verbinden Sie sich zuerst mit Azure unter
+        <a routerLink="/settings" class="font-semibold text-primary underline"
+          >Settings</a
+        >, um neue Storage-Verbindungen hinzuzufuegen.
+      </p>
+    </div>
+    } @if (status() === 'loading') {
+    <p class="text-sm text-on-surface-variant">Loading connections…</p>
     } @else if (status() === 'error') {
-      <p class="text-sm text-error">{{ errorMessage() }}</p>
+    <p class="text-sm text-error">{{ errorMessage() }}</p>
     } @else if (isEmpty()) {
-      <div
-        class="flex flex-col items-center gap-3 rounded-xl bg-surface-container p-12 text-center"
-      >
-        <i class="pi pi-cloud-upload text-3xl text-on-surface-variant"></i>
-        <h3 class="font-display text-lg font-semibold text-on-surface">
-          No storage connections yet
-        </h3>
-        <p class="max-w-sm text-sm text-on-surface-variant">
-          Add your first Azure Blob Storage connection to start streaming logs.
-        </p>
-      </div>
+    <div
+      class="flex flex-col items-center gap-3 rounded-xl bg-surface-container p-12 text-center"
+    >
+      <i class="pi pi-cloud-upload text-3xl text-on-surface-variant"></i>
+      <h3 class="font-display text-lg font-semibold text-on-surface">
+        No storage connections yet
+      </h3>
+      <p class="max-w-sm text-sm text-on-surface-variant">
+        Add your first Azure Blob Storage connection to open logs.
+      </p>
+    </div>
     } @else {
-      <ul class="flex flex-col gap-2">
-        @for (card of cards(); track card.id) {
-          <li
-            class="group flex items-center gap-5 rounded-xl bg-surface-container p-5 transition-colors hover:bg-surface-container-high"
+    <ul class="flex flex-col gap-2">
+      @for (card of cards(); track card.id) {
+      <li
+        class="group flex items-center gap-5 rounded-xl bg-surface-container p-5 transition-colors hover:bg-surface-container-high"
+      >
+        <span
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-container-high"
+          [class]="card.statusColorClass"
+        >
+          <i class="pi text-base" [class]="card.statusIcon"></i>
+        </span>
+
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <div class="flex items-center gap-3">
+            <span
+              class="truncate font-mono text-sm font-medium text-on-surface"
+            >
+              {{ card.name }}
+            </span>
+          </div>
+          <div class="flex items-center gap-4 text-xs text-on-surface-variant">
+            <span>{{ card.displayName }}</span>
+            <span class="text-outline-variant">•</span>
+            <span>Last used {{ card.lastUsedRelative }}</span>
+            <span class="text-outline-variant">•</span>
+            <span>{{ card.accessTier }} tier</span>
+            <!-- <span class="text-outline-variant">•</span>
+            <span class="italic">{{ card.stateText }}</span> -->
+          </div>
+        </div>
+
+        <div class="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            (click)="requestRemove(card)"
+            aria-label="Remove connection"
+            class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-surface"
           >
-            <span
-              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-container-high"
-              [class]="card.statusColorClass"
-            >
-              <i class="pi text-base" [class]="card.statusIcon"></i>
-            </span>
+            <i class="pi pi-trash text-xs"></i>
+          </button>
 
-            <div class="flex min-w-0 flex-1 flex-col gap-1">
-              <div class="flex items-center gap-3">
-                <span class="truncate font-mono text-sm font-medium text-on-surface">
-                  {{ card.name }}
-                </span>
-                <span
-                  class="rounded-full bg-surface-container-highest px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant"
-                >
-                  {{ card.environmentLabel }}
-                </span>
-              </div>
-              <div class="flex items-center gap-4 text-xs text-on-surface-variant">
-                <span>{{ card.displayName }}</span>
-                <span class="text-outline-variant">•</span>
-                <span>Last used {{ card.lastUsedRelative }}</span>
-                <span class="text-outline-variant">•</span>
-                <span>{{ card.accessTier }} tier</span>
-                <span class="text-outline-variant">•</span>
-                <span class="italic">{{ card.stateText }}</span>
-              </div>
-            </div>
-
-            <span
-              class="rounded-full bg-secondary-container px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-on-secondary-container"
-            >
-              {{ card.statusLabel }}
-            </span>
-
-            <button
-              type="button"
-              (click)="openLogs(card)"
-              class="flex shrink-0 items-center gap-2 rounded-lg bg-surface-container-highest px-4 py-2 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright"
-            >
-              @if (card.isOffline) {
-                <i class="pi pi-refresh text-xs"></i>
-                Reconnect
-              } @else {
-                Open Logs
-                <i class="pi pi-arrow-right text-xs"></i>
-              }
-            </button>
-          </li>
-        }
-      </ul>
+          <button
+            type="button"
+            (click)="openLogs(card)"
+            class="flex h-10 items-center gap-2 rounded-lg bg-surface-container-highest px-4 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright"
+          >
+            @if (card.isOffline) {
+            <i class="pi pi-refresh text-xs"></i>
+            Reconnect } @else { Open Logs
+            <i class="pi pi-arrow-right text-xs"></i>
+            }
+          </button>
+        </div>
+      </li>
+      }
+    </ul>
     }
   </div>
 </section>

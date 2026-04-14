@@ -19,6 +19,9 @@ type ResourceState<T> =
 @Injectable({ providedIn: 'root' })
 export class AzureService {
   private readonly api = inject(AppApiService);
+  private startupRestorePromise: Promise<void> | null = null;
+  private startupRestoreCompleted = false;
+  private subscriptionsLoadPromise: Promise<void> | null = null;
 
   // --- Authentication state ---
   readonly authStep = signal<AzureAuthStep>('disconnected');
@@ -116,32 +119,61 @@ export class AzureService {
     this.resetAllResources();
   }
 
-  async checkAuthState(): Promise<void> {
-    try {
-      const state = await this.api.getAzureAuthState();
-      if (state.authenticated) {
-        this.authStep.set('authenticated');
-        void this.loadSubscriptions();
-      }
-    } catch {
-      // Not authenticated, stay disconnected
+  initializeStartupAuth(): Promise<void> {
+    if (this.startupRestoreCompleted) {
+      return Promise.resolve();
     }
+    if (this.startupRestorePromise) {
+      return this.startupRestorePromise;
+    }
+
+    this.startupRestorePromise = (async () => {
+      try {
+        const state = await this.api.restoreAzureSession();
+        if (state.authenticated) {
+          this.authStep.set('authenticated');
+          this.authError.set(null);
+          return;
+        }
+      } catch {
+        // Startup restore stays silent and leaves the app disconnected.
+      } finally {
+        this.authError.set(null);
+        if (this.authStep() !== 'authenticated') {
+          this.authStep.set('disconnected');
+        }
+        this.startupRestoreCompleted = true;
+        this.startupRestorePromise = null;
+      }
+    })();
+
+    return this.startupRestorePromise;
   }
 
   // --- Resource loading ---
 
   async loadSubscriptions(): Promise<void> {
+    if (this.subscriptionsLoadPromise) {
+      return this.subscriptionsLoadPromise;
+    }
+
     this.subscriptionsState.set({ status: 'loading' });
     this.resetDownstreamFrom('subscriptions');
-    try {
-      const items = await this.api.listSubscriptions();
-      this.subscriptionsState.set({ status: 'success', items });
-    } catch (err) {
-      this.subscriptionsState.set({
-        status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to load subscriptions',
-      });
-    }
+    this.subscriptionsLoadPromise = (async () => {
+      try {
+        const items = await this.api.listSubscriptions();
+        this.subscriptionsState.set({ status: 'success', items });
+      } catch (err) {
+        this.subscriptionsState.set({
+          status: 'error',
+          message: err instanceof Error ? err.message : 'Failed to load subscriptions',
+        });
+      } finally {
+        this.subscriptionsLoadPromise = null;
+      }
+    })();
+
+    return this.subscriptionsLoadPromise;
   }
 
   selectSubscription(sub: AzureSubscription | null): void {

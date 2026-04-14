@@ -77,7 +77,6 @@ export class SettingsPage implements OnInit {
   );
 
   ngOnInit(): void {
-    void this.azure.checkAuthState();
     void this.connections.load();
   }
 

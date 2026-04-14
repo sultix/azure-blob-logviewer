@@ -5,19 +5,25 @@ import {
   inject,
 } from "@angular/core";
 import { RouterLink, RouterLinkActive } from "@angular/router";
+import { Toast } from "primeng/toast";
 
 import { WindowControlsService } from "@app/core/services/window-controls.service";
 
 @Component({
   selector: "app-shell",
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, Toast],
   template: `
     <div class="flex h-full flex-col bg-surface">
+      <p-toast position="bottom-right" />
+
       <header
         class="drag-region flex h-12 shrink-0 items-center justify-between bg-surface-container-high pl-5 pr-0"
+        (dblclick)="controls.toggleMaximize()"
       >
-        <div class="flex items-center gap-6">
-          <div class="flex items-center gap-2">
+        <div class="flex min-w-0 flex-1 items-center gap-0">
+          <div
+            class="flex w-[var(--layout-sidebar-width)] shrink-0 items-center gap-2"
+          >
             <span
               class="flex h-6 w-6 items-center justify-center rounded bg-primary-gradient text-on-primary"
             >
@@ -40,7 +46,7 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
               routerLink="/connections"
               routerLinkActive="text-on-surface border-primary"
               [routerLinkActiveOptions]="{ exact: false }"
-              class="flex items-center gap-2 border-b-2 border-transparent px-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
+              class="flex items-center gap-2 border-b-2 border-transparent pe-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
             >
               <i class="pi pi-th-large text-[13px]"></i>
               Dashboard

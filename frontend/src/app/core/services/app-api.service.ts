@@ -14,6 +14,7 @@ export interface AppApi {
   listLogEntries(): Promise<LogEntry[]>;
   getLogEntry(id: string): Promise<LogEntry | null>;
   startAzureLogin(): Promise<AzureAuthState>;
+  restoreAzureSession(): Promise<AzureAuthState>;
   azureLogout(): Promise<void>;
   getAzureAuthState(): Promise<AzureAuthState>;
   listSubscriptions(): Promise<AzureSubscription[]>;
@@ -28,6 +29,7 @@ interface WailsAppBridge {
   ListLogEntries(): Promise<LogEntry[] | null>;
   GetLogEntry(id: string): Promise<LogEntry | null>;
   StartAzureLogin(): Promise<AzureAuthState | null>;
+  RestoreAzureSession(): Promise<AzureAuthState | null>;
   AzureLogout(): Promise<void>;
   GetAzureAuthState(): Promise<AzureAuthState | null>;
   ListSubscriptions(): Promise<AzureSubscription[] | null>;
@@ -63,6 +65,11 @@ export class AppApiService implements AppApi {
   async startAzureLogin(): Promise<AzureAuthState> {
     const result = await this.bridge().StartAzureLogin();
     return result ?? { authenticated: false, errorMessage: 'No response from backend' };
+  }
+
+  async restoreAzureSession(): Promise<AzureAuthState> {
+    const result = await this.bridge().RestoreAzureSession();
+    return result ?? { authenticated: false };
   }
 
   async azureLogout(): Promise<void> {

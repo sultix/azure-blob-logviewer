@@ -13,6 +13,7 @@ import { AzureService } from './azure.service';
 
 class AppApiServiceStub implements Partial<AppApiService> {
   startAzureLogin = vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string }>>();
+  restoreAzureSession = vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string }>>();
   azureLogout = vi.fn<() => Promise<void>>();
   getAzureAuthState = vi.fn<() => Promise<{ authenticated: boolean }>>();
   listSubscriptions = vi.fn<() => Promise<AzureSubscription[]>>();
@@ -107,23 +108,38 @@ describe('AzureService', () => {
     expect(service.blobsStatus()).toBe('idle');
   });
 
-  it('loads subscriptions when the stored auth state is authenticated', async () => {
-    api.getAzureAuthState.mockResolvedValue({ authenticated: true });
+  it('restores the startup session once without eagerly loading subscriptions', async () => {
+    let resolveRestore: ((value: { authenticated: boolean }) => void) | null = null;
+    api.restoreAzureSession.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRestore = resolve;
+        })
+    );
     api.listSubscriptions.mockResolvedValue([createSubscription()]);
 
-    await service.checkAuthState();
+    const firstCall = service.initializeStartupAuth();
+    const secondCall = service.initializeStartupAuth();
+    resolveRestore?.({ authenticated: true });
+    await firstCall;
+    await secondCall;
     await flushAsync();
 
     expect(service.authStep()).toBe('authenticated');
-    expect(api.listSubscriptions).toHaveBeenCalledOnce();
+    expect(service.authError()).toBeNull();
+    expect(api.restoreAzureSession).toHaveBeenCalledOnce();
+    expect(api.listSubscriptions).not.toHaveBeenCalled();
+    expect(service.subscriptionsStatus()).toBe('idle');
+    expect(service.subscriptions()).toEqual([]);
   });
 
-  it('keeps the service disconnected when auth-state lookup fails', async () => {
-    api.getAzureAuthState.mockRejectedValue(new Error('boom'));
+  it('keeps the service disconnected and silent when startup restore fails', async () => {
+    api.restoreAzureSession.mockRejectedValue(new Error('boom'));
 
-    await service.checkAuthState();
+    await service.initializeStartupAuth();
 
     expect(service.authStep()).toBe('disconnected');
+    expect(service.authError()).toBeNull();
     expect(service.subscriptionsStatus()).toBe('idle');
   });
 
