@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppApiService } from '@app/core/services/app-api.service';
 import type { AzureBlobItem } from '@app/features/settings/models/azure.model';
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { LogsService } from './logs.service';
 
@@ -15,14 +16,16 @@ describe('LogsService', () => {
   let service: LogsService;
   let api: AppApiServiceStub;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     api = new AppApiServiceStub();
-    TestBed.configureTestingModule({
+    await TestBed.configureTestingModule({
       providers: [
+        provideTranslateTesting(),
         LogsService,
         { provide: AppApiService, useValue: api },
       ],
-    });
+    }).compileComponents();
+    await initializeI18nForTests();
     service = TestBed.inject(LogsService);
   });
 

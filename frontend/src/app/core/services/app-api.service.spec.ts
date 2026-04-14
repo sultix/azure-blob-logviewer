@@ -8,6 +8,7 @@ import type {
   AzureStorageAccount,
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { AppApiService } from './app-api.service';
 
@@ -55,7 +56,7 @@ describe('AppApiService', () => {
   let runtimeWindow: RuntimeWindow;
   let bridge: MockBridge;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     runtimeWindow = window as RuntimeWindow;
     bridge = createMockBridge();
     runtimeWindow.go = {
@@ -64,7 +65,10 @@ describe('AppApiService', () => {
       },
     };
 
-    TestBed.configureTestingModule({});
+    await TestBed.configureTestingModule({
+      providers: [provideTranslateTesting()],
+    }).compileComponents();
+    await initializeI18nForTests();
     service = TestBed.inject(AppApiService);
   });
 

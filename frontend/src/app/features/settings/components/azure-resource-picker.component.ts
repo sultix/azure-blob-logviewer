@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '@ngx-translate/core';
 import { Select } from 'primeng/select';
 
 import type {
@@ -10,7 +11,7 @@ import type {
 
 @Component({
   selector: 'app-azure-resource-picker',
-  imports: [FormsModule, Select],
+  imports: [FormsModule, Select, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex flex-col gap-6">
@@ -18,7 +19,7 @@ import type {
       <!-- Subscription -->
       <div class="flex flex-col gap-2">
         <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-          Subscription
+          {{ 'settings.resourcePicker.subscription' | translate }}
         </span>
         @if (subscriptionsLoading()) {
           <div class="flex items-center gap-2 text-sm text-on-surface-variant">
@@ -26,7 +27,7 @@ import type {
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
             </svg>
-            Lade Subscriptions...
+            {{ 'settings.resourcePicker.loadingSubscriptions' | translate }}
           </div>
         } @else if (subscriptionsError()) {
           <p class="text-sm text-error">{{ subscriptionsError() }}</p>
@@ -38,13 +39,13 @@ import type {
             (ngModelChange)="subscriptionSelected.emit($event)"
             [filter]="true"
             filterBy="displayName,id"
-            placeholder="Subscription auswaehlen..."
+            [placeholder]="'settings.resourcePicker.subscriptionPlaceholder' | translate"
             [showClear]="true"
             appendTo="body"
             styleClass="w-full"
           />
           @if (subscriptions().length === 0) {
-            <p class="text-xs text-on-surface-variant">Keine Subscriptions gefunden.</p>
+            <p class="text-xs text-on-surface-variant">{{ 'settings.resourcePicker.noSubscriptions' | translate }}</p>
           }
         }
       </div>
@@ -52,7 +53,7 @@ import type {
       <!-- Storage Account -->
       <div class="flex flex-col gap-2">
         <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-          Storage Account
+          {{ 'settings.resourcePicker.storageAccount' | translate }}
         </span>
         @if (storageAccountsLoading()) {
           <div class="flex items-center gap-2 text-sm text-on-surface-variant">
@@ -60,7 +61,7 @@ import type {
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
             </svg>
-            Lade Storage Accounts...
+            {{ 'settings.resourcePicker.loadingStorageAccounts' | translate }}
           </div>
         } @else if (storageAccountsError()) {
           <p class="text-sm text-error">{{ storageAccountsError() }}</p>
@@ -72,7 +73,7 @@ import type {
             (ngModelChange)="storageAccountSelected.emit($event)"
             [filter]="true"
             filterBy="name,location"
-            placeholder="Storage Account auswaehlen..."
+            [placeholder]="'settings.resourcePicker.storageAccountPlaceholder' | translate"
             [showClear]="true"
             [disabled]="!selectedSubscription()"
             appendTo="body"
@@ -84,7 +85,7 @@ import type {
       <!-- Container -->
       <div class="flex flex-col gap-2">
         <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-          Blob Container
+          {{ 'settings.resourcePicker.blobContainer' | translate }}
         </span>
         @if (containersLoading()) {
           <div class="flex items-center gap-2 text-sm text-on-surface-variant">
@@ -92,7 +93,7 @@ import type {
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
             </svg>
-            Lade Container...
+            {{ 'settings.resourcePicker.loadingContainers' | translate }}
           </div>
         } @else if (containersError()) {
           <p class="text-sm text-error">{{ containersError() }}</p>
@@ -104,7 +105,7 @@ import type {
             (ngModelChange)="containerSelected.emit($event)"
             [filter]="true"
             filterBy="name"
-            placeholder="Container auswaehlen..."
+            [placeholder]="'settings.resourcePicker.containerPlaceholder' | translate"
             [showClear]="true"
             [disabled]="!selectedStorageAccount()"
             appendTo="body"

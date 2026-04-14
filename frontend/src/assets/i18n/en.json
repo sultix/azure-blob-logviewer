@@ -1,0 +1,242 @@
+{
+  "common": {
+    "languageNames": {
+      "en": "English",
+      "de": "Deutsch"
+    },
+    "relativeTime": {
+      "justNow": "just now",
+      "minutesAgo": "{{count}} min ago",
+      "hoursAgo": "{{count}} hr ago",
+      "dayAgo": "{{count}} day ago",
+      "daysAgo": "{{count}} days ago"
+    },
+    "date": {
+      "today": "Today",
+      "yesterday": "Yesterday"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "reset": "Reset",
+      "remove": "Remove",
+      "copy": "Copy",
+      "view": "View",
+      "refresh": "Refresh",
+      "download": "Download"
+    },
+    "errors": {
+      "authFailed": "Authentication failed",
+      "unknownError": "Unknown error",
+      "noResponseFromBackend": "No response from backend",
+      "wailsBridgeUnavailable": "Wails bridge unavailable. Run `wails dev` to generate bindings."
+    }
+  },
+  "shell": {
+    "appName": "Azure Blob Log Viewer",
+    "navigation": {
+      "dashboard": "Dashboard",
+      "settings": "Settings"
+    },
+    "window": {
+      "minimize": "Minimize window",
+      "maximize": "Maximize window",
+      "restore": "Restore window",
+      "close": "Close window"
+    }
+  },
+  "connections": {
+    "page": {
+      "eyebrow": "Dashboard",
+      "title": "Storage Connections",
+      "description": "Manage saved Azure Blob Storage connections and open logs from selected containers.",
+      "overview": "Overview",
+      "totalContainers": "Total Containers",
+      "azureCliRequired": "Azure CLI is required",
+      "azureCliDescription": "The app uses your Azure CLI session, does not persist Azure tokens, and requires {{command}}.",
+      "searchPlaceholder": "Search connections, environments...",
+      "searchAriaLabel": "Search connections",
+      "addButton": "Add New Storage",
+      "addButtonTitleEnabled": "Add a new storage connection",
+      "addButtonTitleDisabled": "Please connect to Azure in Settings first",
+      "authNoticeBefore": "Please connect to Azure in ",
+      "authNoticeAfter": " first to add new storage connections.",
+      "loading": "Loading connections…",
+      "emptyTitle": "No storage connections yet",
+      "emptyDescription": "Add your first Azure Blob Storage connection to open logs.",
+      "lastUsed": "Last used {{value}}",
+      "tier": "{{tier}} tier",
+      "openLogs": "Open Logs",
+      "reconnect": "Reconnect",
+      "removeConnectionAriaLabel": "Remove connection"
+    },
+    "dialog": {
+      "title": "Add Storage Connection",
+      "description": "Select an Azure subscription, storage account, and container.",
+      "connectionName": "Connection Name",
+      "connectionNamePlaceholder": "az-prod-logs",
+      "save": "Save Connection"
+    },
+    "confirm": {
+      "title": "Remove Connection",
+      "message": "Remove {{name}} from saved storage connections?"
+    }
+  },
+  "logs": {
+    "filters": {
+      "searchPlaceholder": "Search logs...",
+      "searchAriaLabel": "Search log files",
+      "from": "From",
+      "until": "Until",
+      "clear": "Clear filters",
+      "sortAriaLabel": "Sort logs",
+      "newestFirst": "Newest first",
+      "oldestFirst": "Oldest first"
+    },
+    "fileList": {
+      "title": "Available Logs",
+      "loading": "Loading blobs…",
+      "empty": "No blobs found in this container.",
+      "live": "LIVE"
+    },
+    "detail": {
+      "loading": "Loading logs…",
+      "empty": "Select a log file to view its contents",
+      "size": "Size {{value}}",
+      "modified": "Modified {{value}}",
+      "wordWrap": "Word Wrap",
+      "wordWrapToggleAriaLabel": "Toggle word wrap for log content",
+      "searchContentPlaceholder": "Search content...",
+      "searchContentAriaLabel": "Search within log content",
+      "clearSearch": "Clear search",
+      "clearSearchAriaLabel": "Clear content search",
+      "previousMatch": "Previous match",
+      "previousMatchAriaLabel": "Previous match",
+      "nextMatch": "Next match",
+      "nextMatchAriaLabel": "Next match",
+      "refreshAriaLabel": "Refresh",
+      "downloadAriaLabel": "Download",
+      "moreActionsAriaLabel": "More actions",
+      "loadingContent": "Loading blob content…",
+      "searching": "Searching…",
+      "zeroMatches": "0 matches",
+      "mobileActions": {
+        "refresh": "Refresh",
+        "download": "Download",
+        "wordWrapOn": "Word Wrap: On",
+        "wordWrapOff": "Word Wrap: Off"
+      },
+      "footer": {
+        "lines": "Lines: {{count}}",
+        "lineEndings": {
+          "none": "None",
+          "mixed": "Mixed",
+          "crlf": "CRLF",
+          "lf": "LF",
+          "cr": "CR"
+        }
+      },
+      "toast": {
+        "downloadComplete": "Download complete",
+        "downloaded": "{{name}} downloaded"
+      }
+    },
+    "service": {
+      "loadContentFailed": "Error loading content: {{message}}"
+    }
+  },
+  "settings": {
+    "page": {
+      "eyebrow": "System",
+      "title": "Configuration",
+      "description": "Manage Azure authentication and configure ingestion behavior.",
+      "azureStatus": "Azure Status",
+      "azureAuth": "Azure Authentication",
+      "general": "General Settings",
+      "language": {
+        "title": "Language",
+        "description": "Choose the frontend language for labels, messages, and date formatting."
+      },
+      "refreshInterval": {
+        "title": "Auto-refresh Interval",
+        "description": "How often the log viewer polls for new blobs.",
+        "minutes": "{{count}}m",
+        "hour": "1h"
+      },
+      "retention": {
+        "title": "Log Retention Policy",
+        "description": "How long cached log content is kept locally.",
+        "30d": "Keep for 30 days",
+        "90d": "Keep for 90 days",
+        "manual": "Persistent (Manual purge)"
+      },
+      "savedConnections": {
+        "title": "Saved Connections",
+        "managedFromDashboard": "Managed from the Dashboard screen.",
+        "empty": "No saved connections.",
+        "removeAriaLabel": "Remove connection",
+        "status": {
+          "active": "Active",
+          "standby": "Standby",
+          "offline": "Offline",
+          "authExpired": "Auth Expired"
+        }
+      },
+      "securityNote": "Authentication uses Azure CLI credentials. Run {{command}} in your terminal to authenticate. No credentials are stored by this application.",
+      "authBadge": {
+        "authenticated": "AUTHENTICATED",
+        "authenticating": "AUTHENTICATING",
+        "authFailed": "AUTH FAILED",
+        "disconnected": "DISCONNECTED"
+      }
+    },
+    "login": {
+      "disconnected": {
+        "description": "Connect to Azure through your local Azure CLI session.",
+        "hint": "Make sure you have run {{command}} in your terminal.",
+        "button": "Connect to Azure"
+      },
+      "authenticating": {
+        "title": "Connecting to Azure CLI...",
+        "description": "Checking Azure CLI session."
+      },
+      "authenticated": {
+        "title": "Authenticated",
+        "description": "Connected to Azure",
+        "button": "Sign out"
+      },
+      "error": {
+        "button": "Try again"
+      }
+    },
+    "resourcePicker": {
+      "subscription": "Subscription",
+      "storageAccount": "Storage Account",
+      "blobContainer": "Blob Container",
+      "loadingSubscriptions": "Loading subscriptions...",
+      "loadingStorageAccounts": "Loading storage accounts...",
+      "loadingContainers": "Loading containers...",
+      "subscriptionPlaceholder": "Select subscription...",
+      "storageAccountPlaceholder": "Select storage account...",
+      "containerPlaceholder": "Select container...",
+      "noSubscriptions": "No subscriptions found."
+    },
+    "blobList": {
+      "loadingBlobs": "Loading blobs...",
+      "empty": "No blobs in this container.",
+      "headers": {
+        "name": "Name",
+        "size": "Size",
+        "modified": "Modified"
+      },
+      "content": "Content: {{name}}",
+      "loadingContent": "Loading content..."
+    },
+    "service": {
+      "loadSubscriptionsFailed": "Failed to load subscriptions",
+      "loadStorageAccountsFailed": "Failed to load storage accounts",
+      "loadContainersFailed": "Failed to load containers",
+      "loadBlobsFailed": "Failed to load blobs",
+      "loadBlobFailed": "Error loading blob: {{message}}"
+    }
+  }
+}

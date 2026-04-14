@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
+
 import type { LogFileRowVm } from '../models/logs-view.model';
 
 import { LogsFileListComponent } from './logs-file-list.component';
@@ -13,8 +15,10 @@ describe('LogsFileListComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [LogsFileListComponent],
+      providers: [provideTranslateTesting()],
     }).compileComponents();
 
+    await initializeI18nForTests();
     fixture = TestBed.createComponent(LogsFileListComponent);
     component = fixture.componentInstance;
   });

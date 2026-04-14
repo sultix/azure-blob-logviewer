@@ -3,7 +3,9 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
+import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { SettingsPage } from './settings.page';
 import { AzureService } from '../services/azure.service';
@@ -20,6 +22,7 @@ class SettingsServiceStub implements Partial<SettingsService> {
   readonly general = signal({
     refreshIntervalMinutes: 15,
     retentionPolicy: '30d' as const,
+    language: 'en' as const,
   });
   updateGeneral = vi.fn();
   reset = vi.fn();
@@ -43,12 +46,14 @@ describe('SettingsPage', () => {
     await TestBed.configureTestingModule({
       imports: [SettingsPage],
       providers: [
+        provideTranslateTesting(),
         { provide: AzureService, useValue: azure },
         { provide: SettingsService, useValue: new SettingsServiceStub() },
         { provide: ConnectionsService, useValue: connections },
       ],
     }).compileComponents();
 
+    await initializeI18nForTests();
     fixture = TestBed.createComponent(SettingsPage);
   });
 
@@ -56,5 +61,17 @@ describe('SettingsPage', () => {
     fixture.detectChanges();
 
     expect(connections.load).toHaveBeenCalledOnce();
+  });
+
+  it('updates TS-derived auth badge labels when the language changes', async () => {
+    azure.authStep.set('authenticated');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('AUTHENTICATED');
+
+    await TestBed.inject(AppI18nService).setLanguage('de');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('AUTHENTIFIZIERT');
   });
 });

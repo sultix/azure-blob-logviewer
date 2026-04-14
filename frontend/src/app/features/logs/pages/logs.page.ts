@@ -9,6 +9,7 @@ import type { OnInit } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { MessageService } from "primeng/api";
 
+import { AppI18nService } from "@app/core/i18n/app-i18n.service";
 import { ConnectionsService } from "@app/features/connections/services/connections.service";
 
 import { LogsDetailPanelComponent } from "../components/logs-detail-panel.component";
@@ -39,6 +40,7 @@ export class LogsPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly connectionsService = inject(ConnectionsService);
   private readonly messageService = inject(MessageService);
+  private readonly i18n = inject(AppI18nService);
 
   readonly status = this.logs.status;
   readonly errorMessage = this.logs.errorMessage;
@@ -114,7 +116,9 @@ export class LogsPage implements OnInit {
   });
 
   readonly sortLabel = computed(() =>
-    this.sortDir() === "desc" ? "Newest first" : "Oldest first",
+    this.sortDir() === "desc"
+      ? this.i18n.translate('logs.filters.newestFirst')
+      : this.i18n.translate('logs.filters.oldestFirst'),
   );
   readonly footer = computed<LogFooterVm | null>(() => {
     const entry = this.selectedEntry();
@@ -132,8 +136,12 @@ export class LogsPage implements OnInit {
     }
 
     const content = this.selectedContent();
-    footer.lineCountLabel = `Lines: ${countLogicalLines(content)}`;
-    footer.lineEndingsLabel = `${detectLineEndings(content)}`;
+    footer.lineCountLabel = this.i18n.translate('logs.detail.footer.lines', {
+      count: countLogicalLines(content),
+    });
+    footer.lineEndingsLabel = this.i18n.translate(
+      `logs.detail.footer.lineEndings.${detectLineEndings(content)}`,
+    );
 
     return footer;
   });
@@ -260,8 +268,10 @@ export class LogsPage implements OnInit {
 
     this.messageService.add({
       severity: "success",
-      summary: "Download complete",
-      detail: `${entry.blobName} downloaded`,
+      summary: this.i18n.translate('logs.detail.toast.downloadComplete'),
+      detail: this.i18n.translate('logs.detail.toast.downloaded', {
+        name: entry.blobName,
+      }),
       life: 2500,
     });
   }
@@ -312,7 +322,7 @@ function countLogicalLines(content: string): number {
 
 function detectLineEndings(
   content: string,
-): "CR" | "CRLF" | "LF" | "Mixed" | "None" {
+): "cr" | "crlf" | "lf" | "mixed" | "none" {
   const hasCrLf = /\r\n/.test(content);
   const hasStandaloneLf = /(^|[^\r])\n/.test(content);
   const hasStandaloneCr = /\r(?!\n)/.test(content);
@@ -321,16 +331,16 @@ function detectLineEndings(
   ).length;
 
   if (types === 0) {
-    return "None";
+    return "none";
   }
   if (types > 1) {
-    return "Mixed";
+    return "mixed";
   }
   if (hasCrLf) {
-    return "CRLF";
+    return "crlf";
   }
   if (hasStandaloneLf) {
-    return "LF";
+    return "lf";
   }
-  return "CR";
+  return "cr";
 }

@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
+
 import { LogsFiltersComponent } from './logs-filters.component';
 
 describe('LogsFiltersComponent', () => {
@@ -11,8 +13,10 @@ describe('LogsFiltersComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [LogsFiltersComponent],
+      providers: [provideTranslateTesting()],
     }).compileComponents();
 
+    await initializeI18nForTests();
     fixture = TestBed.createComponent(LogsFiltersComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('searchTerm', 'alpha');

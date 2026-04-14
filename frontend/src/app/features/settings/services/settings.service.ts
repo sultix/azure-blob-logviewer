@@ -1,28 +1,38 @@
 import { Injectable, signal } from '@angular/core';
 
+import { isAppLanguage } from '@app/core/i18n/app-language';
+
 import type {
   AppConfig,
   AzurePreferences,
   GeneralConfig,
 } from '../models/app-config.model';
-import { DEFAULT_APP_CONFIG } from '../models/app-config.model';
+import { createDefaultAppConfig } from '../models/app-config.model';
 
 const STORAGE_KEY = 'obsidian-console:config';
 
 function loadFromStorage(): AppConfig {
+  const defaults = createDefaultAppConfig();
+
   if (typeof localStorage === 'undefined') {
-    return structuredClone(DEFAULT_APP_CONFIG);
+    return structuredClone(defaults);
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return structuredClone(DEFAULT_APP_CONFIG);
+    if (!raw) return structuredClone(defaults);
     const parsed = JSON.parse(raw) as Partial<AppConfig>;
     return {
-      azure: { ...DEFAULT_APP_CONFIG.azure, ...(parsed.azure ?? {}) },
-      general: { ...DEFAULT_APP_CONFIG.general, ...(parsed.general ?? {}) },
+      azure: { ...defaults.azure, ...(parsed.azure ?? {}) },
+      general: {
+        ...defaults.general,
+        ...(parsed.general ?? {}),
+        language: isAppLanguage(parsed.general?.language)
+          ? parsed.general.language
+          : defaults.general.language,
+      },
     };
   } catch {
-    return structuredClone(DEFAULT_APP_CONFIG);
+    return structuredClone(defaults);
   }
 }
 
@@ -44,8 +54,9 @@ export class SettingsService {
   }
 
   reset(): void {
-    this.azure.set(structuredClone(DEFAULT_APP_CONFIG.azure));
-    this.general.set(structuredClone(DEFAULT_APP_CONFIG.general));
+    const defaults = createDefaultAppConfig();
+    this.azure.set(structuredClone(defaults.azure));
+    this.general.set(structuredClone(defaults.general));
     this.persist();
   }
 

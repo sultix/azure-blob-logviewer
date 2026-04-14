@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import type { LogFileRowVm } from '../models/logs-view.model';
 
 @Component({
   selector: 'app-logs-file-list',
   standalone: true,
+  imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'flex min-h-0 flex-1 flex-col overflow-hidden',
@@ -14,7 +16,7 @@ import type { LogFileRowVm } from '../models/logs-view.model';
       <h2
         class="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant"
       >
-        Available Logs
+        {{ 'logs.fileList.title' | translate }}
       </h2>
     </div>
 
@@ -22,7 +24,7 @@ import type { LogFileRowVm } from '../models/logs-view.model';
       <div
         class="flex min-h-0 flex-1 items-center justify-center text-xs text-on-surface-variant"
       >
-        Loading blobs…
+        {{ 'logs.fileList.loading' | translate }}
       </div>
     } @else {
       <ul class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-5">
@@ -43,7 +45,7 @@ import type { LogFileRowVm } from '../models/logs-view.model';
                   <span
                     class="shrink-0 rounded-full bg-tertiary-container px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-on-surface"
                   >
-                    LIVE
+                    {{ 'logs.fileList.live' | translate }}
                   </span>
                 }
               </div>
@@ -57,7 +59,7 @@ import type { LogFileRowVm } from '../models/logs-view.model';
           </li>
         } @empty {
           <li class="px-3 py-6 text-center text-xs text-on-surface-variant">
-            No blobs found in this container.
+            {{ 'logs.fileList.empty' | translate }}
           </li>
         }
       </ul>

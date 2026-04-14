@@ -7,12 +7,14 @@ import {
 } from '@angular/core';
 import type { OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '@ngx-translate/core';
 import { Router, RouterLink } from '@angular/router';
 import { ConfirmationService } from 'primeng/api';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { DialogService } from 'primeng/dynamicdialog';
 import { lastValueFrom } from 'rxjs';
 
+import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import { AzureService } from '@app/features/settings/services/azure.service';
 
 import { ConnectionsService } from '../services/connections.service';
@@ -41,7 +43,7 @@ interface ConnectionCardVm {
 
 @Component({
   selector: 'app-connections-page',
-  imports: [FormsModule, RouterLink, ConfirmDialog],
+  imports: [FormsModule, RouterLink, ConfirmDialog, TranslatePipe],
   providers: [DialogService, ConfirmationService],
   templateUrl: './connections.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -50,6 +52,7 @@ export class ConnectionsPage implements OnInit {
   private readonly connectionsService = inject(ConnectionsService);
   private readonly router = inject(Router);
   private readonly azure = inject(AzureService);
+  private readonly i18n = inject(AppI18nService);
   private readonly dialogService = inject(DialogService);
   private readonly confirmationService = inject(ConfirmationService);
 
@@ -91,7 +94,7 @@ export class ConnectionsPage implements OnInit {
 
   openDialog(): void {
     const ref = this.dialogService.open(AddConnectionDialogComponent, {
-      header: 'Add Storage Connection',
+      header: this.i18n.translate('connections.dialog.title'),
       closable: true,
       modal: true,
       width: '512px',
@@ -127,11 +130,11 @@ export class ConnectionsPage implements OnInit {
 
   requestRemove(card: ConnectionCardVm): void {
     this.confirmationService.confirm({
-      header: 'Remove Connection',
-      message: `Remove ${card.name} from saved storage connections?`,
+      header: this.i18n.translate('connections.confirm.title'),
+      message: this.i18n.translate('connections.confirm.message', { name: card.name }),
       icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Remove',
-      rejectLabel: 'Cancel',
+      acceptLabel: this.i18n.translate('common.actions.remove'),
+      rejectLabel: this.i18n.translate('common.actions.cancel'),
       acceptButtonStyleClass: 'p-button-danger',
       rejectButtonStyleClass: 'p-button-text',
       closeOnEscape: true,
@@ -185,14 +188,6 @@ export class ConnectionsPage implements OnInit {
   }
 
   private formatRelative(iso: string): string {
-    const then = new Date(iso).getTime();
-    const diffMs = Date.now() - then;
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return 'just now';
-    if (diffMin < 60) return `${diffMin} min ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr} hr ago`;
-    const diffDay = Math.floor(diffHr / 24);
-    return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+    return this.i18n.formatRelativeFromNow(iso);
   }
 }

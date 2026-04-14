@@ -4,6 +4,7 @@ import {
   ElementRef,
   afterRenderEffect,
   computed,
+  inject,
   input,
   output,
   signal,
@@ -11,11 +12,13 @@ import {
   viewChild,
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { TranslatePipe } from "@ngx-translate/core";
 import type { MenuItem } from "primeng/api";
 import { Menu } from "primeng/menu";
 import { ToggleSwitch } from "primeng/toggleswitch";
 import { Tooltip } from "primeng/tooltip";
 
+import { AppI18nService } from "@app/core/i18n/app-i18n.service";
 import type {
   LogFooterVm,
   LogsStatus,
@@ -32,7 +35,7 @@ const CONTENT_SEARCH_DELAY_MS = 120;
 @Component({
   selector: "app-logs-detail-panel",
   standalone: true,
-  imports: [FormsModule, Menu, ToggleSwitch, Tooltip],
+  imports: [FormsModule, Menu, ToggleSwitch, Tooltip, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: "block h-full min-h-0 overflow-hidden",
@@ -43,7 +46,7 @@ const CONTENT_SEARCH_DELAY_MS = 120;
         <div
           class="flex flex-1 items-center justify-center text-sm text-on-surface-variant"
         >
-          Loading logs…
+          {{ 'logs.detail.loading' | translate }}
         </div>
       } @else if (statusValue === "error") {
         <div class="flex flex-1 items-center justify-center text-sm text-error">
@@ -54,7 +57,7 @@ const CONTENT_SEARCH_DELAY_MS = 120;
           class="flex flex-1 flex-col items-center justify-center gap-3 text-on-surface-variant"
         >
           <i class="pi pi-file text-3xl"></i>
-          <p class="text-sm">Select a log file to view its contents</p>
+          <p class="text-sm">{{ 'logs.detail.empty' | translate }}</p>
         </div>
       } @else if (toolbarValue; as tb) {
         <header
@@ -75,12 +78,12 @@ const CONTENT_SEARCH_DELAY_MS = 120;
               <span
                 class="rounded-full bg-surface-container-highest px-2 py-0.5"
               >
-                Size {{ tb.sizeLabel }}
+                {{ 'logs.detail.size' | translate: { value: tb.sizeLabel } }}
               </span>
               <span
                 class="rounded-full bg-surface-container-highest px-2 py-0.5"
               >
-                Modified {{ tb.modified }}
+                {{ 'logs.detail.modified' | translate: { value: tb.modified } }}
               </span>
             </div>
           </div>
@@ -91,12 +94,12 @@ const CONTENT_SEARCH_DELAY_MS = 120;
                 for="logs-word-wrap"
                 class="hidden items-center self-center gap-2 text-xs font-semibold text-on-surface 2xl:flex"
               >
-                <span>Word Wrap</span>
+                <span>{{ 'logs.detail.wordWrap' | translate }}</span>
                 <p-toggleswitch
                   inputId="logs-word-wrap"
                   [ngModel]="wordWrapEnabledValue"
                   (ngModelChange)="onWordWrapChange($event)"
-                  ariaLabel="Toggle word wrap for log content"
+                  [ariaLabel]="'logs.detail.wordWrapToggleAriaLabel' | translate"
                 />
               </label>
               <div
@@ -105,19 +108,19 @@ const CONTENT_SEARCH_DELAY_MS = 120;
                 <i class="pi pi-search text-[11px] text-on-surface-variant"></i>
                 <input
                   type="text"
-                  placeholder="Search content..."
+                  [placeholder]="'logs.detail.searchContentPlaceholder' | translate"
                   [ngModel]="contentSearchQueryValue"
                   (ngModelChange)="onContentSearchChange($event)"
                   class="min-w-0 flex-1 bg-transparent text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none"
-                  aria-label="Search within log content"
+                  [attr.aria-label]="'logs.detail.searchContentAriaLabel' | translate"
                 />
                 @if (hasActiveContentSearchValue) {
                   <button
                     type="button"
                     (click)="clearContentSearch()"
-                    pTooltip="Clear search"
+                    [pTooltip]="'logs.detail.clearSearch' | translate"
                     tooltipPosition="top"
-                    aria-label="Clear content search"
+                    [attr.aria-label]="'logs.detail.clearSearchAriaLabel' | translate"
                     class="flex h-6 w-6 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface hover:text-on-surface"
                   >
                     <i class="pi pi-times text-[10px]"></i>
@@ -131,9 +134,9 @@ const CONTENT_SEARCH_DELAY_MS = 120;
                     type="button"
                     (click)="scrollToPreviousMatch()"
                     [disabled]="!hasContentSearchMatchesValue"
-                    pTooltip="Previous match"
+                    [pTooltip]="'logs.detail.previousMatch' | translate"
                     tooltipPosition="top"
-                    aria-label="Previous match"
+                    [attr.aria-label]="'logs.detail.previousMatchAriaLabel' | translate"
                     class="flex h-7 w-7 items-center justify-center rounded-md bg-surface text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <i class="pi pi-chevron-up text-[10px]"></i>
@@ -142,9 +145,9 @@ const CONTENT_SEARCH_DELAY_MS = 120;
                     type="button"
                     (click)="scrollToNextMatch()"
                     [disabled]="!hasContentSearchMatchesValue"
-                    pTooltip="Next match"
+                    [pTooltip]="'logs.detail.nextMatch' | translate"
                     tooltipPosition="top"
-                    aria-label="Next match"
+                    [attr.aria-label]="'logs.detail.nextMatchAriaLabel' | translate"
                     class="flex h-7 w-7 items-center justify-center rounded-md bg-surface text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <i class="pi pi-chevron-down text-[10px]"></i>
@@ -155,9 +158,9 @@ const CONTENT_SEARCH_DELAY_MS = 120;
                 <button
                   type="button"
                   (click)="refreshRequested.emit()"
-                  pTooltip="Refresh"
+                  [pTooltip]="'logs.detail.mobileActions.refresh' | translate"
                   tooltipPosition="top"
-                  aria-label="Refresh"
+                  [attr.aria-label]="'logs.detail.refreshAriaLabel' | translate"
                   class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface transition-colors hover:bg-surface-bright"
                 >
                   <i class="pi pi-refresh text-xs"></i>
@@ -165,9 +168,9 @@ const CONTENT_SEARCH_DELAY_MS = 120;
                 <button
                   type="button"
                   (click)="downloadRequested.emit()"
-                  pTooltip="Download"
+                  [pTooltip]="'logs.detail.mobileActions.download' | translate"
                   tooltipPosition="top"
-                  aria-label="Download"
+                  [attr.aria-label]="'logs.detail.downloadAriaLabel' | translate"
                   class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface transition-colors hover:bg-surface-bright"
                 >
                   <i class="pi pi-download text-xs"></i>
@@ -177,7 +180,7 @@ const CONTENT_SEARCH_DELAY_MS = 120;
                 <button
                   type="button"
                   (click)="moreActionsMenu.toggle($event)"
-                  aria-label="More actions"
+                  [attr.aria-label]="'logs.detail.moreActionsAriaLabel' | translate"
                   class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface transition-colors hover:bg-surface-bright"
                 >
                   <i class="pi pi-ellipsis-v text-xs"></i>
@@ -201,7 +204,7 @@ const CONTENT_SEARCH_DELAY_MS = 120;
             <div
               class="flex h-full items-center justify-center text-on-surface-variant"
             >
-              Loading blob content…
+              {{ 'logs.detail.loadingContent' | translate }}
             </div>
           } @else if (contentErrorText) {
             <div class="flex h-full items-center justify-center text-sm text-error">
@@ -240,6 +243,8 @@ const CONTENT_SEARCH_DELAY_MS = 120;
   `,
 })
 export class LogsDetailPanelComponent implements OnDestroy {
+  private readonly i18n = inject(AppI18nService);
+
   readonly status = input.required<LogsStatus>();
   readonly errorMessage = input<string | null>(null);
   readonly hasSelection = input(false);
@@ -294,31 +299,33 @@ export class LogsDetailPanelComponent implements OnDestroy {
   );
   private readonly mobileActionItems = computed<MenuItem[]>(() => [
     {
-      label: "Refresh",
+      label: this.i18n.translate('logs.detail.mobileActions.refresh'),
       icon: "pi pi-refresh",
       command: () => this.refreshRequested.emit(),
     },
     {
-      label: "Download",
+      label: this.i18n.translate('logs.detail.mobileActions.download'),
       icon: "pi pi-download",
       command: () => this.downloadRequested.emit(),
     },
     {
-      label: this.wordWrapEnabled() ? "Word Wrap: On" : "Word Wrap: Off",
+      label: this.wordWrapEnabled()
+        ? this.i18n.translate('logs.detail.mobileActions.wordWrapOn')
+        : this.i18n.translate('logs.detail.mobileActions.wordWrapOff'),
       icon: "pi pi-align-left",
       command: () => this.toggleWordWrap(),
     },
   ]);
   private readonly contentSearchMatchText = computed(() => {
     if (this.isContentSearchPending()) {
-      return "Searching…";
+      return this.i18n.translate('logs.detail.searching');
     }
 
     const matchCount = this.contentSearch().matchCount;
     const activeMatchIndex = this.activeContentSearchMatchIndex();
 
     if (matchCount === 0) {
-      return "0 matches";
+      return this.i18n.translate('logs.detail.zeroMatches');
     }
 
     return `${activeMatchIndex + 1} / ${matchCount}`;

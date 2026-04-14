@@ -6,7 +6,10 @@ import {
 } from '@angular/core';
 import type { OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '@ngx-translate/core';
 
+import { AppI18nService } from '@app/core/i18n/app-i18n.service';
+import type { AppLanguage } from '@app/core/i18n/app-language';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import type { ConnectionStatus } from '@app/features/connections/models/storage-connection.model';
 
@@ -27,12 +30,13 @@ interface SavedConnectionRowVm {
 
 @Component({
   selector: 'app-settings-page',
-  imports: [FormsModule, AzureLoginComponent],
+  imports: [FormsModule, AzureLoginComponent, TranslatePipe],
   templateUrl: './settings.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsPage implements OnInit {
   private readonly azure = inject(AzureService);
+  private readonly i18n = inject(AppI18nService);
   private readonly settings = inject(SettingsService);
   private readonly connections = inject(ConnectionsService);
 
@@ -42,25 +46,49 @@ export class SettingsPage implements OnInit {
 
   // General settings
   readonly general = this.settings.general;
-  readonly refreshOptions: RefreshInterval[] = [5, 15, 60];
-  readonly retentionOptions: { value: RetentionPolicy; label: string }[] = [
-    { value: '30d', label: 'Keep for 30 days' },
-    { value: '90d', label: 'Keep for 90 days' },
-    { value: 'manual', label: 'Persistent (Manual purge)' },
-  ];
+  readonly refreshOptions = computed(() =>
+    ([5, 15, 60] as const).map((value) => ({
+      value,
+      label:
+        value < 60
+          ? this.i18n.translate('settings.page.refreshInterval.minutes', { count: value })
+          : this.i18n.translate('settings.page.refreshInterval.hour'),
+    }))
+  );
+  readonly retentionOptions = computed<{ value: RetentionPolicy; label: string }[]>(() => [
+    { value: '30d', label: this.i18n.translate('settings.page.retention.30d') },
+    { value: '90d', label: this.i18n.translate('settings.page.retention.90d') },
+    { value: 'manual', label: this.i18n.translate('settings.page.retention.manual') },
+  ]);
+  readonly languageOptions = computed<{ value: AppLanguage; label: string }[]>(() => [
+    { value: 'en', label: this.i18n.translate('common.languageNames.en') },
+    { value: 'de', label: this.i18n.translate('common.languageNames.de') },
+  ]);
 
   // Auth status badge
   readonly statusBadge = computed(() => {
     const step = this.authStep();
     switch (step) {
       case 'authenticated':
-        return { label: 'AUTHENTICATED', class: 'bg-primary-container text-on-primary-container' };
+        return {
+          label: this.i18n.translate('settings.page.authBadge.authenticated'),
+          class: 'bg-primary-container text-on-primary-container',
+        };
       case 'authenticating':
-        return { label: 'AUTHENTICATING', class: 'bg-tertiary-container text-on-surface' };
+        return {
+          label: this.i18n.translate('settings.page.authBadge.authenticating'),
+          class: 'bg-tertiary-container text-on-surface',
+        };
       case 'error':
-        return { label: 'AUTH FAILED', class: 'bg-error-container text-on-surface' };
+        return {
+          label: this.i18n.translate('settings.page.authBadge.authFailed'),
+          class: 'bg-error-container text-on-surface',
+        };
       case 'disconnected':
-        return { label: 'DISCONNECTED', class: 'bg-surface-container-highest text-on-surface-variant' };
+        return {
+          label: this.i18n.translate('settings.page.authBadge.disconnected'),
+          class: 'bg-surface-container-highest text-on-surface-variant',
+        };
     }
   });
 
@@ -96,8 +124,14 @@ export class SettingsPage implements OnInit {
     this.settings.updateGeneral({ retentionPolicy: value });
   }
 
+  setLanguage(value: AppLanguage): void {
+    this.settings.updateGeneral({ language: value });
+    void this.i18n.setLanguage(value);
+  }
+
   resetSettings(): void {
     this.settings.reset();
+    void this.i18n.setLanguage(this.general().language);
   }
 
   removeConnection(id: string): void {
@@ -107,13 +141,13 @@ export class SettingsPage implements OnInit {
   private mapStatusLabel(status: ConnectionStatus): string {
     switch (status) {
       case 'online':
-        return 'Active';
+        return this.i18n.translate('settings.page.savedConnections.status.active');
       case 'syncing':
-        return 'Standby';
+        return this.i18n.translate('settings.page.savedConnections.status.standby');
       case 'offline':
-        return 'Offline';
+        return this.i18n.translate('settings.page.savedConnections.status.offline');
       case 'error':
-        return 'Auth Expired';
+        return this.i18n.translate('settings.page.savedConnections.status.authExpired');
     }
   }
 

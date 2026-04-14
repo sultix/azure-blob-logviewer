@@ -18,6 +18,7 @@ import type {
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
 import { AzureService } from '@app/features/settings/services/azure.service';
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { ConnectionsPage } from './connections.page';
 
@@ -101,12 +102,14 @@ describe('ConnectionsPage', () => {
     await TestBed.configureTestingModule({
       imports: [ConnectionsPage],
       providers: [
+        provideTranslateTesting(),
         { provide: ConnectionsService, useValue: connections },
         { provide: AzureService, useValue: azure },
         { provide: Router, useValue: router },
       ],
     }).compileComponents();
 
+    await initializeI18nForTests();
     fixture = TestBed.createComponent(ConnectionsPage);
     component = fixture.componentInstance;
   });

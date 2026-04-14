@@ -8,6 +8,7 @@ import type {
   AzureStorageAccount,
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { AzureService } from './azure.service';
 
@@ -31,14 +32,16 @@ describe('AzureService', () => {
   let service: AzureService;
   let api: AppApiServiceStub;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     api = new AppApiServiceStub();
-    TestBed.configureTestingModule({
+    await TestBed.configureTestingModule({
       providers: [
+        provideTranslateTesting(),
         AzureService,
         { provide: AppApiService, useValue: api },
       ],
-    });
+    }).compileComponents();
+    await initializeI18nForTests();
     service = TestBed.inject(AzureService);
   });
 

@@ -1,29 +1,44 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { DEFAULT_APP_CONFIG } from '../models/app-config.model';
+import { createDefaultAppConfig } from '../models/app-config.model';
 
 import { SettingsService } from './settings.service';
 
 const STORAGE_KEY = 'obsidian-console:config';
 
+function setNavigatorLanguages(languages: string[]): void {
+  Object.defineProperty(window.navigator, 'languages', {
+    configurable: true,
+    value: languages,
+  });
+  Object.defineProperty(window.navigator, 'language', {
+    configurable: true,
+    value: languages[0] ?? 'en-US',
+  });
+}
+
 describe('SettingsService', () => {
   beforeEach(() => {
     localStorage.clear();
+    setNavigatorLanguages(['en-US']);
     TestBed.resetTestingModule();
   });
 
-  it('starts with the default configuration when nothing is stored', () => {
+  it('starts with the detected default configuration when nothing is stored', () => {
+    setNavigatorLanguages(['de-DE']);
+
     TestBed.configureTestingModule({
       providers: [SettingsService],
     });
     const service = TestBed.inject(SettingsService);
 
-    expect(service.azure()).toEqual(DEFAULT_APP_CONFIG.azure);
-    expect(service.general()).toEqual(DEFAULT_APP_CONFIG.general);
+    expect(service.azure()).toEqual(createDefaultAppConfig('de').azure);
+    expect(service.general()).toEqual(createDefaultAppConfig('de').general);
   });
 
-  it('merges stored partial configuration with defaults', () => {
+  it('merges stored partial configuration with detected defaults when language is missing', () => {
+    setNavigatorLanguages(['de-DE']);
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -45,10 +60,12 @@ describe('SettingsService', () => {
     expect(service.general()).toEqual({
       refreshIntervalMinutes: 15,
       retentionPolicy: 'manual',
+      language: 'de',
     });
   });
 
   it('falls back to defaults when persisted JSON is invalid', () => {
+    setNavigatorLanguages(['de-DE']);
     localStorage.setItem(STORAGE_KEY, '{not-json');
 
     TestBed.configureTestingModule({
@@ -56,8 +73,9 @@ describe('SettingsService', () => {
     });
     const service = TestBed.inject(SettingsService);
 
-    expect(service.azure()).toEqual(DEFAULT_APP_CONFIG.azure);
-    expect(service.general()).toEqual(DEFAULT_APP_CONFIG.general);
+    const defaults = createDefaultAppConfig('de');
+    expect(service.azure()).toEqual(defaults.azure);
+    expect(service.general()).toEqual(defaults.general);
   });
 
   it('updates and persists azure and general preferences', () => {
@@ -73,6 +91,7 @@ describe('SettingsService', () => {
     service.updateGeneral({
       refreshIntervalMinutes: 60,
       retentionPolicy: '90d',
+      language: 'de',
     });
 
     expect(service.azure()).toEqual({
@@ -83,6 +102,7 @@ describe('SettingsService', () => {
     expect(service.general()).toEqual({
       refreshIntervalMinutes: 60,
       retentionPolicy: '90d',
+      language: 'de',
     });
     expect(localStorage.getItem(STORAGE_KEY)).toBe(
       JSON.stringify({
@@ -92,7 +112,9 @@ describe('SettingsService', () => {
     );
   });
 
-  it('resets the configuration back to defaults and persists it', () => {
+  it('resets the configuration back to detected defaults and persists it', () => {
+    setNavigatorLanguages(['de-DE']);
+
     TestBed.configureTestingModule({
       providers: [SettingsService],
     });
@@ -102,8 +124,9 @@ describe('SettingsService', () => {
 
     service.reset();
 
-    expect(service.azure()).toEqual(DEFAULT_APP_CONFIG.azure);
-    expect(service.general()).toEqual(DEFAULT_APP_CONFIG.general);
-    expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(DEFAULT_APP_CONFIG));
+    const defaults = createDefaultAppConfig('de');
+    expect(service.azure()).toEqual(defaults.azure);
+    expect(service.general()).toEqual(defaults.general);
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(defaults));
   });
 });

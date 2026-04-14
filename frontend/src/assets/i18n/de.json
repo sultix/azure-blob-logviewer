@@ -1,0 +1,242 @@
+{
+  "common": {
+    "languageNames": {
+      "en": "English",
+      "de": "Deutsch"
+    },
+    "relativeTime": {
+      "justNow": "gerade eben",
+      "minutesAgo": "vor {{count}} Min.",
+      "hoursAgo": "vor {{count}} Std.",
+      "dayAgo": "vor {{count}} Tag",
+      "daysAgo": "vor {{count}} Tagen"
+    },
+    "date": {
+      "today": "Heute",
+      "yesterday": "Gestern"
+    },
+    "actions": {
+      "cancel": "Abbrechen",
+      "reset": "Zuruecksetzen",
+      "remove": "Entfernen",
+      "copy": "Kopieren",
+      "view": "Ansehen",
+      "refresh": "Aktualisieren",
+      "download": "Herunterladen"
+    },
+    "errors": {
+      "authFailed": "Authentifizierung fehlgeschlagen",
+      "unknownError": "Unbekannter Fehler",
+      "noResponseFromBackend": "Keine Antwort vom Backend",
+      "wailsBridgeUnavailable": "Wails-Bridge nicht verfuegbar. Fuehren Sie `wails dev` aus, um Bindings zu erzeugen."
+    }
+  },
+  "shell": {
+    "appName": "Azure Blob Log Viewer",
+    "navigation": {
+      "dashboard": "Dashboard",
+      "settings": "Einstellungen"
+    },
+    "window": {
+      "minimize": "Fenster minimieren",
+      "maximize": "Fenster maximieren",
+      "restore": "Fenster wiederherstellen",
+      "close": "Fenster schliessen"
+    }
+  },
+  "connections": {
+    "page": {
+      "eyebrow": "Dashboard",
+      "title": "Storage-Verbindungen",
+      "description": "Verwalten Sie gespeicherte Azure-Blob-Storage-Verbindungen und oeffnen Sie Logs aus ausgewaehlten Containern.",
+      "overview": "Uebersicht",
+      "totalContainers": "Container gesamt",
+      "azureCliRequired": "Azure CLI wird benoetigt",
+      "azureCliDescription": "Die App verwendet Ihre Azure-CLI-Sitzung, speichert keine Azure-Tokens und benoetigt {{command}}.",
+      "searchPlaceholder": "Verbindungen, Umgebungen durchsuchen...",
+      "searchAriaLabel": "Verbindungen durchsuchen",
+      "addButton": "Neue Storage-Verbindung",
+      "addButtonTitleEnabled": "Neue Storage-Verbindung hinzufuegen",
+      "addButtonTitleDisabled": "Bitte zuerst in den Einstellungen mit Azure verbinden",
+      "authNoticeBefore": "Bitte verbinden Sie sich zuerst unter ",
+      "authNoticeAfter": ", um neue Storage-Verbindungen hinzuzufuegen.",
+      "loading": "Verbindungen werden geladen…",
+      "emptyTitle": "Noch keine Storage-Verbindungen",
+      "emptyDescription": "Fuegen Sie Ihre erste Azure-Blob-Storage-Verbindung hinzu, um Logs zu oeffnen.",
+      "lastUsed": "Zuletzt verwendet {{value}}",
+      "tier": "{{tier}}-Tier",
+      "openLogs": "Logs oeffnen",
+      "reconnect": "Neu verbinden",
+      "removeConnectionAriaLabel": "Verbindung entfernen"
+    },
+    "dialog": {
+      "title": "Storage-Verbindung hinzufuegen",
+      "description": "Waehlen Sie ein Azure-Abonnement, ein Storage-Konto und einen Container aus.",
+      "connectionName": "Verbindungsname",
+      "connectionNamePlaceholder": "az-prod-logs",
+      "save": "Verbindung speichern"
+    },
+    "confirm": {
+      "title": "Verbindung entfernen",
+      "message": "{{name}} aus den gespeicherten Storage-Verbindungen entfernen?"
+    }
+  },
+  "logs": {
+    "filters": {
+      "searchPlaceholder": "Logs durchsuchen...",
+      "searchAriaLabel": "Logdateien durchsuchen",
+      "from": "Von",
+      "until": "Bis",
+      "clear": "Filter loeschen",
+      "sortAriaLabel": "Logs sortieren",
+      "newestFirst": "Neueste zuerst",
+      "oldestFirst": "Aelteste zuerst"
+    },
+    "fileList": {
+      "title": "Verfuegbare Logs",
+      "loading": "Blobs werden geladen…",
+      "empty": "Keine Blobs in diesem Container gefunden.",
+      "live": "LIVE"
+    },
+    "detail": {
+      "loading": "Logs werden geladen…",
+      "empty": "Waehlen Sie eine Logdatei aus, um ihren Inhalt anzuzeigen",
+      "size": "Groesse {{value}}",
+      "modified": "Geaendert {{value}}",
+      "wordWrap": "Zeilenumbruch",
+      "wordWrapToggleAriaLabel": "Zeilenumbruch fuer Loginhalt umschalten",
+      "searchContentPlaceholder": "Inhalt durchsuchen...",
+      "searchContentAriaLabel": "Im Loginhalt suchen",
+      "clearSearch": "Suche loeschen",
+      "clearSearchAriaLabel": "Inhaltssuche loeschen",
+      "previousMatch": "Vorheriger Treffer",
+      "previousMatchAriaLabel": "Vorheriger Treffer",
+      "nextMatch": "Naechster Treffer",
+      "nextMatchAriaLabel": "Naechster Treffer",
+      "refreshAriaLabel": "Aktualisieren",
+      "downloadAriaLabel": "Herunterladen",
+      "moreActionsAriaLabel": "Weitere Aktionen",
+      "loadingContent": "Blob-Inhalt wird geladen…",
+      "searching": "Suche laeuft…",
+      "zeroMatches": "0 Treffer",
+      "mobileActions": {
+        "refresh": "Aktualisieren",
+        "download": "Herunterladen",
+        "wordWrapOn": "Zeilenumbruch: An",
+        "wordWrapOff": "Zeilenumbruch: Aus"
+      },
+      "footer": {
+        "lines": "Zeilen: {{count}}",
+        "lineEndings": {
+          "none": "Keine",
+          "mixed": "Gemischt",
+          "crlf": "CRLF",
+          "lf": "LF",
+          "cr": "CR"
+        }
+      },
+      "toast": {
+        "downloadComplete": "Download abgeschlossen",
+        "downloaded": "{{name}} heruntergeladen"
+      }
+    },
+    "service": {
+      "loadContentFailed": "Fehler beim Laden des Inhalts: {{message}}"
+    }
+  },
+  "settings": {
+    "page": {
+      "eyebrow": "System",
+      "title": "Konfiguration",
+      "description": "Verwalten Sie die Azure-Authentifizierung und konfigurieren Sie das Ingestionsverhalten.",
+      "azureStatus": "Azure-Status",
+      "azureAuth": "Azure-Authentifizierung",
+      "general": "Allgemeine Einstellungen",
+      "language": {
+        "title": "Sprache",
+        "description": "Waehlen Sie die Frontend-Sprache fuer Beschriftungen, Meldungen und Datumsformate."
+      },
+      "refreshInterval": {
+        "title": "Automatisches Aktualisierungsintervall",
+        "description": "Wie oft der Log-Viewer nach neuen Blobs sucht.",
+        "minutes": "{{count}}m",
+        "hour": "1h"
+      },
+      "retention": {
+        "title": "Log-Aufbewahrungsrichtlinie",
+        "description": "Wie lange zwischengespeicherte Log-Inhalte lokal behalten werden.",
+        "30d": "30 Tage aufbewahren",
+        "90d": "90 Tage aufbewahren",
+        "manual": "Permanent (manuell loeschen)"
+      },
+      "savedConnections": {
+        "title": "Gespeicherte Verbindungen",
+        "managedFromDashboard": "Wird im Dashboard verwaltet.",
+        "empty": "Keine gespeicherten Verbindungen.",
+        "removeAriaLabel": "Verbindung entfernen",
+        "status": {
+          "active": "Aktiv",
+          "standby": "Bereit",
+          "offline": "Offline",
+          "authExpired": "Authentifizierung abgelaufen"
+        }
+      },
+      "securityNote": "Die Authentifizierung verwendet Azure-CLI-Anmeldedaten. Fuehren Sie {{command}} in Ihrem Terminal aus, um sich zu authentifizieren. Diese Anwendung speichert keine Anmeldedaten.",
+      "authBadge": {
+        "authenticated": "AUTHENTIFIZIERT",
+        "authenticating": "AUTHENTIFIZIERUNG",
+        "authFailed": "AUTH FEHLGESCHLAGEN",
+        "disconnected": "GETRENNT"
+      }
+    },
+    "login": {
+      "disconnected": {
+        "description": "Verbinden Sie sich ueber Ihre lokale Azure-CLI-Sitzung mit Azure.",
+        "hint": "Stellen Sie sicher, dass Sie {{command}} im Terminal ausgefuehrt haben.",
+        "button": "Mit Azure verbinden"
+      },
+      "authenticating": {
+        "title": "Verbindung mit Azure CLI wird hergestellt...",
+        "description": "Azure-CLI-Sitzung wird geprueft."
+      },
+      "authenticated": {
+        "title": "Authentifiziert",
+        "description": "Verbindung zu Azure hergestellt",
+        "button": "Abmelden"
+      },
+      "error": {
+        "button": "Erneut versuchen"
+      }
+    },
+    "resourcePicker": {
+      "subscription": "Abonnement",
+      "storageAccount": "Storage-Konto",
+      "blobContainer": "Blob-Container",
+      "loadingSubscriptions": "Abonnements werden geladen...",
+      "loadingStorageAccounts": "Storage-Konten werden geladen...",
+      "loadingContainers": "Container werden geladen...",
+      "subscriptionPlaceholder": "Abonnement auswaehlen...",
+      "storageAccountPlaceholder": "Storage-Konto auswaehlen...",
+      "containerPlaceholder": "Container auswaehlen...",
+      "noSubscriptions": "Keine Abonnements gefunden."
+    },
+    "blobList": {
+      "loadingBlobs": "Blobs werden geladen...",
+      "empty": "Keine Blobs in diesem Container.",
+      "headers": {
+        "name": "Name",
+        "size": "Groesse",
+        "modified": "Geaendert"
+      },
+      "content": "Inhalt: {{name}}",
+      "loadingContent": "Inhalt wird geladen..."
+    },
+    "service": {
+      "loadSubscriptionsFailed": "Abonnements konnten nicht geladen werden",
+      "loadStorageAccountsFailed": "Storage-Konten konnten nicht geladen werden",
+      "loadContainersFailed": "Container konnten nicht geladen werden",
+      "loadBlobsFailed": "Blobs konnten nicht geladen werden",
+      "loadBlobFailed": "Fehler beim Laden des Blobs: {{message}}"
+    }
+  }
+}

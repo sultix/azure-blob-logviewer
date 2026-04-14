@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
+import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import { AppApiService } from '@app/core/services/app-api.service';
 import type { AzureBlobItem } from '@app/features/settings/models/azure.model';
 
@@ -14,6 +15,7 @@ type LogsState =
 @Injectable({ providedIn: 'root' })
 export class LogsService {
   private readonly api = inject(AppApiService);
+  private readonly i18n = inject(AppI18nService);
 
   private readonly state = signal<LogsState>({ status: 'idle' });
   private readonly selectedEntryId = signal<string | null>(null);
@@ -70,16 +72,16 @@ export class LogsService {
     this.contentErrorMap.set({});
 
     try {
-      console.log('[LogsService] calling listBlobs:', accountName, containerName);
       const blobs = await this.api.listBlobs(accountName, containerName, '');
-      console.log('[LogsService] blobs returned:', blobs.length, blobs);
       const entries = blobs.map((b) => this.mapBlobToEntry(b, accountName, containerName));
       this.state.set({ status: 'success', entries });
     } catch (error) {
-      console.error('[LogsService] error loading blobs:', error);
       this.state.set({
         status: 'error',
-        message: error instanceof Error ? error.message : 'Failed to load blobs',
+        message:
+          error instanceof Error
+            ? error.message
+            : this.i18n.translate('settings.service.loadBlobsFailed'),
       });
     }
   }
@@ -113,10 +115,13 @@ export class LogsService {
       );
       this.contentMap.update((map) => ({ ...map, [id]: content }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message =
+        error instanceof Error
+          ? error.message
+          : this.i18n.translate('common.errors.unknownError');
       this.contentErrorMap.update((map) => ({
         ...map,
-        [id]: `Error loading content: ${message}`,
+        [id]: this.i18n.translate('logs.service.loadContentFailed', { message }),
       }));
     } finally {
       this._contentLoading.set(false);
@@ -166,25 +171,19 @@ export class LogsService {
     yesterday.setDate(yesterday.getDate() - 1);
     const isYesterday = date.toDateString() === yesterday.toDateString();
 
-    const time = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const time = this.i18n.formatDate(date, { hour: '2-digit', minute: '2-digit' });
 
-    if (isToday) return `Today, ${time}`;
-    if (isYesterday) return `Yesterday, ${time}`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (isToday) {
+      return `${this.i18n.translate('common.date.today')}, ${time}`;
+    }
+    if (isYesterday) {
+      return `${this.i18n.translate('common.date.yesterday')}, ${time}`;
+    }
+    return this.i18n.formatDate(date, { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   private relativeTime(iso: string): string {
-    const then = new Date(iso).getTime();
-    if (isNaN(then)) return '';
-
-    const diffMs = Date.now() - then;
-    const diffMin = Math.floor(diffMs / 60_000);
-    if (diffMin < 1) return 'just now';
-    if (diffMin < 60) return `${diffMin} min ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr} hr ago`;
-    const diffDay = Math.floor(diffHr / 24);
-    return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+    return this.i18n.formatRelativeFromNow(iso);
   }
 }
 

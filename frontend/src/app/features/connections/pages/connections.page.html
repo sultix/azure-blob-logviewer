@@ -6,19 +6,18 @@
       <span
         class="text-xs font-semibold uppercase tracking-[0.2em] text-primary"
       >
-        Dashboard
+        {{ 'connections.page.eyebrow' | translate }}
       </span>
       <h1 class="font-display text-3xl font-bold text-on-surface">
-        Storage Connections
+        {{ 'connections.page.title' | translate }}
       </h1>
       <p class="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
-        Manage saved Azure Blob Storage connections and open logs from selected
-        containers.
+        {{ 'connections.page.description' | translate }}
       </p>
     </header>
     <div class="flex items-center justify-between">
       <h2 class="font-display text-lg font-semibold text-on-surface">
-        Overview
+        {{ 'connections.page.overview' | translate }}
       </h2>
     </div>
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-4">
@@ -29,7 +28,7 @@
           <span
             class="text-[11px] font-medium uppercase tracking-wider text-on-surface-variant"
           >
-            Total Containers
+            {{ 'connections.page.totalContainers' | translate }}
           </span>
           <span class="font-display text-2xl font-bold text-on-surface">
             {{ totalContainers() }}
@@ -50,12 +49,10 @@
             <span
               class="text-[11px] font-medium uppercase tracking-wider text-on-surface-variant"
             >
-              Azure CLI is required
+              {{ 'connections.page.azureCliRequired' | translate }}
             </span>
             <p class="max-w-3xl text-sm leading-relaxed text-on-surface">
-              The app uses your Azure CLI session, does not persist Azure
-              tokens, and requires
-              <span class="font-mono text-primary-100">az login</span>.
+              {{ 'connections.page.azureCliDescription' | translate: { command: 'az login' } }}
             </p>
           </div>
           <span
@@ -74,11 +71,11 @@
         <i class="pi pi-search text-sm text-on-surface-variant"></i>
         <input
           type="text"
-          placeholder="Search connections, environments..."
+          [placeholder]="'connections.page.searchPlaceholder' | translate"
           [ngModel]="searchTerm()"
           (ngModelChange)="onSearch($event)"
           class="flex-1 bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none"
-          aria-label="Search connections"
+          [attr.aria-label]="'connections.page.searchAriaLabel' | translate"
         />
       </div>
       <button
@@ -86,10 +83,10 @@
         (click)="openDialog()"
         [disabled]="!isAuthenticated()"
         class="flex items-center gap-2 rounded-lg bg-primary-gradient px-5 py-2.5 text-sm font-semibold text-on-primary shadow-ambient transition-transform hover:-translate-y-[1px] disabled:opacity-40 disabled:hover:translate-y-0"
-        [title]="isAuthenticated() ? 'Add a new storage connection' : 'Please connect to Azure in Settings first'"
+        [title]="isAuthenticated() ? ('connections.page.addButtonTitleEnabled' | translate) : ('connections.page.addButtonTitleDisabled' | translate)"
       >
         <i class="pi pi-plus text-xs"></i>
-        Add New Storage
+        {{ 'connections.page.addButton' | translate }}
       </button>
     </div>
 
@@ -97,14 +94,15 @@
     <div class="flex items-start gap-3 rounded-xl bg-surface-container p-5">
       <i class="pi pi-info-circle mt-0.5 text-sm text-tertiary"></i>
       <p class="text-xs leading-relaxed text-on-surface-variant">
-        Bitte verbinden Sie sich zuerst mit Azure unter
+        {{ 'connections.page.authNoticeBefore' | translate }}
         <a routerLink="/settings" class="font-semibold text-primary underline"
-          >Settings</a
-        >, um neue Storage-Verbindungen hinzuzufuegen.
+          >{{ 'shell.navigation.settings' | translate }}</a
+        >
+        {{ 'connections.page.authNoticeAfter' | translate }}
       </p>
     </div>
     } @if (status() === 'loading') {
-    <p class="text-sm text-on-surface-variant">Loading connections…</p>
+    <p class="text-sm text-on-surface-variant">{{ 'connections.page.loading' | translate }}</p>
     } @else if (status() === 'error') {
     <p class="text-sm text-error">{{ errorMessage() }}</p>
     } @else if (isEmpty()) {
@@ -113,10 +111,10 @@
     >
       <i class="pi pi-cloud-upload text-3xl text-on-surface-variant"></i>
       <h3 class="font-display text-lg font-semibold text-on-surface">
-        No storage connections yet
+        {{ 'connections.page.emptyTitle' | translate }}
       </h3>
       <p class="max-w-sm text-sm text-on-surface-variant">
-        Add your first Azure Blob Storage connection to open logs.
+        {{ 'connections.page.emptyDescription' | translate }}
       </p>
     </div>
     } @else {
@@ -143,9 +141,9 @@
           <div class="flex items-center gap-4 text-xs text-on-surface-variant">
             <span>{{ card.displayName }}</span>
             <span class="text-outline-variant">•</span>
-            <span>Last used {{ card.lastUsedRelative }}</span>
+            <span>{{ 'connections.page.lastUsed' | translate: { value: card.lastUsedRelative } }}</span>
             <span class="text-outline-variant">•</span>
-            <span>{{ card.accessTier }} tier</span>
+            <span>{{ 'connections.page.tier' | translate: { tier: card.accessTier } }}</span>
             <!-- <span class="text-outline-variant">•</span>
             <span class="italic">{{ card.stateText }}</span> -->
           </div>
@@ -155,7 +153,7 @@
           <button
             type="button"
             (click)="requestRemove(card)"
-            aria-label="Remove connection"
+            [attr.aria-label]="'connections.page.removeConnectionAriaLabel' | translate"
             class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-surface"
           >
             <i class="pi pi-trash text-xs"></i>
@@ -168,7 +166,7 @@
           >
             @if (card.isOffline) {
             <i class="pi pi-refresh text-xs"></i>
-            Reconnect } @else { Open Logs
+            {{ 'connections.page.reconnect' | translate }} } @else { {{ 'connections.page.openLogs' | translate }}
             <i class="pi pi-arrow-right text-xs"></i>
             }
           </button>

@@ -1,11 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
+import { MessageService } from 'primeng/api';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
 import { WindowControlsService } from '@app/core/services/window-controls.service';
 import { AzureService } from '@app/features/settings/services/azure.service';
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { AppComponent } from './app.component';
 
@@ -31,11 +33,14 @@ describe('AppComponent', () => {
       imports: [AppComponent],
       providers: [
         provideRouter([]),
+        provideTranslateTesting(),
+        MessageService,
         { provide: AzureService, useValue: azure },
         { provide: WindowControlsService, useValue: new WindowControlsServiceStub() },
       ],
     }).compileComponents();
 
+    await initializeI18nForTests();
     fixture = TestBed.createComponent(AppComponent);
   });
 

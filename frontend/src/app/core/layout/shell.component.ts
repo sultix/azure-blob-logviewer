@@ -4,6 +4,7 @@ import {
   computed,
   inject,
 } from "@angular/core";
+import { TranslatePipe } from "@ngx-translate/core";
 import { RouterLink, RouterLinkActive } from "@angular/router";
 import { Toast } from "primeng/toast";
 
@@ -11,7 +12,7 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
 
 @Component({
   selector: "app-shell",
-  imports: [RouterLink, RouterLinkActive, Toast],
+  imports: [RouterLink, RouterLinkActive, Toast, TranslatePipe],
   template: `
     <div class="flex h-full flex-col bg-surface">
       <p-toast position="bottom-right" />
@@ -32,7 +33,7 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
             <span
               class="font-display text-sm font-semibold tracking-wide text-on-surface"
             >
-              Azure Blob Log Viewer
+              {{ 'shell.appName' | translate }}
             </span>
             <span
               class="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant"
@@ -49,7 +50,7 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
               class="flex items-center gap-2 border-b-2 border-transparent pe-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
             >
               <i class="pi pi-th-large text-[13px]"></i>
-              Dashboard
+              {{ 'shell.navigation.dashboard' | translate }}
             </a>
             <a
               routerLink="/settings"
@@ -57,7 +58,7 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
               class="flex items-center gap-2 border-b-2 border-transparent px-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
             >
               <i class="pi pi-cog text-[13px]"></i>
-              Settings
+              {{ 'shell.navigation.settings' | translate }}
             </a>
           </nav>
         </div>
@@ -66,7 +67,7 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
           <button
             type="button"
             (click)="controls.minimize()"
-            aria-label="Minimize window"
+            [attr.aria-label]="'shell.window.minimize' | translate"
             class="flex h-full w-12 items-center justify-center text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-on-surface"
           >
             <i class="pi pi-minus text-[11px]"></i>
@@ -74,7 +75,7 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
           <button
             type="button"
             (click)="controls.toggleMaximize()"
-            [attr.aria-label]="maximizeButtonLabel()"
+            [attr.aria-label]="maximizeButtonLabel() | translate"
             class="flex h-full w-12 items-center justify-center text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-on-surface"
           >
             <!-- <i [class]="maximizeButtonIconClass()"></i> -->
@@ -121,7 +122,7 @@ import { WindowControlsService } from "@app/core/services/window-controls.servic
           <button
             type="button"
             (click)="controls.close()"
-            aria-label="Close window"
+            [attr.aria-label]="'shell.window.close' | translate"
             class="flex h-full w-12 items-center justify-center text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-surface"
           >
             <i class="pi pi-times text-[11px]"></i>
@@ -140,6 +141,8 @@ export class ShellComponent {
   protected readonly controls = inject(WindowControlsService);
   protected readonly isMaximized = computed(() => this.controls.isMaximized());
   protected readonly maximizeButtonLabel = computed(() =>
-    this.controls.isMaximized() ? "Restore window" : "Maximize window",
+    this.controls.isMaximized()
+      ? 'shell.window.restore'
+      : 'shell.window.maximize',
   );
 }

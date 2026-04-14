@@ -6,6 +6,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '@ngx-translate/core';
 import { DynamicDialogRef } from 'primeng/dynamicdialog';
 
 import { AzureService } from '@app/features/settings/services/azure.service';
@@ -25,22 +26,22 @@ export interface AddConnectionResult {
 
 @Component({
   selector: 'app-add-connection-dialog',
-  imports: [FormsModule, AzureResourcePickerComponent],
+  imports: [FormsModule, AzureResourcePickerComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex flex-col gap-5">
       <p class="text-xs text-on-surface-variant">
-        Select an Azure subscription, storage account, and container.
+        {{ 'connections.dialog.description' | translate }}
       </p>
 
       <!-- Connection Name -->
       <label class="flex flex-col gap-1.5">
         <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-          Connection Name
+          {{ 'connections.dialog.connectionName' | translate }}
         </span>
         <input
           type="text"
-          placeholder="az-prod-logs"
+          [placeholder]="'connections.dialog.connectionNamePlaceholder' | translate"
           [ngModel]="draftName()"
           (ngModelChange)="draftName.set($event)"
           class="rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -72,7 +73,7 @@ export interface AddConnectionResult {
           (click)="cancel()"
           class="rounded-lg px-4 py-2 text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
         >
-          Cancel
+          {{ 'common.actions.cancel' | translate }}
         </button>
         <button
           type="button"
@@ -80,7 +81,7 @@ export interface AddConnectionResult {
           [disabled]="!canSave()"
           class="rounded-lg bg-primary-gradient px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-40"
         >
-          Save Connection
+          {{ 'connections.dialog.save' | translate }}
         </button>
       </div>
     </div>

@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '@ngx-translate/core';
 import { ButtonDirective } from 'primeng/button';
 import { DatePicker } from 'primeng/datepicker';
 
 @Component({
   selector: 'app-logs-filters',
   standalone: true,
-  imports: [FormsModule, DatePicker, ButtonDirective],
+  imports: [FormsModule, DatePicker, ButtonDirective, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex flex-col gap-3 p-5">
@@ -16,11 +17,11 @@ import { DatePicker } from 'primeng/datepicker';
         <i class="pi pi-search text-xs text-on-surface-variant"></i>
         <input
           type="text"
-          placeholder="Search logs..."
+          [placeholder]="'logs.filters.searchPlaceholder' | translate"
           [ngModel]="searchTermValue"
           (ngModelChange)="onSearchInput($event)"
           class="flex-1 bg-transparent text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none"
-          aria-label="Search log files"
+          [attr.aria-label]="'logs.filters.searchAriaLabel' | translate"
         />
       </div>
 
@@ -28,7 +29,7 @@ import { DatePicker } from 'primeng/datepicker';
         <p-datepicker
           [ngModel]="dateFromValue"
           (ngModelChange)="onDateFromInput($event)"
-          placeholder="From"
+          [placeholder]="'logs.filters.from' | translate"
           dateFormat="dd.mm.yy"
           [showIcon]="true"
           iconDisplay="input"
@@ -41,7 +42,7 @@ import { DatePicker } from 'primeng/datepicker';
         <p-datepicker
           [ngModel]="dateUntilValue"
           (ngModelChange)="onDateUntilInput($event)"
-          placeholder="Until"
+          [placeholder]="'logs.filters.until' | translate"
           dateFormat="dd.mm.yy"
           [showIcon]="true"
           iconDisplay="input"
@@ -63,7 +64,7 @@ import { DatePicker } from 'primeng/datepicker';
           [text]="true"
           (click)="clearFiltersRequested.emit()"
         >
-          Clear filters
+          {{ 'logs.filters.clear' | translate }}
         </button>
 
         <button
@@ -73,7 +74,7 @@ import { DatePicker } from 'primeng/datepicker';
           size="small"
           [text]="true"
           (click)="sortToggled.emit()"
-          aria-label="Sort logs"
+          [attr.aria-label]="'logs.filters.sortAriaLabel' | translate"
         >
           <i
             class="pi text-xs"

@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
+import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
 import type {
   AzureAuthState,
@@ -49,6 +50,8 @@ interface WailsWindow {
 
 @Injectable({ providedIn: 'root' })
 export class AppApiService implements AppApi {
+  private readonly i18n = inject(AppI18nService);
+
   async getVersion(): Promise<string> {
     return this.bridge().GetVersion();
   }
@@ -64,7 +67,10 @@ export class AppApiService implements AppApi {
 
   async startAzureLogin(): Promise<AzureAuthState> {
     const result = await this.bridge().StartAzureLogin();
-    return result ?? { authenticated: false, errorMessage: 'No response from backend' };
+    return result ?? {
+      authenticated: false,
+      errorMessage: this.i18n.translate('common.errors.noResponseFromBackend'),
+    };
   }
 
   async restoreAzureSession(): Promise<AzureAuthState> {
@@ -108,9 +114,7 @@ export class AppApiService implements AppApi {
   private bridge(): WailsAppBridge {
     const bridge = (window as unknown as WailsWindow).go?.app?.App;
     if (!bridge) {
-      throw new Error(
-        'Wails bridge unavailable. Run `wails dev` to generate bindings.'
-      );
+      throw new Error(this.i18n.translate('common.errors.wailsBridgeUnavailable'));
     }
     return bridge;
   }

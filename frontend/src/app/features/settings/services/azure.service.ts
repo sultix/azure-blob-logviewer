@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
+import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import { AppApiService } from '@app/core/services/app-api.service';
 import type {
   AzureBlobItem,
@@ -19,6 +20,7 @@ type ResourceState<T> =
 @Injectable({ providedIn: 'root' })
 export class AzureService {
   private readonly api = inject(AppApiService);
+  private readonly i18n = inject(AppI18nService);
   private startupRestorePromise: Promise<void> | null = null;
   private startupRestoreCompleted = false;
   private subscriptionsLoadPromise: Promise<void> | null = null;
@@ -100,11 +102,13 @@ export class AzureService {
         void this.loadSubscriptions();
       } else {
         this.authStep.set('error');
-        this.authError.set(result.errorMessage ?? 'Authentication failed');
+        this.authError.set(result.errorMessage ?? this.i18n.translate('common.errors.authFailed'));
       }
     } catch (err) {
       this.authStep.set('error');
-      this.authError.set(err instanceof Error ? err.message : 'Authentication failed');
+      this.authError.set(
+        err instanceof Error ? err.message : this.i18n.translate('common.errors.authFailed'),
+      );
     }
   }
 
@@ -166,7 +170,10 @@ export class AzureService {
       } catch (err) {
         this.subscriptionsState.set({
           status: 'error',
-          message: err instanceof Error ? err.message : 'Failed to load subscriptions',
+          message:
+            err instanceof Error
+              ? err.message
+              : this.i18n.translate('settings.service.loadSubscriptionsFailed'),
         });
       } finally {
         this.subscriptionsLoadPromise = null;
@@ -192,7 +199,10 @@ export class AzureService {
     } catch (err) {
       this.storageAccountsState.set({
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to load storage accounts',
+        message:
+          err instanceof Error
+            ? err.message
+            : this.i18n.translate('settings.service.loadStorageAccountsFailed'),
       });
     }
   }
@@ -216,7 +226,10 @@ export class AzureService {
     } catch (err) {
       this.containersState.set({
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to load containers',
+        message:
+          err instanceof Error
+            ? err.message
+            : this.i18n.translate('settings.service.loadContainersFailed'),
       });
     }
   }
@@ -242,7 +255,10 @@ export class AzureService {
     } catch (err) {
       this.blobsState.set({
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to load blobs',
+        message:
+          err instanceof Error
+            ? err.message
+            : this.i18n.translate('settings.service.loadBlobsFailed'),
       });
     }
   }
@@ -259,7 +275,10 @@ export class AzureService {
       this.blobContent.set(content);
     } catch (err) {
       this.blobContent.set(
-        `Error loading blob: ${err instanceof Error ? err.message : 'Unknown error'}`
+        this.i18n.translate('settings.service.loadBlobFailed', {
+          message:
+            err instanceof Error ? err.message : this.i18n.translate('common.errors.unknownError'),
+        })
       );
     } finally {
       this.blobContentLoading.set(false);

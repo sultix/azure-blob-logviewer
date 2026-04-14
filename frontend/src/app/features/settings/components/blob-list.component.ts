@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import type { AzureBlobItem } from '../models/azure.model';
 
@@ -19,6 +20,7 @@ function formatBytes(bytes: number): string {
 
 @Component({
   selector: 'app-blob-list',
+  imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (loading()) {
@@ -27,18 +29,18 @@ function formatBytes(bytes: number): string {
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
         </svg>
-        Lade Blobs...
+        {{ 'settings.blobList.loadingBlobs' | translate }}
       </div>
     } @else if (error()) {
       <p class="py-4 text-sm text-error">{{ error() }}</p>
     } @else if (rows().length === 0) {
-      <p class="py-4 text-sm text-on-surface-variant">Keine Blobs in diesem Container.</p>
+      <p class="py-4 text-sm text-on-surface-variant">{{ 'settings.blobList.empty' | translate }}</p>
     } @else {
       <div class="flex flex-col gap-1">
         <div class="mb-1 grid grid-cols-[1fr_100px_160px_80px] gap-2 px-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-          <span>Name</span>
-          <span class="text-right">Groesse</span>
-          <span>Geaendert</span>
+          <span>{{ 'settings.blobList.headers.name' | translate }}</span>
+          <span class="text-right">{{ 'settings.blobList.headers.size' | translate }}</span>
+          <span>{{ 'settings.blobList.headers.modified' | translate }}</span>
           <span></span>
         </div>
         <div class="max-h-80 overflow-y-auto">
@@ -60,7 +62,7 @@ function formatBytes(bytes: number): string {
                 class="rounded-md bg-surface-container-high px-2 py-1 text-xs font-medium text-primary transition hover:bg-surface-container-highest"
                 (click)="viewRequested.emit(row.name)"
               >
-                Ansehen
+                {{ 'common.actions.view' | translate }}
               </button>
             </div>
           }
@@ -73,20 +75,20 @@ function formatBytes(bytes: number): string {
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
           </svg>
-          Lade Inhalt...
+          {{ 'settings.blobList.loadingContent' | translate }}
         </div>
       }
       @if (blobContent() !== null && !blobContentLoading()) {
         <div class="mt-4 flex flex-col gap-2">
           <div class="flex items-center justify-between">
             <p class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-              Inhalt: {{ selectedBlobName() }}
+              {{ 'settings.blobList.content' | translate: { name: selectedBlobName() } }}
             </p>
             <button
               class="rounded-md bg-surface-container-high px-2 py-1 text-xs font-medium text-secondary transition hover:bg-surface-container-highest"
               (click)="copyContent()"
             >
-              Kopieren
+              {{ 'common.actions.copy' | translate }}
             </button>
           </div>
           <pre class="max-h-96 overflow-auto rounded-lg border border-surface-container-highest bg-surface-container p-4 font-mono text-xs text-on-surface">{{ blobContent() }}</pre>

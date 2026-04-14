@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
 import { WindowControlsService } from '@app/core/services/window-controls.service';
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { ShellComponent } from './shell.component';
 
@@ -27,11 +28,13 @@ describe('ShellComponent', () => {
       imports: [ShellComponent],
       providers: [
         provideRouter([]),
+        provideTranslateTesting(),
         MessageService,
         { provide: WindowControlsService, useValue: controls },
       ],
     }).compileComponents();
 
+    await initializeI18nForTests();
     fixture = TestBed.createComponent(ShellComponent);
     fixture.detectChanges();
   });

@@ -8,6 +8,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import type { StorageConnection } from '@app/features/connections/models/storage-connection.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
+import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { LogsService } from '../services/logs.service';
 
@@ -97,6 +98,7 @@ describe('LogsPage', () => {
     await TestBed.configureTestingModule({
       imports: [LogsPage],
       providers: [
+        provideTranslateTesting(),
         { provide: LogsService, useValue: logs },
         { provide: ConnectionsService, useValue: connections },
         { provide: ActivatedRoute, useValue: route },
@@ -104,6 +106,7 @@ describe('LogsPage', () => {
       ],
     }).compileComponents();
 
+    await initializeI18nForTests();
     fixture = TestBed.createComponent(LogsPage);
     component = fixture.componentInstance;
   });

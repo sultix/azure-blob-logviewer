@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import type { AzureAuthStep } from '../services/azure.service';
 
 @Component({
   selector: 'app-azure-login',
+  imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @switch (authStep()) {
@@ -15,16 +17,16 @@ import type { AzureAuthStep } from '../services/azure.service';
             </svg>
           </div>
           <p class="text-sm text-on-surface-variant">
-            Verbinden Sie sich mit Azure ueber Ihre lokale Azure CLI Session.
+            {{ 'settings.login.disconnected.description' | translate }}
           </p>
           <p class="text-xs text-on-surface-variant">
-            Stellen Sie sicher, dass Sie <code class="rounded bg-surface-container-high px-1.5 py-0.5 font-mono text-primary">az login</code> im Terminal ausgefuehrt haben.
+            {{ 'settings.login.disconnected.hint' | translate: { command: 'az login' } }}
           </p>
           <button
             class="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition hover:opacity-90"
             (click)="loginRequested.emit()"
           >
-            Mit Azure verbinden
+            {{ 'settings.login.disconnected.button' | translate }}
           </button>
         </div>
       }
@@ -36,10 +38,10 @@ import type { AzureAuthStep } from '../services/azure.service';
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
             </svg>
-            <span class="text-sm">Verbinde mit Azure CLI...</span>
+            <span class="text-sm">{{ 'settings.login.authenticating.title' | translate }}</span>
           </div>
           <p class="text-xs text-on-surface-variant">
-            Azure CLI Session wird ueberprueft.
+            {{ 'settings.login.authenticating.description' | translate }}
           </p>
         </div>
       }
@@ -53,15 +55,15 @@ import type { AzureAuthStep } from '../services/azure.service';
               </svg>
             </div>
             <div>
-              <p class="text-sm font-semibold text-on-surface">Authentifiziert</p>
-              <p class="text-xs text-on-surface-variant">Verbindung zu Azure hergestellt</p>
+              <p class="text-sm font-semibold text-on-surface">{{ 'settings.login.authenticated.title' | translate }}</p>
+              <p class="text-xs text-on-surface-variant">{{ 'settings.login.authenticated.description' | translate }}</p>
             </div>
           </div>
           <button
             class="rounded-lg border border-error-container px-4 py-2 text-xs font-medium text-error transition hover:bg-error-container"
             (click)="logoutRequested.emit()"
           >
-            Abmelden
+            {{ 'settings.login.authenticated.button' | translate }}
           </button>
         </div>
       }
@@ -80,7 +82,7 @@ import type { AzureAuthStep } from '../services/azure.service';
             class="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition hover:opacity-90"
             (click)="loginRequested.emit()"
           >
-            Erneut versuchen
+            {{ 'settings.login.error.button' | translate }}
           </button>
         </div>
       }
