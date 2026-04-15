@@ -203,7 +203,7 @@
               {{ "logs.detail.viewer.tailPreview" | translate }}
             </div>
             @for (line of renderedTailPreviewLines(); track line.lineNumber) {
-              <div class="py-1">
+              <div class="py-0.5">
                 <span
                   [class]="largeLineContentClass()"
                   [innerHTML]="line.html"
@@ -229,7 +229,7 @@
           <div [style.height.px]="viewer.topSpacerPx"></div>
 
           @for (line of renderedLargeLines(); track line.lineNumber) {
-            <div class="border-surface-container-highest/40 py-1">
+            <div class="border-surface-container-highest/40 py-0.5">
               <span
                 [class]="largeLineContentClass()"
                 [innerHTML]="line.html"
