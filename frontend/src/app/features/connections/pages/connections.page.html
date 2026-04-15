@@ -57,7 +57,8 @@
               class="max-w-3xl text-sm leading-relaxed"
               [class]="azureCliCardStyle().descriptionClass"
             >
-              {{ 'connections.page.azureCliDescription' | translate: { command: 'az login' } }}
+              {{ 'connections.page.azureCliDescription' | translate: { command:
+              'az login' } }}
             </p>
           </div>
           <span
@@ -71,20 +72,24 @@
     </div>
 
     <div class="flex items-center gap-3">
-      <div
-        class="flex flex-1 items-center gap-3 rounded-lg bg-surface-container-lowest px-4 py-2.5"
+      <p-iconfield
+        iconPosition="left"
+        class="flex-1 rounded-lg bg-surface-container-lowest"
       >
-        <i class="pi pi-search text-sm text-on-surface-variant"></i>
+        <p-inputicon>
+          <i class="pi pi-search text-sm text-on-surface-variant"></i>
+        </p-inputicon>
         <input
           pInputText
+          pSize="large"
           type="text"
           [placeholder]="'connections.page.searchPlaceholder' | translate"
           [ngModel]="searchTerm()"
           (ngModelChange)="onSearch($event)"
-          class="flex-1 bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+          class="w-full border-0 bg-transparent px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant shadow-none focus:outline-none"
           [attr.aria-label]="'connections.page.searchAriaLabel' | translate"
         />
-      </div>
+      </p-iconfield>
       <button
         type="button"
         (click)="openDialog()"
@@ -109,7 +114,9 @@
       </p>
     </div>
     } @if (status() === 'loading') {
-    <p class="text-sm text-on-surface-variant">{{ 'connections.page.loading' | translate }}</p>
+    <p class="text-sm text-on-surface-variant">
+      {{ 'connections.page.loading' | translate }}
+    </p>
     } @else if (status() === 'error') {
     <p class="text-sm text-error">{{ errorMessage() }}</p>
     } @else if (isEmpty()) {
@@ -146,12 +153,20 @@
                 {{ card.name }}
               </span>
             </div>
-            <div class="flex items-center gap-4 text-xs text-on-surface-variant">
+            <div
+              class="flex items-center gap-4 text-xs text-on-surface-variant"
+            >
               <span>{{ card.displayName }}</span>
               <span class="text-outline-variant">•</span>
-              <span>{{ 'connections.page.lastUsed' | translate: { value: card.lastUsedRelative } }}</span>
+              <span
+                >{{ 'connections.page.lastUsed' | translate: { value:
+                card.lastUsedRelative } }}</span
+              >
               <span class="text-outline-variant">•</span>
-              <span>{{ 'connections.page.tier' | translate: { tier: card.accessTier } }}</span>
+              <span
+                >{{ 'connections.page.tier' | translate: { tier: card.accessTier
+                } }}</span
+              >
             </div>
           </div>
 
@@ -172,7 +187,8 @@
             >
               @if (card.isOffline) {
               <i class="pi pi-refresh text-xs"></i>
-              {{ 'connections.page.reconnect' | translate }} } @else { {{ 'connections.page.openLogs' | translate }}
+              {{ 'connections.page.reconnect' | translate }} } @else { {{
+              'connections.page.openLogs' | translate }}
               <i class="pi pi-arrow-right text-xs"></i>
               }
             </button>
@@ -186,7 +202,9 @@
     <div class="flex flex-col gap-6">
       @for (group of cardGroups(); track group.key) {
       <section class="flex flex-col gap-2">
-        <h3 class="text-xs font-semibold uppercase tracking-[0.16em] text-on-surface-variant">
+        <h3
+          class="text-xs font-semibold uppercase tracking-[0.16em] text-on-surface-variant"
+        >
           {{ group.label }}
         </h3>
         <ng-container
@@ -201,7 +219,6 @@
       [ngTemplateOutlet]="cardList"
       [ngTemplateOutletContext]="{ $implicit: cards() }"
     />
-    }
-    }
+    } }
   </div>
 </section>

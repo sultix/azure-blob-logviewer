@@ -13,8 +13,11 @@ import { Router, RouterLink } from '@angular/router';
 import { ConfirmationService } from 'primeng/api';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { DialogService } from 'primeng/dynamicdialog';
+import { IconField } from 'primeng/iconfield';
+import { InputIcon } from 'primeng/inputicon';
 import { InputText } from 'primeng/inputtext';
 import { lastValueFrom } from 'rxjs';
+import { v4 as uuidv4 } from 'uuid';
 
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import { AzureService } from '@app/features/settings/services/azure.service';
@@ -52,7 +55,16 @@ interface ConnectionCardGroupVm {
 
 @Component({
   selector: 'app-connections-page',
-  imports: [FormsModule, RouterLink, ConfirmDialog, InputText, NgTemplateOutlet, TranslatePipe],
+  imports: [
+    FormsModule,
+    RouterLink,
+    ConfirmDialog,
+    IconField,
+    InputIcon,
+    InputText,
+    NgTemplateOutlet,
+    TranslatePipe,
+  ],
   providers: [DialogService, ConfirmationService],
   templateUrl: './connections.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -174,7 +186,7 @@ export class ConnectionsPage implements OnInit {
     void lastValueFrom(ref.onClose).then((result: AddConnectionResult | null | undefined) => {
       if (!result) return;
       const { name, category, subscription, storageAccount, container } = result;
-      const id = `${storageAccount.name}-${container.name}-${Date.now()}`;
+      const id = uuidv4();
       this.connectionsService.add({
         id,
         name,

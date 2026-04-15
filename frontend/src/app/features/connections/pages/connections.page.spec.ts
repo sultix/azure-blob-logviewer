@@ -22,6 +22,10 @@ import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/tr
 
 import { ConnectionsPage } from './connections.page';
 
+vi.mock('uuid', () => ({
+  v4: () => 'ef0f8f2c-0a2d-4d6d-8f46-b0f7f0e7d8ab',
+}));
+
 class ConnectionsServiceStub implements Partial<ConnectionsService> {
   readonly statusState = signal<'idle' | 'loading' | 'success' | 'error'>('success');
   readonly errorState = signal<string | null>(null);
@@ -82,7 +86,6 @@ describe('ConnectionsPage', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-13T12:00:00Z'));
-    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-04-13T12:00:00Z').getTime());
 
     connections = new ConnectionsServiceStub();
     azure = new AzureServiceStub();
@@ -151,6 +154,8 @@ describe('ConnectionsPage', () => {
     expect(fixture.nativeElement.textContent).toContain('az login');
     expect(fixture.nativeElement.textContent).toContain('prod-logs');
     expect(fixture.nativeElement.textContent).toContain('staging-archive');
+    expect(fixture.nativeElement.querySelector('.p-iconfield')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.p-inputicon .pi-search')).not.toBeNull();
 
     component.onSearch('staging');
     fixture.detectChanges();
@@ -240,7 +245,7 @@ describe('ConnectionsPage', () => {
 
     expect(dialog.open).toHaveBeenCalledOnce();
     expect(connections.add).toHaveBeenCalledWith({
-      id: 'storage-a-logs-1776081600000',
+      id: 'ef0f8f2c-0a2d-4d6d-8f46-b0f7f0e7d8ab',
       name: 'prod',
       category: 'Operations',
       displayName: 'storage-a / logs',
