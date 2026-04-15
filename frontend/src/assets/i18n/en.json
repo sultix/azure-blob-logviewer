@@ -17,6 +17,7 @@
     },
     "actions": {
       "cancel": "Cancel",
+      "edit": "Edit",
       "reset": "Reset",
       "remove": "Remove",
       "copy": "Copy",
@@ -58,6 +59,8 @@
       "addButton": "Add New Storage",
       "addButtonTitleEnabled": "Add a new storage connection",
       "addButtonTitleDisabled": "Please connect to Azure in Settings first",
+      "editButtonTitleEnabled": "Edit this storage connection",
+      "editButtonTitleDisabled": "Please connect to Azure in Settings first",
       "authNoticeBefore": "Please connect to Azure in ",
       "authNoticeAfter": " first to add new storage connections.",
       "loading": "Loading connections…",
@@ -68,16 +71,20 @@
       "tier": "{{tier}} tier",
       "openLogs": "Open Logs",
       "reconnect": "Reconnect",
+      "editConnectionAriaLabel": "Edit connection",
       "removeConnectionAriaLabel": "Remove connection"
     },
     "dialog": {
       "title": "Add Storage Connection",
+      "editTitle": "Edit Storage Connection",
       "description": "Select an Azure subscription, storage account, and container.",
+      "editDescription": "Update the connection name, category, and Azure storage target.",
       "connectionName": "Connection Name",
       "connectionNamePlaceholder": "az-prod-logs",
       "category": "Category",
       "categoryPlaceholder": "Operations",
-      "save": "Save Connection"
+      "save": "Save Connection",
+      "update": "Update Connection"
     },
     "confirm": {
       "title": "Remove Connection",

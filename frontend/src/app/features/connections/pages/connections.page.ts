@@ -29,7 +29,9 @@ import type {
 } from '../models/storage-connection.model';
 import {
   AddConnectionDialogComponent,
-  type AddConnectionResult,
+  type ConnectionDialogData,
+  type ConnectionDialogMode,
+  type ConnectionDialogResult,
 } from '../components/add-connection-dialog.component';
 
 interface ConnectionCardVm {
@@ -175,35 +177,11 @@ export class ConnectionsPage implements OnInit {
   }
 
   openDialog(): void {
-    const ref = this.dialogService.open(AddConnectionDialogComponent, {
-      header: this.i18n.translate('connections.dialog.title'),
-      closable: true,
-      modal: true,
-      width: '512px',
-      contentStyle: { overflow: 'visible' },
-    });
-    if (!ref) return;
-    void lastValueFrom(ref.onClose).then((result: AddConnectionResult | null | undefined) => {
-      if (!result) return;
-      const { name, category, subscription, storageAccount, container } = result;
-      const id = uuidv4();
-      this.connectionsService.add({
-        id,
-        name,
-        category,
-        displayName: `${storageAccount.name} / ${container.name}`,
-        environment: 'production',
-        status: 'online',
-        lastUsed: new Date().toISOString(),
-        accessTier: 'Hot',
-        stateText: 'Connected',
-        containerCount: 1,
-        subscriptionId: subscription.id,
-        resourceGroup: storageAccount.resourceGroup,
-        storageAccountName: storageAccount.name,
-        containerName: container.name,
-      });
-    });
+    this.openConnectionDialog('create');
+  }
+
+  openEditDialog(card: ConnectionCardVm): void {
+    this.openConnectionDialog('edit', card.raw);
   }
 
   openLogs(card: ConnectionCardVm): void {
@@ -226,6 +204,37 @@ export class ConnectionsPage implements OnInit {
         this.connectionsService.remove(card.id);
       },
     });
+  }
+
+  private openConnectionDialog(mode: ConnectionDialogMode, initialConnection?: StorageConnection): void {
+    const dialogData: ConnectionDialogData =
+      mode === 'edit' && initialConnection
+        ? { mode, initialConnection }
+        : { mode };
+    const ref = this.dialogService.open(AddConnectionDialogComponent, {
+      header: this.i18n.translate(
+        mode === 'edit' ? 'connections.dialog.editTitle' : 'connections.dialog.title'
+      ),
+      closable: true,
+      modal: true,
+      width: '512px',
+      contentStyle: { overflow: 'visible' },
+      data: dialogData,
+    });
+    if (!ref) return;
+
+    void lastValueFrom(ref.onClose).then(
+      (result: ConnectionDialogResult | null | undefined) => {
+        if (!result) return;
+
+        if (mode === 'edit' && initialConnection) {
+          this.connectionsService.update(this.toUpdatedConnection(initialConnection, result));
+          return;
+        }
+
+        this.connectionsService.add(this.toNewConnection(result));
+      }
+    );
   }
 
   private toCardVm(c: StorageConnection): ConnectionCardVm {
@@ -274,5 +283,44 @@ export class ConnectionsPage implements OnInit {
 
   private formatRelative(iso: string): string {
     return this.i18n.formatRelativeFromNow(iso);
+  }
+
+  private toNewConnection(result: ConnectionDialogResult): StorageConnection {
+    const { name, category, subscription, storageAccount, container } = result;
+
+    return {
+      id: uuidv4(),
+      name,
+      category,
+      displayName: `${storageAccount.name} / ${container.name}`,
+      environment: 'production',
+      status: 'online',
+      lastUsed: new Date().toISOString(),
+      accessTier: 'Hot',
+      stateText: 'Connected',
+      containerCount: 1,
+      subscriptionId: subscription.id,
+      resourceGroup: storageAccount.resourceGroup,
+      storageAccountName: storageAccount.name,
+      containerName: container.name,
+    };
+  }
+
+  private toUpdatedConnection(
+    current: StorageConnection,
+    result: ConnectionDialogResult,
+  ): StorageConnection {
+    const { name, category, subscription, storageAccount, container } = result;
+
+    return {
+      ...current,
+      name,
+      category,
+      displayName: `${storageAccount.name} / ${container.name}`,
+      subscriptionId: subscription.id,
+      resourceGroup: storageAccount.resourceGroup,
+      storageAccountName: storageAccount.name,
+      containerName: container.name,
+    };
   }
 }

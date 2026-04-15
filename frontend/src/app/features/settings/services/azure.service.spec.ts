@@ -218,6 +218,41 @@ describe('AzureService', () => {
     expect(service.blobs()).toEqual([blob]);
   });
 
+  it('reuses in-flight storage account and container loads for the same target', async () => {
+    const subscription = createSubscription();
+    const account = createStorageAccount();
+    let resolveStorageAccounts: ((value: AzureStorageAccount[]) => void) | null = null;
+    let resolveContainers: ((value: AzureContainer[]) => void) | null = null;
+
+    api.listStorageAccounts.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveStorageAccounts = resolve;
+        }),
+    );
+    api.listContainers.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveContainers = resolve;
+        }),
+    );
+
+    const firstStorageLoad = service.loadStorageAccounts(subscription.id);
+    const secondStorageLoad = service.loadStorageAccounts(subscription.id);
+    resolveStorageAccounts?.([account]);
+    await firstStorageLoad;
+    await secondStorageLoad;
+
+    const firstContainerLoad = service.loadContainers(subscription.id, account.resourceGroup, account.name);
+    const secondContainerLoad = service.loadContainers(subscription.id, account.resourceGroup, account.name);
+    resolveContainers?.([createContainer()]);
+    await firstContainerLoad;
+    await secondContainerLoad;
+
+    expect(api.listStorageAccounts).toHaveBeenCalledOnce();
+    expect(api.listContainers).toHaveBeenCalledOnce();
+  });
+
   it('stores resource-loading errors for subscriptions, accounts, containers, and blobs', async () => {
     api.listSubscriptions.mockRejectedValue(new Error('subscriptions failed'));
     api.listStorageAccounts.mockRejectedValue(new Error('accounts failed'));

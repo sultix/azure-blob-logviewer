@@ -69,6 +69,28 @@ describe('ConnectionsService', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify([connection]));
   });
 
+  it('updates an existing connection, persists the changes, and keeps selection for the same id', () => {
+    const original = createConnection({ id: 'conn-1', name: 'prod-logs' });
+    service.add(original);
+    service.select('conn-1');
+
+    const updated = createConnection({
+      id: 'conn-1',
+      name: 'prod-archive',
+      category: 'Operations',
+      displayName: 'storage-b / archive',
+      resourceGroup: 'rg-2',
+      storageAccountName: 'storage-b',
+      containerName: 'archive',
+    });
+
+    service.update(updated);
+
+    expect(service.connections()).toEqual([updated]);
+    expect(service.selected()).toEqual(updated);
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify([updated]));
+  });
+
   it('removes a connection and persists the remaining list', async () => {
     const connections = [
       createConnection({ id: 'conn-1', name: 'prod-logs' }),

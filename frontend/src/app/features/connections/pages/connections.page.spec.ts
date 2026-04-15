@@ -1,14 +1,14 @@
 import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
+import { EMPTY, Subject } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
 import { DialogService } from 'primeng/dynamicdialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
 import type {
-  AddConnectionResult,
+  ConnectionDialogResult,
 } from '@app/features/connections/components/add-connection-dialog.component';
 import type { StorageConnection } from '@app/features/connections/models/storage-connection.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
@@ -41,6 +41,7 @@ class ConnectionsServiceStub implements Partial<ConnectionsService> {
   readonly load = vi.fn<() => Promise<void>>(async () => undefined);
   readonly select = vi.fn<(id: string | null) => void>();
   readonly add = vi.fn<(connection: StorageConnection) => void>();
+  readonly update = vi.fn<(connection: StorageConnection) => void>();
   readonly remove = vi.fn<(id: string) => void>();
 }
 
@@ -52,7 +53,7 @@ class AzureServiceStub implements Partial<AzureService> {
 }
 
 class DialogServiceStub implements Partial<DialogService> {
-  onClose$ = new Subject<AddConnectionResult | null | undefined>();
+  onClose$ = new Subject<ConnectionDialogResult | null | undefined>();
   open = vi.fn(() => ({
     onClose: this.onClose$.asObservable(),
   }));
@@ -81,7 +82,12 @@ describe('ConnectionsPage', () => {
   let azure: AzureServiceStub;
   let dialog: DialogServiceStub;
   let confirmation: ConfirmationServiceStub;
-  let router: { navigate: ReturnType<typeof vi.fn<(commands: string[]) => Promise<boolean>>> };
+  let router: {
+    navigate: ReturnType<typeof vi.fn<(commands: string[]) => Promise<boolean>>>;
+    createUrlTree: ReturnType<typeof vi.fn<(commands: unknown[]) => unknown>>;
+    serializeUrl: ReturnType<typeof vi.fn<(tree: unknown) => string>>;
+    events: typeof EMPTY;
+  };
 
   beforeEach(async () => {
     vi.useFakeTimers();
@@ -93,6 +99,9 @@ describe('ConnectionsPage', () => {
     confirmation = new ConfirmationServiceStub();
     router = {
       navigate: vi.fn(async () => true),
+      createUrlTree: vi.fn((commands: unknown[]) => commands),
+      serializeUrl: vi.fn(() => '/settings'),
+      events: EMPTY,
     };
 
     TestBed.overrideComponent(ConnectionsPage, {
@@ -110,6 +119,7 @@ describe('ConnectionsPage', () => {
         provideTranslateTesting(),
         { provide: ConnectionsService, useValue: connections },
         { provide: AzureService, useValue: azure },
+        { provide: ActivatedRoute, useValue: {} },
         { provide: Router, useValue: router },
       ],
     }).compileComponents();
@@ -174,6 +184,22 @@ describe('ConnectionsPage', () => {
     expect(article?.className).toContain('border-error/40');
     expect(article?.className).toContain('bg-error-container/70');
     expect(fixture.nativeElement.textContent).toContain('Azure CLI is required');
+  });
+
+  it('renders the edit action and disables it when Azure is not authenticated', () => {
+    connections.connectionsState.set([createConnection({ id: 'conn-1', name: 'prod-logs' })]);
+    azure.authenticatedState.set(false);
+
+    fixture.detectChanges();
+
+    const actionButtons = [
+      ...fixture.nativeElement.querySelectorAll('li .flex.shrink-0.items-center.gap-2 button'),
+    ] as HTMLButtonElement[];
+    const editButton = actionButtons[0];
+
+    expect(editButton).toBeDefined();
+    expect(editButton?.disabled).toBe(true);
+    expect(editButton?.getAttribute('aria-label')).toBe('Edit connection');
   });
 
   it('keeps the list flat when no visible connection has a category', () => {
@@ -260,6 +286,78 @@ describe('ConnectionsPage', () => {
       storageAccountName: 'storage-a',
       containerName: 'logs',
     });
+    expect(dialog.open).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        header: 'Add Storage Connection',
+        data: {
+          mode: 'create',
+        },
+      }),
+    );
+  });
+
+  it('opens the edit dialog with the current connection data', () => {
+    const raw = createConnection({
+      id: 'conn-1',
+      name: 'prod-logs',
+      category: 'Operations',
+    });
+    const card = createCardInput({ raw, category: 'Operations' });
+
+    fixture.detectChanges();
+    component.openEditDialog(card);
+
+    expect(dialog.open).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        header: 'Edit Storage Connection',
+        data: {
+          mode: 'edit',
+          initialConnection: raw,
+        },
+      }),
+    );
+  });
+
+  it('updates an existing connection when the edit dialog closes with a result', async () => {
+    const raw = createConnection({
+      id: 'conn-1',
+      name: 'prod-logs',
+      status: 'offline',
+      lastUsed: '2026-04-12T11:00:00Z',
+      stateText: 'Disconnected',
+      containerCount: 7,
+    });
+    const card = createCardInput({ raw, isOffline: true });
+    const result = createDialogResult({
+      name: 'prod-archive',
+      category: 'Operations',
+      storageAccount: createStorageAccount({
+        id: 'acc-2',
+        name: 'storage-b',
+        resourceGroup: 'rg-2',
+      }),
+      container: createContainer({ name: 'archive' }),
+    });
+
+    fixture.detectChanges();
+    component.openEditDialog(card);
+    dialog.onClose$.next(result);
+    dialog.onClose$.complete();
+    await flushAsync();
+
+    expect(connections.update).toHaveBeenCalledWith({
+      ...raw,
+      name: 'prod-archive',
+      category: 'Operations',
+      displayName: 'storage-b / archive',
+      subscriptionId: 'sub-1',
+      resourceGroup: 'rg-2',
+      storageAccountName: 'storage-b',
+      containerName: 'archive',
+    });
+    expect(connections.add).not.toHaveBeenCalled();
   });
 
   it('ignores dialog close events without a result', async () => {
@@ -330,26 +428,17 @@ function createConnection(overrides: Partial<StorageConnection> = {}): StorageCo
   };
 }
 
-function createDialogResult(overrides: Partial<AddConnectionResult> = {}): AddConnectionResult {
+function createDialogResult(
+  overrides: Partial<ConnectionDialogResult> = {},
+): ConnectionDialogResult {
   const subscription: AzureSubscription = {
     id: 'sub-1',
     displayName: 'Production',
     tenantId: 'tenant-1',
     state: 'Enabled',
   };
-  const storageAccount: AzureStorageAccount = {
-    id: 'acc-1',
-    name: 'storage-a',
-    location: 'westeurope',
-    kind: 'StorageV2',
-    resourceGroup: 'rg-1',
-    subscriptionId: 'sub-1',
-  };
-  const container: AzureContainer = {
-    name: 'logs',
-    lastModified: '2026-04-13T10:30:00Z',
-    leaseState: 'available',
-  };
+  const storageAccount = createStorageAccount();
+  const container = createContainer();
 
   return {
     name: 'prod',
@@ -360,21 +449,44 @@ function createDialogResult(overrides: Partial<AddConnectionResult> = {}): AddCo
   };
 }
 
-function createCardInput() {
+function createCardInput(overrides: Record<string, unknown> = {}) {
   return {
     id: 'conn-1',
     name: 'prod-logs',
+    category: undefined,
     displayName: 'storage-a / logs',
     environment: 'production',
-    environmentLabel: 'PRODUCTION',
     accessTier: 'Hot',
     stateText: 'Connected',
-    statusLabel: 'Online',
     statusIcon: 'pi-check-circle',
     statusColorClass: 'text-primary',
     lastUsedRelative: '1 hr ago',
     isOffline: false,
     raw: createConnection(),
+    ...overrides,
+  };
+}
+
+function createStorageAccount(
+  overrides: Partial<AzureStorageAccount> = {},
+): AzureStorageAccount {
+  return {
+    id: 'acc-1',
+    name: 'storage-a',
+    location: 'westeurope',
+    kind: 'StorageV2',
+    resourceGroup: 'rg-1',
+    subscriptionId: 'sub-1',
+    ...overrides,
+  };
+}
+
+function createContainer(overrides: Partial<AzureContainer> = {}): AzureContainer {
+  return {
+    name: 'logs',
+    lastModified: '2026-04-13T10:30:00Z',
+    leaseState: 'available',
+    ...overrides,
   };
 }
 

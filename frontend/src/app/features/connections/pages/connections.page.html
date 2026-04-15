@@ -173,6 +173,17 @@
           <div class="flex shrink-0 items-center gap-2">
             <button
               type="button"
+              (click)="openEditDialog(card)"
+              [disabled]="!isAuthenticated()"
+              [title]="isAuthenticated() ? ('connections.page.editButtonTitleEnabled' | translate) : ('connections.page.editButtonTitleDisabled' | translate)"
+              [attr.aria-label]="'connections.page.editConnectionAriaLabel' | translate"
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:opacity-40"
+            >
+              <i class="pi pi-pencil text-xs"></i>
+            </button>
+
+            <button
+              type="button"
               (click)="requestRemove(card)"
               [attr.aria-label]="'connections.page.removeConnectionAriaLabel' | translate"
               class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-surface"

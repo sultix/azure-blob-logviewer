@@ -25,6 +25,10 @@ export class AzureService {
   private startupRestorePromise: Promise<void> | null = null;
   private startupRestoreCompleted = false;
   private subscriptionsLoadPromise: Promise<void> | null = null;
+  private storageAccountsLoadPromise: Promise<void> | null = null;
+  private storageAccountsLoadKey: string | null = null;
+  private containersLoadPromise: Promise<void> | null = null;
+  private containersLoadKey: string | null = null;
 
   // --- Authentication state ---
   readonly authStep = signal<AzureAuthStep>('disconnected');
@@ -200,19 +204,36 @@ export class AzureService {
   }
 
   async loadStorageAccounts(subscriptionId: string): Promise<void> {
-    this.storageAccountsState.set({ status: 'loading' });
-    try {
-      const items = await this.api.listStorageAccounts(subscriptionId);
-      this.storageAccountsState.set({ status: 'success', items });
-    } catch (err) {
-      this.storageAccountsState.set({
-        status: 'error',
-        message:
-          err instanceof Error
-            ? err.message
-            : this.i18n.translate('settings.service.loadStorageAccountsFailed'),
-      });
+    if (
+      this.storageAccountsLoadPromise &&
+      this.storageAccountsLoadKey === subscriptionId
+    ) {
+      return this.storageAccountsLoadPromise;
     }
+
+    this.storageAccountsState.set({ status: 'loading' });
+    this.storageAccountsLoadKey = subscriptionId;
+    this.storageAccountsLoadPromise = (async () => {
+      try {
+        const items = await this.api.listStorageAccounts(subscriptionId);
+        this.storageAccountsState.set({ status: 'success', items });
+      } catch (err) {
+        this.storageAccountsState.set({
+          status: 'error',
+          message:
+            err instanceof Error
+              ? err.message
+              : this.i18n.translate('settings.service.loadStorageAccountsFailed'),
+        });
+      } finally {
+        if (this.storageAccountsLoadKey === subscriptionId) {
+          this.storageAccountsLoadPromise = null;
+          this.storageAccountsLoadKey = null;
+        }
+      }
+    })();
+
+    return this.storageAccountsLoadPromise;
   }
 
   selectStorageAccount(account: AzureStorageAccount | null): void {
@@ -227,19 +248,34 @@ export class AzureService {
   }
 
   async loadContainers(subscriptionId: string, resourceGroup: string, accountName: string): Promise<void> {
-    this.containersState.set({ status: 'loading' });
-    try {
-      const items = await this.api.listContainers(subscriptionId, resourceGroup, accountName);
-      this.containersState.set({ status: 'success', items });
-    } catch (err) {
-      this.containersState.set({
-        status: 'error',
-        message:
-          err instanceof Error
-            ? err.message
-            : this.i18n.translate('settings.service.loadContainersFailed'),
-      });
+    const loadKey = `${subscriptionId}:${resourceGroup}:${accountName}`;
+    if (this.containersLoadPromise && this.containersLoadKey === loadKey) {
+      return this.containersLoadPromise;
     }
+
+    this.containersState.set({ status: 'loading' });
+    this.containersLoadKey = loadKey;
+    this.containersLoadPromise = (async () => {
+      try {
+        const items = await this.api.listContainers(subscriptionId, resourceGroup, accountName);
+        this.containersState.set({ status: 'success', items });
+      } catch (err) {
+        this.containersState.set({
+          status: 'error',
+          message:
+            err instanceof Error
+              ? err.message
+              : this.i18n.translate('settings.service.loadContainersFailed'),
+        });
+      } finally {
+        if (this.containersLoadKey === loadKey) {
+          this.containersLoadPromise = null;
+          this.containersLoadKey = null;
+        }
+      }
+    })();
+
+    return this.containersLoadPromise;
   }
 
   selectContainer(container: AzureContainer | null): void {
@@ -313,5 +349,10 @@ export class AzureService {
   private resetAllResources(): void {
     this.subscriptionsState.set({ status: 'idle' });
     this.resetDownstreamFrom('subscriptions');
+    this.subscriptionsLoadPromise = null;
+    this.storageAccountsLoadPromise = null;
+    this.storageAccountsLoadKey = null;
+    this.containersLoadPromise = null;
+    this.containersLoadKey = null;
   }
 }

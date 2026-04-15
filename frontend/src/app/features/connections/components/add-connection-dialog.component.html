@@ -1,6 +1,6 @@
 <form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-5">
   <p class="text-xs text-on-surface-variant">
-    {{ "connections.dialog.description" | translate }}
+    {{ descriptionKey | translate }}
   </p>
 
   <label class="flex flex-col gap-1.5">
@@ -61,7 +61,7 @@
       [disabled]="!canSaveValue"
       class="rounded-lg bg-primary-gradient px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-40"
     >
-      {{ "connections.dialog.save" | translate }}
+      {{ submitLabelKey | translate }}
     </button>
   </div>
 </form>

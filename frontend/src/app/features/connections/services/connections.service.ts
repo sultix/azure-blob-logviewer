@@ -173,6 +173,22 @@ export class ConnectionsService {
     this.persist();
   }
 
+  update(connection: StorageConnection): void {
+    const current = this.state();
+    if (current.status !== 'success') return;
+
+    const index = current.connections.findIndex((item) => item.id === connection.id);
+    if (index === -1) return;
+
+    const nextConnections = [...current.connections];
+    nextConnections[index] = connection;
+    this.state.set({
+      status: 'success',
+      connections: nextConnections,
+    });
+    this.persist();
+  }
+
   replaceAll(connections: StorageConnection[]): void {
     this.state.set({ status: 'success', connections: [...connections] });
     const selectedId = this.selectedId();

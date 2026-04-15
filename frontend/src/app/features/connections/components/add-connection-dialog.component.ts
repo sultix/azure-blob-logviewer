@@ -14,9 +14,13 @@ import {
 } from '@angular/forms';
 import type { AbstractControl, ValidationErrors } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
-import { DynamicDialogRef } from 'primeng/dynamicdialog';
+import {
+  DynamicDialogConfig,
+  DynamicDialogRef,
+} from 'primeng/dynamicdialog';
 import { InputText } from 'primeng/inputtext';
 
+import type { StorageConnection } from '../models/storage-connection.model';
 import { AzureResourcePickerComponent } from '@app/features/settings/components/azure-resource-picker.component';
 import { AzureService } from '@app/features/settings/services/azure.service';
 import type {
@@ -25,12 +29,19 @@ import type {
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
 
-export interface AddConnectionResult {
+export type ConnectionDialogMode = 'create' | 'edit';
+
+export interface ConnectionDialogResult {
   name: string;
   category?: string;
   subscription: AzureSubscription;
   storageAccount: AzureStorageAccount;
   container: AzureContainer;
+}
+
+export interface ConnectionDialogData {
+  mode?: ConnectionDialogMode;
+  initialConnection?: StorageConnection;
 }
 
 interface AddConnectionForm {
@@ -49,8 +60,21 @@ interface AddConnectionForm {
 })
 export class AddConnectionDialogComponent {
   private readonly ref = inject(DynamicDialogRef);
+  private readonly config = inject(DynamicDialogConfig);
   private readonly azure = inject(AzureService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly dialogData = (this.config.data ?? {}) as ConnectionDialogData;
+  private readonly initialConnection = this.dialogData.initialConnection;
+
+  readonly mode: ConnectionDialogMode = this.dialogData.mode ?? 'create';
+  readonly descriptionKey =
+    this.mode === 'edit'
+      ? 'connections.dialog.editDescription'
+      : 'connections.dialog.description';
+  readonly submitLabelKey =
+    this.mode === 'edit'
+      ? 'connections.dialog.update'
+      : 'connections.dialog.save';
 
   readonly form = new FormGroup<AddConnectionForm>({
     name: new FormControl('', {
@@ -60,20 +84,25 @@ export class AddConnectionDialogComponent {
     category: new FormControl('', {
       nonNullable: true,
     }),
-    subscription: new FormControl<AzureSubscription | null>(this.azure.selectedSubscription(), {
-      validators: [Validators.required],
-    }),
+    subscription: new FormControl<AzureSubscription | null>(
+      this.mode === 'edit' ? null : this.azure.selectedSubscription(),
+      {
+        validators: [Validators.required],
+      },
+    ),
     storageAccount: new FormControl<AzureStorageAccount | null>(
       {
-        value: this.azure.selectedStorageAccount(),
-        disabled: this.azure.selectedSubscription() === null,
+        value: this.mode === 'edit' ? null : this.azure.selectedStorageAccount(),
+        disabled:
+          this.mode === 'edit' ? true : this.azure.selectedSubscription() === null,
       },
       { validators: [Validators.required] },
     ),
     container: new FormControl<AzureContainer | null>(
       {
-        value: this.azure.selectedContainer(),
-        disabled: this.azure.selectedStorageAccount() === null,
+        value: this.mode === 'edit' ? null : this.azure.selectedContainer(),
+        disabled:
+          this.mode === 'edit' ? true : this.azure.selectedStorageAccount() === null,
       },
       { validators: [Validators.required] },
     ),
@@ -93,10 +122,7 @@ export class AddConnectionDialogComponent {
 
   constructor() {
     this.watchSelectionChanges();
-
-    if (this.subscriptions().length === 0) {
-      void this.azure.loadSubscriptions();
-    }
+    void this.initializeForm();
   }
 
   get nameControl(): FormControl<string> {
@@ -167,7 +193,7 @@ export class AddConnectionDialogComponent {
     const container = this.containerControl.value;
     if (!name || !subscription || !storageAccount || !container) return;
 
-    const result: AddConnectionResult = category
+    const result: ConnectionDialogResult = category
       ? { name, category, subscription, storageAccount, container }
       : { name, subscription, storageAccount, container };
     this.ref.close(result);
@@ -175,6 +201,21 @@ export class AddConnectionDialogComponent {
 
   cancel(): void {
     this.ref.close(null);
+  }
+
+  private async initializeForm(): Promise<void> {
+    if (this.initialConnection) {
+      this.nameControl.setValue(this.initialConnection.name);
+      this.categoryControl.setValue(this.initialConnection.category ?? '');
+    }
+
+    if (this.subscriptions().length === 0) {
+      await this.azure.loadSubscriptions();
+    }
+
+    if (!this.initialConnection) return;
+
+    await this.applyInitialSelection(this.initialConnection);
   }
 
   private watchSelectionChanges(): void {
@@ -209,6 +250,53 @@ export class AddConnectionDialogComponent {
       .subscribe((container) => {
         this.azure.selectContainer(container);
       });
+  }
+
+  private async applyInitialSelection(connection: StorageConnection): Promise<void> {
+    const subscription = this.subscriptions().find((item) => item.id === connection.subscriptionId);
+    if (!subscription) {
+      this.clearAzureSelection();
+      return;
+    }
+
+    this.subscriptionControl.setValue(subscription, { emitEvent: false });
+    this.storageAccountControl.reset(null, { emitEvent: false });
+    this.storageAccountControl.enable({ emitEvent: false });
+    this.containerControl.reset(null, { emitEvent: false });
+    this.containerControl.disable({ emitEvent: false });
+    this.azure.selectSubscription(subscription);
+    await this.azure.loadStorageAccounts(subscription.id);
+
+    const storageAccount = this.storageAccounts().find(
+      (item) =>
+        item.name === connection.storageAccountName &&
+        item.resourceGroup === connection.resourceGroup,
+    );
+    if (!storageAccount) return;
+
+    this.storageAccountControl.setValue(storageAccount, { emitEvent: false });
+    this.containerControl.reset(null, { emitEvent: false });
+    this.containerControl.enable({ emitEvent: false });
+    this.azure.selectStorageAccount(storageAccount);
+    await this.azure.loadContainers(
+      subscription.id,
+      storageAccount.resourceGroup,
+      storageAccount.name,
+    );
+
+    const container = this.containers().find((item) => item.name === connection.containerName);
+    if (!container) return;
+
+    this.containerControl.setValue(container, { emitEvent: false });
+  }
+
+  private clearAzureSelection(): void {
+    this.subscriptionControl.setValue(null, { emitEvent: false });
+    this.storageAccountControl.reset(null, { emitEvent: false });
+    this.storageAccountControl.disable({ emitEvent: false });
+    this.containerControl.reset(null, { emitEvent: false });
+    this.containerControl.disable({ emitEvent: false });
+    this.azure.selectSubscription(null);
   }
 }
 

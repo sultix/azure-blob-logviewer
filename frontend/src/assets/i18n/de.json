@@ -17,6 +17,7 @@
     },
     "actions": {
       "cancel": "Abbrechen",
+      "edit": "Bearbeiten",
       "reset": "Zurücksetzen",
       "remove": "Entfernen",
       "copy": "Kopieren",
@@ -58,6 +59,8 @@
       "addButton": "Neue Storage-Verbindung",
       "addButtonTitleEnabled": "Neue Storage-Verbindung hinzufügen",
       "addButtonTitleDisabled": "Bitte zuerst in den Einstellungen mit Azure verbinden",
+      "editButtonTitleEnabled": "Diese Storage-Verbindung bearbeiten",
+      "editButtonTitleDisabled": "Bitte zuerst in den Einstellungen mit Azure verbinden",
       "authNoticeBefore": "Bitte verbinden Sie sich zuerst unter ",
       "authNoticeAfter": ", um neue Storage-Verbindungen hinzuzufügen.",
       "loading": "Verbindungen werden geladen…",
@@ -68,16 +71,20 @@
       "tier": "{{tier}}-Tier",
       "openLogs": "Logs öffnen",
       "reconnect": "Neu verbinden",
+      "editConnectionAriaLabel": "Verbindung bearbeiten",
       "removeConnectionAriaLabel": "Verbindung entfernen"
     },
     "dialog": {
       "title": "Storage-Verbindung hinzufügen",
+      "editTitle": "Storage-Verbindung bearbeiten",
       "description": "Wählen Sie ein Azure-Abonnement, ein Storage-Konto und einen Container aus.",
+      "editDescription": "Aktualisieren Sie Verbindungsname, Kategorie und Azure-Storage-Ziel.",
       "connectionName": "Verbindungsname",
       "connectionNamePlaceholder": "az-prod-logs",
       "category": "Kategorie (optional)",
       "categoryPlaceholder": "z.B. Project X, Project Y, etc.",
-      "save": "Verbindung speichern"
+      "save": "Verbindung speichern",
+      "update": "Verbindung aktualisieren"
     },
     "confirm": {
       "title": "Verbindung entfernen",
