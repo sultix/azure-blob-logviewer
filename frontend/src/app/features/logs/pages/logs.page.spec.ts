@@ -327,8 +327,11 @@ describe('LogsPage', () => {
     logs.selectedContentState.set('old line');
     logs.selectedContentLoadedState.set(true);
     component.onSearch('alpha');
-    component.onDateFromChange(new Date('2026-04-13T00:00:00Z'));
-    component.onDateUntilChange(new Date('2026-04-13T00:00:00Z'));
+    component.onCreatedOnChange(new Date('2026-04-13T00:00:00Z'));
+    component.onCreatedRangeChange([
+      new Date('2026-04-13T00:00:00Z'),
+      new Date('2026-04-13T00:00:00Z'),
+    ]);
     component.toggleSort();
     fixture.detectChanges();
 
@@ -338,8 +341,8 @@ describe('LogsPage', () => {
 
     expect(logs.reset).toHaveBeenCalledTimes(2);
     expect(component.searchTerm()).toBe('');
-    expect(component.dateFrom()).toBeNull();
-    expect(component.dateUntil()).toBeNull();
+    expect(component.createdOn()).toBeNull();
+    expect(component.createdRange()).toBeNull();
     expect(component.sortDir()).toBe('desc');
     expect(logs.selectedEntry()).toBeNull();
     expect(logs.selectedContent()).toBe('');
@@ -429,8 +432,7 @@ describe('LogsPage', () => {
     expect(component.rows().map((row) => row.blobName)).toEqual(['beta.log']);
 
     component.onSearch('');
-    component.onDateFromChange(new Date('2026-04-12T00:00:00Z'));
-    component.onDateUntilChange(new Date('2026-04-12T00:00:00Z'));
+    component.onCreatedOnChange(new Date('2026-04-12T00:00:00Z'));
     fixture.detectChanges();
     expect(component.rows().map((row) => row.blobName)).toEqual(['beta.log']);
 
@@ -442,6 +444,64 @@ describe('LogsPage', () => {
       'beta.log',
       'alpha.log',
     ]);
+  });
+
+  it('filters by a complete created-at range and ignores an incomplete range', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
+    logs.statusState.set('success');
+    logs.entriesState.set([
+      createLogEntry({
+        id: 'entry-1',
+        blobName: 'archive.log',
+        createdAt: '2026-04-11T08:00:00Z',
+      }),
+      createLogEntry({
+        id: 'entry-2',
+        blobName: 'beta.log',
+        createdAt: '2026-04-12T10:00:00Z',
+      }),
+      createLogEntry({
+        id: 'entry-3',
+        blobName: 'alpha.log',
+        createdAt: '2026-04-13T09:00:00Z',
+      }),
+    ]);
+
+    component.onCreatedRangeChange([new Date('2026-04-12T00:00:00Z')]);
+    fixture.detectChanges();
+    expect(component.rows().map((row) => row.blobName)).toEqual([
+      'alpha.log',
+      'beta.log',
+      'archive.log',
+    ]);
+
+    component.onCreatedRangeChange([
+      new Date('2026-04-12T00:00:00Z'),
+      new Date('2026-04-13T00:00:00Z'),
+    ]);
+    fixture.detectChanges();
+    expect(component.rows().map((row) => row.blobName)).toEqual([
+      'alpha.log',
+      'beta.log',
+    ]);
+  });
+
+  it('keeps only one active date filter at a time', () => {
+    component.onCreatedRangeChange([
+      new Date('2026-04-12T00:00:00Z'),
+      new Date('2026-04-13T00:00:00Z'),
+    ]);
+    expect(component.createdOn()).toBeNull();
+    expect(component.createdRange()).toEqual([
+      new Date('2026-04-12T00:00:00Z'),
+      new Date('2026-04-13T00:00:00Z'),
+    ]);
+
+    component.onCreatedOnChange(new Date('2026-04-14T00:00:00Z'));
+    expect(component.createdOn()).toEqual(new Date('2026-04-14T00:00:00Z'));
+    expect(component.createdRange()).toBeNull();
   });
 
   it('refreshes content through the logs service', () => {

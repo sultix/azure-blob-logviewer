@@ -19,6 +19,7 @@ import { LogsDetailPanelComponent } from "../components/logs-detail-panel/logs-d
 import { LogsFileListComponent } from "../components/logs-file-list/logs-file-list.component";
 import { LogsFiltersComponent } from "../components/logs-filters/logs-filters.component";
 import type {
+  LogCreatedRange,
   LogFileRowVm,
   LogFooterVm,
   LogLargeViewerVm,
@@ -73,8 +74,8 @@ export class LogsPage implements OnInit {
 
   readonly searchTerm = signal("");
   readonly sortDir = signal<SortDir>("desc");
-  readonly dateFrom = signal<Date | null>(null);
-  readonly dateUntil = signal<Date | null>(null);
+  readonly createdOn = signal<Date | null>(null);
+  readonly createdRange = signal<LogCreatedRange>(null);
 
   readonly preparedRows = computed<PreparedLogFileRowVm[]>(() =>
     this.logs.entries().map((entry) => ({
@@ -91,15 +92,31 @@ export class LogsPage implements OnInit {
   readonly rows = computed<LogFileRowVm[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
     const dir = this.sortDir();
-    const start = startOfDayTimestamp(this.dateFrom());
-    const end = endOfDayExclusiveTimestamp(this.dateUntil());
+    const createdOn = this.createdOn();
+    const createdRange = this.createdRange();
+    const rangeStart = isCompleteCreatedRange(createdRange)
+      ? startOfDayTimestamp(createdRange[0])
+      : 0;
+    const rangeEnd = isCompleteCreatedRange(createdRange)
+      ? endOfDayExclusiveTimestamp(createdRange[1])
+      : Number.POSITIVE_INFINITY;
 
     const filteredRows = this.preparedRows().filter((row) => {
       if (term && !row.blobNameLower.includes(term)) {
         return false;
       }
 
-      return row.createdAtTs >= start && row.createdAtTs < end;
+      if (createdOn) {
+        const start = startOfDayTimestamp(createdOn);
+        const end = endOfDayExclusiveTimestamp(createdOn);
+        return row.createdAtTs >= start && row.createdAtTs < end;
+      }
+
+      if (isCompleteCreatedRange(createdRange)) {
+        return row.createdAtTs >= rangeStart && row.createdAtTs < rangeEnd;
+      }
+
+      return true;
     });
 
     const mult = dir === "asc" ? 1 : -1;
@@ -258,17 +275,23 @@ export class LogsPage implements OnInit {
     this.sortDir.set(this.sortDir() === "desc" ? "asc" : "desc");
   }
 
-  onDateFromChange(value: Date | null): void {
-    this.dateFrom.set(value);
+  onCreatedOnChange(value: Date | null): void {
+    this.createdOn.set(value);
+    if (value !== null) {
+      this.createdRange.set(null);
+    }
   }
 
-  onDateUntilChange(value: Date | null): void {
-    this.dateUntil.set(value);
+  onCreatedRangeChange(value: LogCreatedRange): void {
+    this.createdRange.set(value);
+    if (value !== null) {
+      this.createdOn.set(null);
+    }
   }
 
   clearFilters(): void {
-    this.dateFrom.set(null);
-    this.dateUntil.set(null);
+    this.createdOn.set(null);
+    this.createdRange.set(null);
   }
 
   select(id: string): void {
@@ -392,8 +415,8 @@ export class LogsPage implements OnInit {
     this.logs.reset();
     this.searchTerm.set("");
     this.sortDir.set("desc");
-    this.dateFrom.set(null);
-    this.dateUntil.set(null);
+    this.createdOn.set(null);
+    this.createdRange.set(null);
   }
 
   private async ensureConnectionsLoaded(): Promise<void> {
@@ -469,6 +492,10 @@ function endOfDayExclusiveTimestamp(value: Date | null): number {
     ).getTime() +
     24 * 60 * 60 * 1000
   );
+}
+
+function isCompleteCreatedRange(value: LogCreatedRange): value is [Date, Date] {
+  return value !== null && value.length === 2;
 }
 
 function countLogicalLines(content: string): number {

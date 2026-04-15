@@ -1,4 +1,5 @@
 export type LogsStatus = 'idle' | 'loading' | 'success' | 'error';
+export type LogCreatedRange = [Date] | [Date, Date] | null;
 
 export interface LogFileRowVm {
   id: string;

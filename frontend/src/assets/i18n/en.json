@@ -99,8 +99,8 @@
     "filters": {
       "searchPlaceholder": "Search logs...",
       "searchAriaLabel": "Search log files",
-      "from": "From",
-      "until": "Until",
+      "createdOn": "Created on",
+      "dateRange": "From - To",
       "clear": "Clear filters",
       "sortAriaLabel": "Sort logs",
       "newestFirst": "Newest first",

@@ -6,13 +6,13 @@
   >
     <app-logs-filters
       [searchTerm]="searchTerm()"
-      [dateFrom]="dateFrom()"
-      [dateUntil]="dateUntil()"
+      [createdOn]="createdOn()"
+      [createdRange]="createdRange()"
       [sortLabel]="sortLabel()"
       [isSortDescending]="sortDir() === 'desc'"
       (searchChanged)="onSearch($event)"
-      (dateFromChanged)="onDateFromChange($event)"
-      (dateUntilChanged)="onDateUntilChange($event)"
+      (createdOnChanged)="onCreatedOnChange($event)"
+      (createdRangeChanged)="onCreatedRangeChange($event)"
       (clearFiltersRequested)="clearFilters()"
       (sortToggled)="toggleSort()"
     />

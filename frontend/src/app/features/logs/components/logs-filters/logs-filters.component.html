@@ -15,9 +15,9 @@
 
   <div class="flex flex-col gap-2">
     <p-datepicker
-      [ngModel]="dateFrom()"
-      (ngModelChange)="onDateFromInput($event)"
-      [placeholder]="'logs.filters.from' | translate"
+      [ngModel]="createdOn()"
+      (ngModelChange)="onCreatedOnInput($event)"
+      [placeholder]="'logs.filters.createdOn' | translate"
       dateFormat="dd.mm.yy"
       [showIcon]="true"
       iconDisplay="input"
@@ -28,10 +28,12 @@
       appendTo="body"
     />
     <p-datepicker
-      [ngModel]="dateUntil()"
-      (ngModelChange)="onDateUntilInput($event)"
-      [placeholder]="'logs.filters.until' | translate"
+      [ngModel]="createdRange()"
+      (ngModelChange)="onCreatedRangeInput($event)"
+      [placeholder]="'logs.filters.dateRange' | translate"
       dateFormat="dd.mm.yy"
+      selectionMode="range"
+      rangeSeparator=" - "
       [showIcon]="true"
       iconDisplay="input"
       [showClear]="true"
@@ -50,7 +52,7 @@
       size="small"
       icon="pi pi-times"
       [text]="true"
-      (click)="clearFiltersRequested.emit()"
+      (click)="clearFilters()"
     >
       {{ 'logs.filters.clear' | translate }}
     </button>
