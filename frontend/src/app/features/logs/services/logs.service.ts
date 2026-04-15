@@ -9,6 +9,7 @@ import type {
   BlobViewSessionStatus,
   BlobViewLinesResponse,
 } from '@app/features/logs/models/blob-view.model';
+import type { LogContentMode } from '@app/features/logs/models/logs-view.model';
 import { SettingsService } from '@app/features/settings/services/settings.service';
 import type { AzureBlobItem, AzureBlobTextChunk } from '@app/features/settings/models/azure.model';
 
@@ -20,10 +21,20 @@ type LogsState =
   | { status: 'success'; entries: LogEntry[] }
   | { status: 'error'; message: string };
 
-interface SelectedBlobContentState {
-  entryId: string;
+interface SingleBlobContentState {
+  mode: 'single';
+  entryIds: [string];
   chunk: AzureBlobTextChunk;
 }
+
+interface MergedBlobContentState {
+  mode: 'merged';
+  entryIds: string[];
+  content: string;
+  totalSize: number;
+}
+
+type SelectedBlobContentState = SingleBlobContentState | MergedBlobContentState;
 
 interface LargeViewerState {
   entryId: string;
@@ -41,8 +52,15 @@ interface LargeViewerState {
 }
 
 const LARGE_BLOB_THRESHOLD_BYTES = 8 * 1024 * 1024;
+const MAX_MERGED_BLOB_SIZE_BYTES = 20 * 1024 * 1024;
+const MAX_MERGED_SELECTION_COUNT = 5;
 const LARGE_VIEW_POLL_INTERVAL_MS = 700;
 const DEFAULT_LINE_WINDOW_SIZE = 120;
+
+export type LogSelectionUpdateResult =
+  | { kind: 'updated' }
+  | { kind: 'selection-limit'; maxFiles: number }
+  | { kind: 'file-too-large'; fileName: string; maxSizeBytes: number };
 
 @Injectable()
 export class LogsService implements OnDestroy {
@@ -51,7 +69,7 @@ export class LogsService implements OnDestroy {
   private readonly settings = inject(SettingsService);
 
   private readonly state = signal<LogsState>({ status: 'idle' });
-  private readonly selectedEntryId = signal<string | null>(null);
+  private readonly selectedEntryIdsState = signal<string[]>([]);
   private readonly selectedContentState = signal<SelectedBlobContentState | null>(null);
   private readonly selectedContentErrorState = signal<string | null>(null);
   private readonly largeViewerState = signal<LargeViewerState | null>(null);
@@ -76,19 +94,44 @@ export class LogsService implements OnDestroy {
     () => this.status() === 'success' && this.entries().length === 0,
   );
 
+  readonly selectedEntryIds = this.selectedEntryIdsState.asReadonly();
+  readonly selectedEntries = computed<LogEntry[]>(() => {
+    const entriesById = new Map(this.entries().map((entry) => [entry.id, entry]));
+    return this.selectedEntryIdsState()
+      .map((id) => entriesById.get(id))
+      .filter((entry): entry is LogEntry => entry !== undefined);
+  });
+  readonly selectionCount = computed(() => this.selectedEntryIdsState().length);
+  readonly contentMode = computed<LogContentMode>(() => {
+    const selectionCount = this.selectionCount();
+    if (selectionCount === 0) {
+      return 'none';
+    }
+
+    return selectionCount === 1 ? 'single' : 'merged';
+  });
   readonly selectedEntry = computed<LogEntry | null>(() => {
-    const id = this.selectedEntryId();
-    if (!id) {
+    const selectedEntries = this.selectedEntries();
+    if (selectedEntries.length !== 1) {
       return null;
     }
-    return this.entries().find((entry) => entry.id === id) ?? null;
+
+    return selectedEntries[0] ?? null;
   });
 
   readonly selectedContent = computed<string>(() => {
     if (this.largeViewerState()) {
       return '';
     }
-    return this.selectedChunk()?.content ?? '';
+
+    const selectedContentState = this.selectedContentState();
+    if (!selectedContentState) {
+      return '';
+    }
+
+    return selectedContentState.mode === 'single'
+      ? selectedContentState.chunk.content
+      : selectedContentState.content;
   });
 
   readonly selectedContentLoaded = computed<boolean>(() => {
@@ -96,9 +139,11 @@ export class LogsService implements OnDestroy {
       return false;
     }
 
-    const selectedEntry = this.selectedEntry();
     const selectedContentState = this.selectedContentState();
-    return selectedEntry !== null && selectedContentState?.entryId === selectedEntry.id;
+    return (
+      selectedContentState !== null &&
+      areSelectionsEqual(selectedContentState.entryIds, this.selectedEntryIdsState())
+    );
   });
 
   readonly selectedContentError = computed<string | null>(() => this.selectedContentErrorState());
@@ -134,6 +179,12 @@ export class LogsService implements OnDestroy {
     if (largeViewerState) {
       return largeViewerState.status.blobSize;
     }
+
+    const selectedContentState = this.selectedContentState();
+    if (selectedContentState?.mode === 'merged') {
+      return selectedContentState.totalSize;
+    }
+
     return this.selectedChunk()?.blobSize ?? 0;
   });
 
@@ -168,7 +219,7 @@ export class LogsService implements OnDestroy {
     this.connectionLoadToken += 1;
     this.contentLoadToken += 1;
     this.state.set({ status: 'idle' });
-    this.selectedEntryId.set(null);
+    this.selectedEntryIdsState.set([]);
     this.selectedContentState.set(null);
     this.selectedContentErrorState.set(null);
     this._contentLoading.set(false);
@@ -178,7 +229,7 @@ export class LogsService implements OnDestroy {
   setError(message: string): void {
     this.connectionLoadToken += 1;
     this.contentLoadToken += 1;
-    this.selectedEntryId.set(null);
+    this.selectedEntryIdsState.set([]);
     this.selectedContentState.set(null);
     this.selectedContentErrorState.set(null);
     this._contentLoading.set(false);
@@ -190,7 +241,7 @@ export class LogsService implements OnDestroy {
     const token = ++this.connectionLoadToken;
     this.contentLoadToken += 1;
     this.state.set({ status: 'loading' });
-    this.selectedEntryId.set(null);
+    this.selectedEntryIdsState.set([]);
     this.selectedContentState.set(null);
     this.selectedContentErrorState.set(null);
     this._contentLoading.set(false);
@@ -220,26 +271,21 @@ export class LogsService implements OnDestroy {
   }
 
   selectEntry(id: string | null): void {
-    this.selectedEntryId.set(id);
-    this.selectedContentState.set(null);
-    this.selectedContentErrorState.set(null);
-    void this.closeLargeViewer();
+    void this.updateSelection(id, false);
+  }
 
-    if (!id) {
-      return;
+  async updateSelection(
+    id: string | null,
+    additive: boolean,
+  ): Promise<LogSelectionUpdateResult> {
+    const nextSelection = this.buildNextSelection(id, additive);
+    const validation = this.validateSelection(nextSelection);
+    if (validation.kind !== 'updated') {
+      return validation;
     }
 
-    const entry = this.entries().find((item) => item.id === id);
-    if (!entry) {
-      return;
-    }
-
-    if (entry.size > LARGE_BLOB_THRESHOLD_BYTES) {
-      void this.openLargeViewer(entry);
-      return;
-    }
-
-    void this.loadContent(id);
+    await this.applySelection(nextSelection);
+    return { kind: 'updated' };
   }
 
   async loadContent(id: string): Promise<void> {
@@ -247,7 +293,17 @@ export class LogsService implements OnDestroy {
   }
 
   async refreshContent(): Promise<void> {
-    const entry = this.selectedEntry();
+    const selectedEntries = this.selectedEntries();
+    if (selectedEntries.length === 0) {
+      return;
+    }
+
+    if (selectedEntries.length > 1) {
+      await this.loadMergedContent(selectedEntries);
+      return;
+    }
+
+    const entry = selectedEntries[0];
     if (!entry) {
       return;
     }
@@ -350,6 +406,86 @@ export class LogsService implements OnDestroy {
     this.largeViewerState.update((current) =>
       current ? { ...current, requestedScrollLine: null } : current,
     );
+  }
+
+  private buildNextSelection(id: string | null, additive: boolean): string[] {
+    if (!id) {
+      return [];
+    }
+
+    if (!additive) {
+      return [id];
+    }
+
+    const currentSelection = this.selectedEntryIdsState();
+    if (currentSelection.includes(id)) {
+      return currentSelection.filter((currentId) => currentId !== id);
+    }
+
+    return [...currentSelection, id];
+  }
+
+  private validateSelection(nextSelection: string[]): LogSelectionUpdateResult {
+    if (nextSelection.length > MAX_MERGED_SELECTION_COUNT) {
+      return {
+        kind: 'selection-limit',
+        maxFiles: MAX_MERGED_SELECTION_COUNT,
+      };
+    }
+
+    if (nextSelection.length <= 1) {
+      return { kind: 'updated' };
+    }
+
+    const oversizedEntry = this.entries().find(
+      (entry) =>
+        nextSelection.includes(entry.id) && entry.size > MAX_MERGED_BLOB_SIZE_BYTES,
+    );
+    if (oversizedEntry) {
+      return {
+        kind: 'file-too-large',
+        fileName: oversizedEntry.blobName,
+        maxSizeBytes: MAX_MERGED_BLOB_SIZE_BYTES,
+      };
+    }
+
+    return { kind: 'updated' };
+  }
+
+  private async applySelection(nextSelection: string[]): Promise<void> {
+    this.contentLoadToken += 1;
+    this.selectedEntryIdsState.set(nextSelection);
+    this.selectedContentState.set(null);
+    this.selectedContentErrorState.set(null);
+    this._contentLoading.set(false);
+
+    await this.closeLargeViewer();
+
+    if (nextSelection.length === 0) {
+      return;
+    }
+
+    const selectedEntries = this.selectedEntries();
+    if (selectedEntries.length !== nextSelection.length) {
+      return;
+    }
+
+    if (selectedEntries.length === 1) {
+      const entry = selectedEntries[0];
+      if (!entry) {
+        return;
+      }
+
+      if (entry.size > LARGE_BLOB_THRESHOLD_BYTES) {
+        await this.openLargeViewer(entry);
+        return;
+      }
+
+      await this.loadContentChunk(entry.id);
+      return;
+    }
+
+    await this.loadMergedContent(selectedEntries);
   }
 
   private async moveSearchMatch(direction: -1 | 1): Promise<void> {
@@ -601,13 +737,7 @@ export class LogsService implements OnDestroy {
     this.selectedContentErrorState.set(null);
 
     try {
-      const chunk = await this.api.readBlobTextChunk({
-        accountName: entry.storageAccountName,
-        containerName: entry.containerName,
-        blobName: entry.blobName,
-        startOffset: null,
-        count: null,
-      });
+      const chunk = await this.readEntryContent(entry);
       if (
         connectionLoadToken !== this.connectionLoadToken ||
         contentLoadToken !== this.contentLoadToken
@@ -615,7 +745,11 @@ export class LogsService implements OnDestroy {
         return;
       }
 
-      this.selectedContentState.set({ entryId: id, chunk });
+      this.selectedContentState.set({
+        mode: 'single',
+        entryIds: [id],
+        chunk,
+      });
     } catch (error) {
       if (
         connectionLoadToken !== this.connectionLoadToken ||
@@ -642,8 +776,83 @@ export class LogsService implements OnDestroy {
     }
   }
 
+  private async loadMergedContent(entries: LogEntry[]): Promise<void> {
+    const connectionLoadToken = this.connectionLoadToken;
+    const contentLoadToken = ++this.contentLoadToken;
+    this._contentLoading.set(true);
+    this.selectedContentErrorState.set(null);
+    this.selectedContentState.set(null);
+
+    try {
+      const chunks = await Promise.all(entries.map((entry) => this.readEntryContent(entry, entry.size)));
+      if (
+        connectionLoadToken !== this.connectionLoadToken ||
+        contentLoadToken !== this.contentLoadToken
+      ) {
+        return;
+      }
+
+      const mergedContent = entries
+        .map((entry, index) => buildMergedEntryContent(entry.blobName, chunks[index]?.content ?? ''))
+        .join('\n');
+      const totalSize = entries.reduce((sum, entry) => sum + entry.size, 0);
+
+      this.selectedContentState.set({
+        mode: 'merged',
+        entryIds: entries.map((entry) => entry.id),
+        content: mergedContent,
+        totalSize,
+      });
+    } catch (error) {
+      if (
+        connectionLoadToken !== this.connectionLoadToken ||
+        contentLoadToken !== this.contentLoadToken
+      ) {
+        return;
+      }
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : this.i18n.translate('common.errors.unknownError');
+      this.selectedContentState.set(null);
+      this.selectedContentErrorState.set(
+        this.i18n.translate('logs.service.loadContentFailed', { message }),
+      );
+    } finally {
+      if (
+        connectionLoadToken === this.connectionLoadToken &&
+        contentLoadToken === this.contentLoadToken
+      ) {
+        this._contentLoading.set(false);
+      }
+    }
+  }
+
+  private async readEntryContent(
+    entry: LogEntry,
+    count?: number | null,
+  ): Promise<AzureBlobTextChunk> {
+    if (!entry.storageAccountName || !entry.containerName) {
+      throw new Error(this.i18n.translate('common.errors.unknownError'));
+    }
+
+    return this.api.readBlobTextChunk({
+      accountName: entry.storageAccountName,
+      containerName: entry.containerName,
+      blobName: entry.blobName,
+      startOffset: count === undefined ? null : 0,
+      count: count ?? null,
+    });
+  }
+
   private selectedChunk(): AzureBlobTextChunk | null {
-    return this.selectedContentState()?.chunk ?? null;
+    const selectedContentState = this.selectedContentState();
+    if (selectedContentState?.mode !== 'single') {
+      return null;
+    }
+
+    return selectedContentState.chunk;
   }
 
   private mapBlobToEntry(blob: AzureBlobItem, accountName: string, containerName: string): LogEntry {
@@ -698,4 +907,20 @@ export class LogsService implements OnDestroy {
     }
     return this.i18n.formatRelativeFromNow(iso);
   }
+}
+
+function areSelectionsEqual(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((value, index) => value === right[index]);
+}
+
+function buildMergedEntryContent(blobName: string, content: string): string {
+  return [
+    `------------ START ${blobName} ------------`,
+    content,
+    `------------ END ${blobName} ------------`,
+  ].join('\n');
 }

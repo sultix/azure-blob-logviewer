@@ -16,7 +16,7 @@
       <i class="pi pi-file text-3xl"></i>
       <p class="text-sm">{{ "logs.detail.empty" | translate }}</p>
     </div>
-  } @else if (toolbar(); as tb) {
+  } @else if (normalizedToolbar(); as tb) {
     <header
       class="flex flex-wrap items-start justify-between gap-4 bg-surface-container-high px-6 py-4"
     >
@@ -24,20 +24,19 @@
         <h2
           class="truncate font-display text-base font-semibold text-on-surface"
         >
-          {{ tb.blobName }}
+          {{ tb.title }}
         </h2>
         <p class="truncate font-mono text-[11px] text-on-surface-variant">
-          {{ tb.path }}
+          {{ tb.subtitle }}
         </p>
         <div
           class="flex items-center gap-3 text-[10px] text-on-surface-variant"
         >
-          <span class="rounded-full bg-surface-container-highest px-2 py-0.5">
-            {{ "logs.detail.size" | translate: { value: tb.sizeLabel } }}
-          </span>
-          <span class="rounded-full bg-surface-container-highest px-2 py-0.5">
-            {{ "logs.detail.created" | translate: { value: tb.created } }}
-          </span>
+          @for (badge of tb.metaBadges; track badge) {
+            <span class="rounded-full bg-surface-container-highest px-2 py-0.5">
+              {{ badge }}
+            </span>
+          }
         </div>
       </div>
 

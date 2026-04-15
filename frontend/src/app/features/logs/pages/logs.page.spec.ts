@@ -20,7 +20,7 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly statusState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');
   readonly entriesState = signal<LogEntry[]>([]);
   readonly errorState = signal<string | null>(null);
-  readonly selectedEntryId = signal<string | null>(null);
+  readonly selectedEntryIdsState = signal<string[]>([]);
   readonly selectedContentState = signal('');
   readonly selectedContentLoadedState = signal(false);
   readonly selectedContentErrorState = signal<string | null>(null);
@@ -52,12 +52,27 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly isEmpty = computed(
     () => this.statusState() === 'success' && this.entriesState().length === 0,
   );
+  readonly selectedEntryIds = computed(() => this.selectedEntryIdsState());
+  readonly selectedEntries = computed(() =>
+    this.selectedEntryIdsState()
+      .map((id) => this.entriesState().find((entry) => entry.id === id) ?? null)
+      .filter((entry): entry is LogEntry => entry !== null),
+  );
+  readonly contentMode = computed<'none' | 'single' | 'merged'>(() => {
+    const selectionCount = this.selectedEntryIdsState().length;
+    if (selectionCount === 0) {
+      return 'none';
+    }
+
+    return selectionCount === 1 ? 'single' : 'merged';
+  });
   readonly selectedEntry = computed(() => {
-    const id = this.selectedEntryId();
-    if (!id) {
+    const selectedEntries = this.selectedEntries();
+    if (selectedEntries.length !== 1) {
       return null;
     }
-    return this.entriesState().find((entry) => entry.id === id) ?? null;
+
+    return selectedEntries[0] ?? null;
   });
   readonly selectedContent = computed(() => this.selectedContentState());
   readonly selectedContentLoaded = computed(() => this.selectedContentLoadedState());
@@ -82,7 +97,28 @@ class LogsServiceStub implements Partial<LogsService> {
   );
   readonly loadContent = vi.fn<(id: string) => Promise<void>>(async () => undefined);
   readonly selectEntry = vi.fn<(id: string | null) => void>((id) => {
-    this.selectedEntryId.set(id);
+    this.selectedEntryIdsState.set(id ? [id] : []);
+  });
+  readonly updateSelection = vi.fn<
+    (id: string | null, additive: boolean) => Promise<{ kind: 'updated' }>
+  >(async (id, additive) => {
+    if (!id) {
+      this.selectedEntryIdsState.set([]);
+      return { kind: 'updated' };
+    }
+
+    if (!additive) {
+      this.selectedEntryIdsState.set([id]);
+      return { kind: 'updated' };
+    }
+
+    const currentSelection = this.selectedEntryIdsState();
+    this.selectedEntryIdsState.set(
+      currentSelection.includes(id)
+        ? currentSelection.filter((currentId) => currentId !== id)
+        : [...currentSelection, id],
+    );
+    return { kind: 'updated' };
   });
   readonly refreshContent = vi.fn<() => Promise<void>>(async () => undefined);
   readonly updateLargeViewport = vi.fn<(startLine: number, lineCount: number) => Promise<void>>(
@@ -99,7 +135,7 @@ class LogsServiceStub implements Partial<LogsService> {
     this.statusState.set('idle');
     this.entriesState.set([]);
     this.errorState.set(null);
-    this.selectedEntryId.set(null);
+    this.selectedEntryIdsState.set([]);
     this.selectedContentState.set('');
     this.selectedContentLoadedState.set(false);
     this.selectedContentErrorState.set(null);
@@ -123,7 +159,7 @@ class LogsServiceStub implements Partial<LogsService> {
     this.statusState.set('error');
     this.entriesState.set([]);
     this.errorState.set(message);
-    this.selectedEntryId.set(null);
+    this.selectedEntryIdsState.set([]);
     this.selectedContentState.set('');
     this.selectedContentLoadedState.set(false);
     this.selectedContentErrorState.set(null);
@@ -247,7 +283,7 @@ describe('LogsPage', () => {
     expect(connections.load).toHaveBeenCalledOnce();
     expect(connections.getById).toHaveBeenCalledWith('conn-1');
     expect(logs.loadForConnection).toHaveBeenCalledWith('storage-a', 'logs');
-    expect(logs.selectEntry).toHaveBeenCalledWith('entry-newer');
+    expect(logs.updateSelection).toHaveBeenCalledWith('entry-newer', false);
   });
 
   it('does nothing on init when no connection id is present', async () => {
@@ -353,7 +389,7 @@ describe('LogsPage', () => {
     fixture.detectChanges();
 
     expect(logs.loadForConnection).toHaveBeenNthCalledWith(2, 'storage-a', 'archive');
-    expect(logs.selectEntry).toHaveBeenLastCalledWith('entry-new');
+    expect(logs.updateSelection).toHaveBeenLastCalledWith('entry-new', false);
   });
 
   it('shows an error when the route points to a missing connection', async () => {
@@ -416,10 +452,9 @@ describe('LogsPage', () => {
     ]);
     expect(layout.className).toContain('grid-cols-[var(--layout-sidebar-width)_1fr]');
     expect(component.toolbar()).toEqual({
-      blobName: 'alpha.log',
-      path: 'storage-a/logs/alpha.log',
-      sizeLabel: '1.5 KB',
-      created: '1 hr ago',
+      title: 'alpha.log',
+      subtitle: 'storage-a/logs/alpha.log',
+      metaBadges: ['Size 1.5 KB', 'Created 1 hr ago'],
     });
     expect(component.footer()).toEqual({
       typeLabel: 'text/plain',
@@ -531,6 +566,70 @@ describe('LogsPage', () => {
     });
   });
 
+  it('maps merged toolbar metadata and downloads the merged content', async () => {
+    vi.setSystemTime(new Date('2026-04-15T08:09:10Z'));
+    fixture.detectChanges();
+    await flushAsync();
+
+    logs.statusState.set('success');
+    logs.entriesState.set([
+      createLogEntry({ id: 'entry-1', blobName: 'alpha.log', size: 1024 }),
+      createLogEntry({ id: 'entry-2', blobName: 'beta.log', size: 2048 }),
+    ]);
+    logs.selectedEntryIdsState.set(['entry-1', 'entry-2']);
+    logs.selectedContentState.set(
+      '------------ START alpha.log ------------\nline 1\n------------ END alpha.log ------------\n' +
+        '------------ START beta.log ------------\nline 2\n------------ END beta.log ------------',
+    );
+    logs.selectedContentLoadedState.set(true);
+
+    fixture.detectChanges();
+
+    expect(component.toolbar()).toEqual({
+      title: '2 files selected',
+      subtitle: 'Merged log view',
+      metaBadges: ['Size 3.0 KB', 'Merge order: click order'],
+    });
+
+    await component.download();
+
+    expect(anchorClickSpy).toHaveBeenCalledOnce();
+    expect(createObjectUrlSpy).toHaveBeenCalledOnce();
+    expect(messageService.add).toHaveBeenCalledWith({
+      severity: 'success',
+      summary: 'Download complete',
+      detail: 'Merged logs saved as merged-logs-20260415-100910.txt',
+      life: 2500,
+    });
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:logs-download');
+  });
+
+  it('shows warning toasts when multi-selection violates merge limits', async () => {
+    logs.updateSelection
+      .mockResolvedValueOnce({ kind: 'selection-limit', maxFiles: 5 })
+      .mockResolvedValueOnce({
+        kind: 'file-too-large',
+        fileName: 'huge.log',
+        maxSizeBytes: 20 * 1024 * 1024,
+      });
+
+    await component.select({ id: 'entry-6', additive: true });
+    await component.select({ id: 'huge.log', additive: true });
+
+    expect(messageService.add).toHaveBeenNthCalledWith(1, {
+      severity: 'warn',
+      summary: 'Selection limit reached',
+      detail: 'You can merge up to 5 files.',
+      life: 3000,
+    });
+    expect(messageService.add).toHaveBeenNthCalledWith(2, {
+      severity: 'warn',
+      summary: 'File too large for merge',
+      detail: 'huge.log exceeds the 20.0 MB limit.',
+      life: 3000,
+    });
+  });
+
   it('keeps only blob metadata in the footer when content failed to load', async () => {
     fixture.detectChanges();
     await flushAsync();
@@ -611,7 +710,7 @@ describe('LogsPage', () => {
     logs.statusState.set('success');
     logs.entriesState.set([]);
     logs.errorState.set(null);
-    logs.selectedEntryId.set(null);
+    logs.selectedEntryIdsState.set([]);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('No blobs found in this container.');
     expect(fixture.nativeElement.textContent).toContain('Select a log file to view its contents');

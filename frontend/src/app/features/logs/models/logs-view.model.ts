@@ -1,5 +1,6 @@
 export type LogsStatus = 'idle' | 'loading' | 'success' | 'error';
 export type LogCreatedRange = [Date] | [Date, Date] | null;
+export type LogContentMode = 'none' | 'single' | 'merged';
 
 export interface LogFileRowVm {
   id: string;
@@ -9,11 +10,19 @@ export interface LogFileRowVm {
   isLive: boolean;
 }
 
+export interface LogFileSelectionEvent {
+  id: string;
+  additive: boolean;
+}
+
 export interface LogToolbarVm {
-  blobName: string;
-  path: string;
-  sizeLabel: string;
-  created: string;
+  title?: string;
+  subtitle?: string;
+  metaBadges?: string[];
+  blobName?: string;
+  path?: string;
+  sizeLabel?: string;
+  created?: string;
 }
 
 export interface LogContentWindowVm {

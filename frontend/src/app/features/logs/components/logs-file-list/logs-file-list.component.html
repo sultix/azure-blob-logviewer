@@ -18,10 +18,11 @@
       <li>
         <button
           type="button"
-          (click)="entrySelected.emit(row.id)"
+          (click)="onEntryClick($event, row.id)"
           class="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left transition-colors cursor-pointer hover:bg-surface-container-high"
-          [class.bg-surface-container-highest]="selectedEntryId() === row.id"
-          [class.hover:bg-surface-container]="selectedEntryId() !== row.id"
+          [class.bg-surface-container-highest]="selectedEntryIdSet().has(row.id)"
+          [class.hover:bg-surface-container]="!selectedEntryIdSet().has(row.id)"
+          [attr.aria-pressed]="selectedEntryIdSet().has(row.id)"
         >
           <div class="flex items-center justify-between gap-2">
             <span class="truncate font-mono text-xs text-on-surface">

@@ -347,6 +347,134 @@ describe('LogsService', () => {
     expect(service.selectedContentError()).toBe('Error loading content: network failed');
   });
 
+  it('merges selected files in click order and reads their full content', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({ name: 'alpha.log', size: 1024 }),
+      createBlob({ name: 'beta.log', size: 10 * 1024 * 1024 }),
+    ]);
+    api.readBlobTextChunk.mockImplementation(async (request) =>
+      createChunk({
+        content: request.blobName === 'alpha.log' ? 'alpha line' : 'beta line',
+        blobSize: request.count ?? 42,
+        endOffsetExclusive: request.count ?? 42,
+        isLargeBlob: (request.count ?? 0) > 8 * 1024 * 1024,
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    await service.updateSelection('beta.log', false);
+    await flushAsync();
+
+    api.readBlobTextChunk.mockClear();
+
+    await service.updateSelection('alpha.log', true);
+    await flushAsync();
+
+    expect(service.selectedEntryIds()).toEqual(['beta.log', 'alpha.log']);
+    expect(service.contentMode()).toBe('merged');
+    expect(service.selectedContent()).toBe(
+      '------------ START beta.log ------------\n' +
+        'beta line\n' +
+        '------------ END beta.log ------------\n' +
+        '------------ START alpha.log ------------\n' +
+        'alpha line\n' +
+        '------------ END alpha.log ------------',
+    );
+    expect(api.readBlobTextChunk).toHaveBeenNthCalledWith(1, {
+      accountName: 'myaccount',
+      containerName: 'logs',
+      blobName: 'beta.log',
+      startOffset: 0,
+      count: 10 * 1024 * 1024,
+    });
+    expect(api.readBlobTextChunk).toHaveBeenNthCalledWith(2, {
+      accountName: 'myaccount',
+      containerName: 'logs',
+      blobName: 'alpha.log',
+      startOffset: 0,
+      count: 1024,
+    });
+  });
+
+  it('rejects a sixth selected file and keeps the previous selection', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({ name: 'one.log', size: 1024 }),
+      createBlob({ name: 'two.log', size: 1024 }),
+      createBlob({ name: 'three.log', size: 1024 }),
+      createBlob({ name: 'four.log', size: 1024 }),
+      createBlob({ name: 'five.log', size: 1024 }),
+      createBlob({ name: 'six.log', size: 1024 }),
+    ]);
+    api.readBlobTextChunk.mockResolvedValue(createChunk());
+
+    await service.loadForConnection('myaccount', 'logs');
+    await service.updateSelection('one.log', false);
+    await service.updateSelection('two.log', true);
+    await service.updateSelection('three.log', true);
+    await service.updateSelection('four.log', true);
+    await service.updateSelection('five.log', true);
+
+    const result = await service.updateSelection('six.log', true);
+
+    expect(result).toEqual({ kind: 'selection-limit', maxFiles: 5 });
+    expect(service.selectedEntryIds()).toEqual([
+      'one.log',
+      'two.log',
+      'three.log',
+      'four.log',
+      'five.log',
+    ]);
+  });
+
+  it('rejects adding a file larger than 20 MB to a merged selection', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({ name: 'small.log', size: 1024 }),
+      createBlob({ name: 'huge.log', size: 21 * 1024 * 1024 }),
+    ]);
+    api.readBlobTextChunk.mockResolvedValue(createChunk());
+
+    await service.loadForConnection('myaccount', 'logs');
+    await service.updateSelection('small.log', false);
+
+    const result = await service.updateSelection('huge.log', true);
+
+    expect(result).toEqual({
+      kind: 'file-too-large',
+      fileName: 'huge.log',
+      maxSizeBytes: 20 * 1024 * 1024,
+    });
+    expect(service.selectedEntryIds()).toEqual(['small.log']);
+  });
+
+  it('falls back to single-file mode when a merged selection is reduced to one file', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({ name: 'alpha.log', size: 1024 }),
+      createBlob({ name: 'beta.log', size: 1024 }),
+    ]);
+    api.readBlobTextChunk.mockResolvedValue(createChunk({ content: 'single content' }));
+
+    await service.loadForConnection('myaccount', 'logs');
+    await service.updateSelection('alpha.log', false);
+    await service.updateSelection('beta.log', true);
+    await flushAsync();
+
+    api.readBlobTextChunk.mockClear();
+
+    await service.updateSelection('beta.log', true);
+    await flushAsync();
+
+    expect(service.contentMode()).toBe('single');
+    expect(service.selectedEntryIds()).toEqual(['alpha.log']);
+    expect(service.selectedEntry()?.id).toBe('alpha.log');
+    expect(api.readBlobTextChunk).toHaveBeenCalledWith({
+      accountName: 'myaccount',
+      containerName: 'logs',
+      blobName: 'alpha.log',
+      startOffset: null,
+      count: null,
+    });
+  });
+
   it('ignores stale content responses from the previous connection and keeps loading active for the current selection', async () => {
     const sharedBlob = createBlob({
       name: 'shared.log',

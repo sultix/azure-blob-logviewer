@@ -26,6 +26,7 @@ describe('LogsFileListComponent', () => {
   it('renders the loading state', () => {
     fixture.componentRef.setInput('rows', []);
     fixture.componentRef.setInput('loading', true);
+    fixture.componentRef.setInput('selectedEntryIds', []);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Loading blobs…');
@@ -34,12 +35,13 @@ describe('LogsFileListComponent', () => {
   it('renders the empty state when there are no rows', () => {
     fixture.componentRef.setInput('rows', []);
     fixture.componentRef.setInput('loading', false);
+    fixture.componentRef.setInput('selectedEntryIds', []);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('No blobs found in this container.');
   });
 
-  it('highlights the selected row and emits the selected id', () => {
+  it('highlights selected rows and emits additive selection metadata', () => {
     const rows: LogFileRowVm[] = [
       {
         id: 'entry-1',
@@ -56,11 +58,13 @@ describe('LogsFileListComponent', () => {
         isLive: false,
       },
     ];
-    const entrySelected = vi.fn<(id: string) => void>();
+    const entrySelected = vi.fn<
+      (event: { id: string; additive: boolean }) => void
+    >();
     component.entrySelected.subscribe(entrySelected);
 
     fixture.componentRef.setInput('rows', rows);
-    fixture.componentRef.setInput('selectedEntryId', 'entry-1');
+    fixture.componentRef.setInput('selectedEntryIds', ['entry-1', 'entry-2']);
     fixture.detectChanges();
 
     const buttons = fixture.nativeElement.querySelectorAll('li button');
@@ -68,11 +72,15 @@ describe('LogsFileListComponent', () => {
     const secondButton = buttons[1] as HTMLButtonElement;
 
     expect(firstButton.className).toContain('bg-surface-container-highest');
-    expect(secondButton.className).toContain('hover:bg-surface-container');
+    expect(secondButton.className).toContain('bg-surface-container-highest');
+    expect(firstButton.getAttribute('aria-pressed')).toBe('true');
     expect(fixture.nativeElement.textContent).toContain('LIVE');
 
-    secondButton.click();
+    secondButton.dispatchEvent(new MouseEvent('click', { ctrlKey: true }));
 
-    expect(entrySelected).toHaveBeenCalledWith('entry-2');
+    expect(entrySelected).toHaveBeenCalledWith({
+      id: 'entry-2',
+      additive: true,
+    });
   });
 });

@@ -20,12 +20,16 @@ import { LogsFileListComponent } from "../components/logs-file-list/logs-file-li
 import { LogsFiltersComponent } from "../components/logs-filters/logs-filters.component";
 import type {
   LogCreatedRange,
+  LogFileSelectionEvent,
   LogFileRowVm,
   LogFooterVm,
   LogLargeViewerVm,
   LogToolbarVm,
 } from "../models/logs-view.model";
-import { LogsService } from "../services/logs.service";
+import {
+  LogsService,
+  type LogSelectionUpdateResult,
+} from "../services/logs.service";
 
 type SortDir = "asc" | "desc";
 
@@ -68,6 +72,9 @@ export class LogsPage implements OnInit {
   readonly selectedContentLoaded = this.logs.selectedContentLoaded;
   readonly selectedContentError = this.logs.selectedContentError;
   readonly selectedEntry = this.logs.selectedEntry;
+  readonly selectedEntries = this.logs.selectedEntries;
+  readonly selectedEntryIds = this.logs.selectedEntryIds;
+  readonly contentMode = this.logs.contentMode;
   readonly contentLoading = this.logs.contentLoading;
   readonly isLargeBlob = this.logs.isLargeBlob;
   readonly largeViewerStatus = this.logs.largeViewerStatus;
@@ -131,13 +138,42 @@ export class LogsPage implements OnInit {
   });
 
   readonly toolbar = computed<LogToolbarVm | null>(() => {
+    const contentMode = this.contentMode();
+    if (contentMode === "none") {
+      return null;
+    }
+
+    if (contentMode === "merged") {
+      const selectedEntries = this.selectedEntries();
+      return {
+        title: this.i18n.translate("logs.detail.mergedTitle", {
+          count: selectedEntries.length,
+        }),
+        subtitle: this.i18n.translate("logs.detail.mergedSubtitle"),
+        metaBadges: [
+          this.i18n.translate("logs.detail.size", {
+            value: this.formatSize(
+              selectedEntries.reduce((sum, entry) => sum + entry.size, 0),
+            ),
+          }),
+          this.i18n.translate("logs.detail.mergeOrder"),
+        ],
+      };
+    }
+
     const entry = this.selectedEntry();
     if (!entry) return null;
     return {
-      blobName: entry.blobName,
-      path: entry.path ?? `/${entry.container}/${entry.blobName}`,
-      sizeLabel: this.formatSize(entry.size),
-      created: entry.createdRelative || entry.createdLabel,
+      title: entry.blobName,
+      subtitle: entry.path ?? `/${entry.container}/${entry.blobName}`,
+      metaBadges: [
+        this.i18n.translate("logs.detail.size", {
+          value: this.formatSize(entry.size),
+        }),
+        this.i18n.translate("logs.detail.created", {
+          value: entry.createdRelative || entry.createdLabel,
+        }),
+      ],
     };
   });
 
@@ -146,8 +182,7 @@ export class LogsPage implements OnInit {
       ? this.i18n.translate('logs.filters.newestFirst')
       : this.i18n.translate('logs.filters.oldestFirst'),
   );
-  readonly selectedEntryId = computed(() => this.selectedEntry()?.id ?? null);
-  readonly hasSelectedEntry = computed(() => this.selectedEntry() !== null);
+  readonly hasSelectedEntry = computed(() => this.selectedEntryIds().length > 0);
   readonly sidebarLoading = computed(() => this.status() === "loading");
   readonly largeViewer = computed<LogLargeViewerVm | null>(() => {
     const status = this.largeViewerStatus();
@@ -233,14 +268,17 @@ export class LogsPage implements OnInit {
     };
   });
   readonly footer = computed<LogFooterVm | null>(() => {
-    const entry = this.selectedEntry();
-    if (!entry) {
+    const selectedEntries = this.selectedEntries();
+    if (selectedEntries.length === 0) {
       return null;
     }
 
     const footer: LogFooterVm = {};
-    if (entry.contentType?.trim()) {
-      footer.typeLabel = `${entry.contentType}`;
+    if (selectedEntries.length === 1) {
+      const entry = selectedEntries[0];
+      if (entry?.contentType?.trim()) {
+        footer.typeLabel = `${entry.contentType}`;
+      }
     }
 
     const contentFooterStats = this.contentFooterStats();
@@ -295,8 +333,8 @@ export class LogsPage implements OnInit {
     this.createdRange.set(null);
   }
 
-  select(id: string): void {
-    this.logs.selectEntry(id);
+  async select(event: LogFileSelectionEvent): Promise<void> {
+    await this.updateSelection(event.id, event.additive);
   }
 
   refresh(): void {
@@ -324,12 +362,17 @@ export class LogsPage implements OnInit {
   }
 
   async download(): Promise<void> {
-    const entry = this.selectedEntry();
-    if (!entry || this.contentLoading()) {
+    const selectedEntries = this.selectedEntries();
+    if (selectedEntries.length === 0 || this.contentLoading()) {
       return;
     }
 
     if (this.isLargeBlob()) {
+      const entry = this.selectedEntry();
+      if (!entry) {
+        return;
+      }
+
       const exported = await this.logs.exportLargeViewer();
       if (!exported) {
         return;
@@ -346,9 +389,19 @@ export class LogsPage implements OnInit {
       return;
     }
 
+    const isMerged = selectedEntries.length > 1;
     let content = this.selectedContent();
     if (!this.selectedContentLoaded()) {
-      await this.logs.loadContent(entry.id);
+      if (isMerged) {
+        await this.logs.refreshContent();
+      } else {
+        const entry = selectedEntries[0];
+        if (!entry) {
+          return;
+        }
+        await this.logs.loadContent(entry.id);
+      }
+
       if (this.selectedContentError() !== null) {
         return;
       }
@@ -359,16 +412,22 @@ export class LogsPage implements OnInit {
     const downloadUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = downloadUrl;
-    link.download = entry.blobName;
+    link.download = isMerged
+      ? buildMergedDownloadFileName(new Date())
+      : (selectedEntries[0]?.blobName ?? "log.txt");
     link.click();
     URL.revokeObjectURL(downloadUrl);
 
     this.messageService.add({
       severity: "success",
       summary: this.i18n.translate('logs.detail.toast.downloadComplete'),
-      detail: this.i18n.translate('logs.detail.toast.downloaded', {
-        name: entry.blobName,
-      }),
+      detail: isMerged
+        ? this.i18n.translate('logs.detail.toast.downloadedMerged', {
+            name: link.download,
+          })
+        : this.i18n.translate('logs.detail.toast.downloaded', {
+            name: selectedEntries[0]?.blobName ?? link.download,
+          }),
       life: 2500,
     });
   }
@@ -408,8 +467,13 @@ export class LogsPage implements OnInit {
 
     const firstVisibleRow = this.rows()[0];
     if (firstVisibleRow) {
-      this.logs.selectEntry(firstVisibleRow.id);
+      await this.logs.updateSelection(firstVisibleRow.id, false);
     }
+  }
+
+  private async updateSelection(id: string, additive: boolean): Promise<void> {
+    const result = await this.logs.updateSelection(id, additive);
+    this.showSelectionMessage(result);
   }
 
   private resetPageState(): void {
@@ -444,6 +508,34 @@ export class LogsPage implements OnInit {
     return this.formatSize(bytes);
   }
 
+  private showSelectionMessage(result: LogSelectionUpdateResult): void {
+    if (result.kind === "updated") {
+      return;
+    }
+
+    if (result.kind === "selection-limit") {
+      this.messageService.add({
+        severity: "warn",
+        summary: this.i18n.translate("logs.detail.toast.selectionLimitTitle"),
+        detail: this.i18n.translate("logs.detail.toast.selectionLimitDetail", {
+          max: result.maxFiles,
+        }),
+        life: 3000,
+      });
+      return;
+    }
+
+    this.messageService.add({
+      severity: "warn",
+      summary: this.i18n.translate("logs.detail.toast.fileTooLargeTitle"),
+      detail: this.i18n.translate("logs.detail.toast.fileTooLargeDetail", {
+        name: result.fileName,
+        maxSize: this.formatSize(result.maxSizeBytes),
+      }),
+      life: 3000,
+    });
+  }
+
   private buildLargeViewerSearchStatusLabel(): string {
     const matches = this.logs.largeViewerSearchMatches();
     const query = this.logs.largeViewerSearchQuery().trim();
@@ -466,6 +558,17 @@ function hasFooterContent(footer: LogFooterVm): boolean {
   return Boolean(
     footer.typeLabel || footer.lineCountLabel || footer.lineEndingsLabel,
   );
+}
+
+function buildMergedDownloadFileName(now: Date): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const seconds = String(now.getSeconds()).padStart(2, "0");
+
+  return `merged-logs-${year}${month}${day}-${hours}${minutes}${seconds}.txt`;
 }
 
 function startOfDayTimestamp(value: Date | null): number {

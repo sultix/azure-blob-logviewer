@@ -42,6 +42,12 @@ interface RenderedLargeLineVm {
   readonly html: string;
 }
 
+interface NormalizedToolbarVm {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly metaBadges: string[];
+}
+
 const CONTENT_SEARCH_DELAY_MS = 120;
 const LARGE_VIEW_LINE_HEIGHT_PX = 20;
 const LARGE_VIEW_OVERSCAN_LINES = 16;
@@ -113,6 +119,29 @@ export class LogsDetailPanelComponent implements OnDestroy {
     return largeViewer.canEnableWordWrap;
   });
   readonly isLargeViewer = computed(() => this.largeViewer() !== null);
+  readonly normalizedToolbar = computed<NormalizedToolbarVm | null>(() => {
+    const toolbar = this.toolbar();
+    if (!toolbar) {
+      return null;
+    }
+
+    if (toolbar.title && toolbar.subtitle && toolbar.metaBadges) {
+      return {
+        title: toolbar.title,
+        subtitle: toolbar.subtitle,
+        metaBadges: toolbar.metaBadges,
+      };
+    }
+
+    return {
+      title: toolbar.blobName ?? '',
+      subtitle: toolbar.path ?? '',
+      metaBadges: [
+        toolbar.sizeLabel ? this.i18n.translate('logs.detail.size', { value: toolbar.sizeLabel }) : null,
+        toolbar.created ? this.i18n.translate('logs.detail.created', { value: toolbar.created }) : null,
+      ].filter((badge): badge is string => badge !== null),
+    };
+  });
   readonly renderedTailPreviewLines = computed<RenderedTailPreviewLineVm[]>(() => {
     const largeViewer = this.largeViewer();
     if (!largeViewer) {

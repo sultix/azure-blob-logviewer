@@ -1,7 +1,10 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import type { LogFileRowVm } from '../../models/logs-view.model';
+import type {
+  LogFileRowVm,
+  LogFileSelectionEvent,
+} from '../../models/logs-view.model';
 
 @Component({
   selector: 'app-logs-file-list',
@@ -16,7 +19,15 @@ import type { LogFileRowVm } from '../../models/logs-view.model';
 export class LogsFileListComponent {
   readonly rows = input.required<LogFileRowVm[]>();
   readonly loading = input(false);
-  readonly selectedEntryId = input<string | null>(null);
+  readonly selectedEntryIds = input.required<string[]>();
+  readonly selectedEntryIdSet = computed(() => new Set(this.selectedEntryIds()));
 
-  readonly entrySelected = output<string>();
+  readonly entrySelected = output<LogFileSelectionEvent>();
+
+  onEntryClick(event: MouseEvent, id: string): void {
+    this.entrySelected.emit({
+      id,
+      additive: event.ctrlKey || event.metaKey,
+    });
+  }
 }

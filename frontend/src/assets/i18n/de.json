@@ -115,6 +115,9 @@
     "detail": {
       "loading": "Logs werden geladen…",
       "empty": "Wählen Sie eine Logdatei aus, um ihren Inhalt anzuzeigen",
+      "mergedTitle": "{{count}} Dateien ausgewählt",
+      "mergedSubtitle": "Zusammengeführte Log-Ansicht",
+      "mergeOrder": "Merge-Reihenfolge: Klickreihenfolge",
       "size": "Größe {{value}}",
       "created": "Erstellt {{value}}",
       "wordWrap": "Zeilenumbruch",
@@ -175,7 +178,12 @@
       },
       "toast": {
         "downloadComplete": "Download abgeschlossen",
-        "downloaded": "{{name}} heruntergeladen"
+        "downloaded": "{{name}} heruntergeladen",
+        "downloadedMerged": "Zusammengeführte Logs als {{name}} heruntergeladen",
+        "selectionLimitTitle": "Auswahllimit erreicht",
+        "selectionLimitDetail": "Sie können höchstens {{max}} Dateien zusammenführen.",
+        "fileTooLargeTitle": "Datei zu groß für den Merge",
+        "fileTooLargeDetail": "{{name}} überschreitet das Limit von {{maxSize}}."
       }
     },
     "service": {

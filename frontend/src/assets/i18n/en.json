@@ -115,6 +115,9 @@
     "detail": {
       "loading": "Loading logs…",
       "empty": "Select a log file to view its contents",
+      "mergedTitle": "{{count}} files selected",
+      "mergedSubtitle": "Merged log view",
+      "mergeOrder": "Merge order: click order",
       "size": "Size {{value}}",
       "created": "Created {{value}}",
       "wordWrap": "Word Wrap",
@@ -175,7 +178,12 @@
       },
       "toast": {
         "downloadComplete": "Download complete",
-        "downloaded": "{{name}} downloaded"
+        "downloaded": "{{name}} downloaded",
+        "downloadedMerged": "Merged logs saved as {{name}}",
+        "selectionLimitTitle": "Selection limit reached",
+        "selectionLimitDetail": "You can merge up to {{max}} files.",
+        "fileTooLargeTitle": "File too large for merge",
+        "fileTooLargeDetail": "{{name}} exceeds the {{maxSize}} limit."
       }
     },
     "service": {
