@@ -4,6 +4,7 @@ export type Environment = 'production' | 'staging' | 'development' | 'test';
 export interface StorageConnection {
   id: string;
   name: string;
+  category?: string;
   displayName: string;
   environment: Environment;
   status: ConnectionStatus;

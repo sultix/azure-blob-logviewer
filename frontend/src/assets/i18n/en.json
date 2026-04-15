@@ -63,6 +63,7 @@
       "loading": "Loading connections…",
       "emptyTitle": "No storage connections yet",
       "emptyDescription": "Add your first Azure Blob Storage connection to open logs.",
+      "uncategorizedGroup": "Uncategorized",
       "lastUsed": "Last used {{value}}",
       "tier": "{{tier}} tier",
       "openLogs": "Open Logs",
@@ -74,6 +75,8 @@
       "description": "Select an Azure subscription, storage account, and container.",
       "connectionName": "Connection Name",
       "connectionNamePlaceholder": "az-prod-logs",
+      "category": "Category",
+      "categoryPlaceholder": "Operations",
       "save": "Save Connection"
     },
     "confirm": {

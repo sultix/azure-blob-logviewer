@@ -1,37 +1,51 @@
-<div class="flex flex-col gap-5">
+<form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-5">
   <p class="text-xs text-on-surface-variant">
-    {{ 'connections.dialog.description' | translate }}
+    {{ "connections.dialog.description" | translate }}
   </p>
 
   <label class="flex flex-col gap-1.5">
-    <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-      {{ 'connections.dialog.connectionName' | translate }}
+    <span
+      class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
+    >
+      {{ "connections.dialog.connectionName" | translate }}
     </span>
     <input
+      pInputText
       type="text"
+      formControlName="name"
       [placeholder]="'connections.dialog.connectionNamePlaceholder' | translate"
-      [ngModel]="draftNameValue"
-      (ngModelChange)="onDraftNameChange($event)"
-      class="rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
+      class="w-full rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-sm text-on-surface placeholder:text-outline"
+    />
+  </label>
+
+  <label class="flex flex-col gap-1.5">
+    <span
+      class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
+    >
+      {{ "connections.dialog.category" | translate }}
+    </span>
+    <input
+      pInputText
+      type="text"
+      formControlName="category"
+      [placeholder]="'connections.dialog.categoryPlaceholder' | translate"
+      class="w-full rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-sm text-on-surface placeholder:text-outline"
     />
   </label>
 
   <app-azure-resource-picker
+    [subscriptionControl]="subscriptionControl"
+    [storageAccountControl]="storageAccountControl"
+    [containerControl]="containerControl"
     [subscriptions]="subscriptionsValue"
     [subscriptionsLoading]="subscriptionsLoadingValue"
     [subscriptionsError]="subscriptionsErrorValue"
-    [selectedSubscription]="selectedSubscriptionValue"
     [storageAccounts]="storageAccountsValue"
     [storageAccountsLoading]="storageAccountsLoadingValue"
     [storageAccountsError]="storageAccountsErrorValue"
-    [selectedStorageAccount]="selectedStorageAccountValue"
     [containers]="containersValue"
     [containersLoading]="containersLoadingValue"
     [containersError]="containersErrorValue"
-    [selectedContainer]="selectedContainerValue"
-    (subscriptionSelected)="onSubscriptionSelected($event)"
-    (storageAccountSelected)="onStorageAccountSelected($event)"
-    (containerSelected)="onContainerSelected($event)"
   />
 
   <div class="flex justify-end gap-2 pt-2">
@@ -40,15 +54,14 @@
       (click)="cancel()"
       class="rounded-lg px-4 py-2 text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
     >
-      {{ 'common.actions.cancel' | translate }}
+      {{ "common.actions.cancel" | translate }}
     </button>
     <button
-      type="button"
-      (click)="save()"
+      type="submit"
       [disabled]="!canSaveValue"
       class="rounded-lg bg-primary-gradient px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-40"
     >
-      {{ 'connections.dialog.save' | translate }}
+      {{ "connections.dialog.save" | translate }}
     </button>
   </div>
-</div>
+</form>

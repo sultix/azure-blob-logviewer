@@ -17,8 +17,7 @@
       <p-select
         [options]="subscriptionsValue"
         optionLabel="displayName"
-        [ngModel]="selectedSubscriptionValue"
-        (ngModelChange)="subscriptionSelected.emit($event)"
+        [formControl]="subscriptionControlValue"
         [filter]="true"
         filterBy="displayName,id"
         [placeholder]="'settings.resourcePicker.subscriptionPlaceholder' | translate"
@@ -50,13 +49,11 @@
       <p-select
         [options]="storageAccountsValue"
         optionLabel="name"
-        [ngModel]="selectedStorageAccountValue"
-        (ngModelChange)="storageAccountSelected.emit($event)"
+        [formControl]="storageAccountControlValue"
         [filter]="true"
         filterBy="name,location"
         [placeholder]="'settings.resourcePicker.storageAccountPlaceholder' | translate"
         [showClear]="true"
-        [disabled]="!canSelectStorageAccount"
         appendTo="body"
         styleClass="w-full"
       />
@@ -81,13 +78,11 @@
       <p-select
         [options]="containersValue"
         optionLabel="name"
-        [ngModel]="selectedContainerValue"
-        (ngModelChange)="containerSelected.emit($event)"
+        [formControl]="containerControlValue"
         [filter]="true"
         filterBy="name"
         [placeholder]="'settings.resourcePicker.containerPlaceholder' | translate"
         [showClear]="true"
-        [disabled]="!canSelectContainer"
         appendTo="body"
         styleClass="w-full"
       />

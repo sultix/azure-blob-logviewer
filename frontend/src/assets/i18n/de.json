@@ -63,6 +63,7 @@
       "loading": "Verbindungen werden geladen…",
       "emptyTitle": "Noch keine Storage-Verbindungen",
       "emptyDescription": "Fuegen Sie Ihre erste Azure-Blob-Storage-Verbindung hinzu, um Logs zu oeffnen.",
+      "uncategorizedGroup": "Ohne Kategorie",
       "lastUsed": "Zuletzt verwendet {{value}}",
       "tier": "{{tier}}-Tier",
       "openLogs": "Logs oeffnen",
@@ -74,6 +75,8 @@
       "description": "Waehlen Sie ein Azure-Abonnement, ein Storage-Konto und einen Container aus.",
       "connectionName": "Verbindungsname",
       "connectionNamePlaceholder": "az-prod-logs",
+      "category": "Kategorie (optional)",
+      "categoryPlaceholder": "z.B. Project X, Project Y, etc.",
       "save": "Verbindung speichern"
     },
     "confirm": {

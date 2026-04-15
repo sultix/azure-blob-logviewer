@@ -70,6 +70,7 @@
       >
         <i class="pi pi-search text-sm text-on-surface-variant"></i>
         <input
+          pInputText
           type="text"
           [placeholder]="'connections.page.searchPlaceholder' | translate"
           [ngModel]="searchTerm()"
@@ -118,62 +119,83 @@
       </p>
     </div>
     } @else {
-    <ul class="flex flex-col gap-2">
-      @for (card of cards(); track card.id) {
-      <li
-        class="group flex items-center gap-5 rounded-xl bg-surface-container p-5 transition-colors hover:bg-surface-container-high"
-      >
-        <span
-          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-container-high"
-          [class]="card.statusColorClass"
+    <ng-template #cardList let-cards>
+      <ul class="flex flex-col gap-2">
+        @for (card of cards; track card.id) {
+        <li
+          class="group flex items-center gap-5 rounded-xl bg-surface-container p-5 transition-colors hover:bg-surface-container-high"
         >
-          <i class="pi text-base" [class]="card.statusIcon"></i>
-        </span>
+          <span
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-container-high"
+            [class]="card.statusColorClass"
+          >
+            <i class="pi text-base" [class]="card.statusIcon"></i>
+          </span>
 
-        <div class="flex min-w-0 flex-1 flex-col gap-1">
-          <div class="flex items-center gap-3">
-            <span
-              class="truncate font-mono text-sm font-medium text-on-surface"
+          <div class="flex min-w-0 flex-1 flex-col gap-1">
+            <div class="flex items-center gap-3">
+              <span
+                class="truncate font-mono text-sm font-medium text-on-surface"
+              >
+                {{ card.name }}
+              </span>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-on-surface-variant">
+              <span>{{ card.displayName }}</span>
+              <span class="text-outline-variant">•</span>
+              <span>{{ 'connections.page.lastUsed' | translate: { value: card.lastUsedRelative } }}</span>
+              <span class="text-outline-variant">•</span>
+              <span>{{ 'connections.page.tier' | translate: { tier: card.accessTier } }}</span>
+            </div>
+          </div>
+
+          <div class="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              (click)="requestRemove(card)"
+              [attr.aria-label]="'connections.page.removeConnectionAriaLabel' | translate"
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-surface"
             >
-              {{ card.name }}
-            </span>
-          </div>
-          <div class="flex items-center gap-4 text-xs text-on-surface-variant">
-            <span>{{ card.displayName }}</span>
-            <span class="text-outline-variant">•</span>
-            <span>{{ 'connections.page.lastUsed' | translate: { value: card.lastUsedRelative } }}</span>
-            <span class="text-outline-variant">•</span>
-            <span>{{ 'connections.page.tier' | translate: { tier: card.accessTier } }}</span>
-            <!-- <span class="text-outline-variant">•</span>
-            <span class="italic">{{ card.stateText }}</span> -->
-          </div>
-        </div>
+              <i class="pi pi-trash text-xs"></i>
+            </button>
 
-        <div class="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            (click)="requestRemove(card)"
-            [attr.aria-label]="'connections.page.removeConnectionAriaLabel' | translate"
-            class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-surface"
-          >
-            <i class="pi pi-trash text-xs"></i>
-          </button>
+            <button
+              type="button"
+              (click)="openLogs(card)"
+              class="flex h-10 items-center gap-2 rounded-lg bg-surface-container-highest px-4 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright"
+            >
+              @if (card.isOffline) {
+              <i class="pi pi-refresh text-xs"></i>
+              {{ 'connections.page.reconnect' | translate }} } @else { {{ 'connections.page.openLogs' | translate }}
+              <i class="pi pi-arrow-right text-xs"></i>
+              }
+            </button>
+          </div>
+        </li>
+        }
+      </ul>
+    </ng-template>
 
-          <button
-            type="button"
-            (click)="openLogs(card)"
-            class="flex h-10 items-center gap-2 rounded-lg bg-surface-container-highest px-4 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright"
-          >
-            @if (card.isOffline) {
-            <i class="pi pi-refresh text-xs"></i>
-            {{ 'connections.page.reconnect' | translate }} } @else { {{ 'connections.page.openLogs' | translate }}
-            <i class="pi pi-arrow-right text-xs"></i>
-            }
-          </button>
-        </div>
-      </li>
+    @if (showCategoryGroups()) {
+    <div class="flex flex-col gap-6">
+      @for (group of cardGroups(); track group.key) {
+      <section class="flex flex-col gap-2">
+        <h3 class="text-xs font-semibold uppercase tracking-[0.16em] text-on-surface-variant">
+          {{ group.label }}
+        </h3>
+        <ng-container
+          [ngTemplateOutlet]="cardList"
+          [ngTemplateOutletContext]="{ $implicit: group.cards }"
+        />
+      </section>
       }
-    </ul>
+    </div>
+    } @else {
+    <ng-container
+      [ngTemplateOutlet]="cardList"
+      [ngTemplateOutletContext]="{ $implicit: cards() }"
+    />
+    }
     }
   </div>
 </section>

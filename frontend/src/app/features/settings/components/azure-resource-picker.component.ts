@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ReactiveFormsModule } from '@angular/forms';
+import type { FormControl } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Select } from 'primeng/select';
 
@@ -11,29 +12,25 @@ import type {
 
 @Component({
   selector: 'app-azure-resource-picker',
-  imports: [FormsModule, Select, TranslatePipe],
+  imports: [ReactiveFormsModule, Select, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './azure-resource-picker.component.html',
 })
 export class AzureResourcePickerComponent {
+  readonly subscriptionControl = input.required<FormControl<AzureSubscription | null>>();
   readonly subscriptions = input.required<AzureSubscription[]>();
   readonly subscriptionsLoading = input(false);
   readonly subscriptionsError = input<string | null>(null);
-  readonly selectedSubscription = input<AzureSubscription | null>(null);
 
+  readonly storageAccountControl = input.required<FormControl<AzureStorageAccount | null>>();
   readonly storageAccounts = input.required<AzureStorageAccount[]>();
   readonly storageAccountsLoading = input(false);
   readonly storageAccountsError = input<string | null>(null);
-  readonly selectedStorageAccount = input<AzureStorageAccount | null>(null);
 
+  readonly containerControl = input.required<FormControl<AzureContainer | null>>();
   readonly containers = input.required<AzureContainer[]>();
   readonly containersLoading = input(false);
   readonly containersError = input<string | null>(null);
-  readonly selectedContainer = input<AzureContainer | null>(null);
-
-  readonly subscriptionSelected = output<AzureSubscription | null>();
-  readonly storageAccountSelected = output<AzureStorageAccount | null>();
-  readonly containerSelected = output<AzureContainer | null>();
 
   get subscriptionsValue(): AzureSubscription[] {
     return this.subscriptions();
@@ -47,8 +44,8 @@ export class AzureResourcePickerComponent {
     return this.subscriptionsError();
   }
 
-  get selectedSubscriptionValue(): AzureSubscription | null {
-    return this.selectedSubscription();
+  get subscriptionControlValue(): FormControl<AzureSubscription | null> {
+    return this.subscriptionControl();
   }
 
   get hasSubscriptions(): boolean {
@@ -67,12 +64,8 @@ export class AzureResourcePickerComponent {
     return this.storageAccountsError();
   }
 
-  get selectedStorageAccountValue(): AzureStorageAccount | null {
-    return this.selectedStorageAccount();
-  }
-
-  get canSelectStorageAccount(): boolean {
-    return this.selectedSubscriptionValue !== null;
+  get storageAccountControlValue(): FormControl<AzureStorageAccount | null> {
+    return this.storageAccountControl();
   }
 
   get containersValue(): AzureContainer[] {
@@ -87,11 +80,7 @@ export class AzureResourcePickerComponent {
     return this.containersError();
   }
 
-  get selectedContainerValue(): AzureContainer | null {
-    return this.selectedContainer();
-  }
-
-  get canSelectContainer(): boolean {
-    return this.selectedStorageAccountValue !== null;
+  get containerControlValue(): FormControl<AzureContainer | null> {
+    return this.containerControl();
   }
 }

@@ -5,6 +5,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import type { OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -12,6 +13,7 @@ import { Router, RouterLink } from '@angular/router';
 import { ConfirmationService } from 'primeng/api';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { DialogService } from 'primeng/dynamicdialog';
+import { InputText } from 'primeng/inputtext';
 import { lastValueFrom } from 'rxjs';
 
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
@@ -30,6 +32,7 @@ import {
 interface ConnectionCardVm {
   id: string;
   name: string;
+  category?: string;
   displayName: string;
   environment: string;
   accessTier: string;
@@ -41,9 +44,15 @@ interface ConnectionCardVm {
   raw: StorageConnection;
 }
 
+interface ConnectionCardGroupVm {
+  key: string;
+  label: string;
+  cards: ConnectionCardVm[];
+}
+
 @Component({
   selector: 'app-connections-page',
-  imports: [FormsModule, RouterLink, ConfirmDialog, TranslatePipe],
+  imports: [FormsModule, RouterLink, ConfirmDialog, InputText, NgTemplateOutlet, TranslatePipe],
   providers: [DialogService, ConfirmationService],
   templateUrl: './connections.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,6 +71,9 @@ export class ConnectionsPage implements OnInit {
   readonly isAuthenticated = this.azure.isAuthenticated;
 
   readonly searchTerm = signal('');
+  readonly uncategorizedGroupLabel = computed(() =>
+    this.i18n.translate('connections.page.uncategorizedGroup')
+  );
 
   readonly totalContainers = computed(() => {
     const total = this.connectionsService
@@ -78,10 +90,51 @@ export class ConnectionsPage implements OnInit {
           (c) =>
             c.name.toLowerCase().includes(term) ||
             c.displayName.toLowerCase().includes(term) ||
-            c.environment.toLowerCase().includes(term)
+            c.environment.toLowerCase().includes(term) ||
+            c.category?.toLowerCase().includes(term)
         )
       : list;
     return filtered.map((c) => this.toCardVm(c));
+  });
+
+  readonly showCategoryGroups = computed(() => this.cards().some((card) => !!card.category));
+
+  readonly cardGroups = computed<ConnectionCardGroupVm[]>(() => {
+    if (!this.showCategoryGroups()) return [];
+
+    const groups: ConnectionCardGroupVm[] = [];
+    const groupsByKey = new Map<string, ConnectionCardGroupVm>();
+    const uncategorizedCards: ConnectionCardVm[] = [];
+
+    for (const card of this.cards()) {
+      if (!card.category) {
+        uncategorizedCards.push(card);
+        continue;
+      }
+
+      const groupKey = card.category.toLowerCase();
+      let group = groupsByKey.get(groupKey);
+      if (!group) {
+        group = {
+          key: groupKey,
+          label: card.category,
+          cards: [],
+        };
+        groupsByKey.set(groupKey, group);
+        groups.push(group);
+      }
+      group.cards.push(card);
+    }
+
+    if (uncategorizedCards.length > 0) {
+      groups.push({
+        key: '__uncategorized__',
+        label: this.uncategorizedGroupLabel(),
+        cards: uncategorizedCards,
+      });
+    }
+
+    return groups;
   });
 
   ngOnInit(): void {
@@ -103,11 +156,12 @@ export class ConnectionsPage implements OnInit {
     if (!ref) return;
     void lastValueFrom(ref.onClose).then((result: AddConnectionResult | null | undefined) => {
       if (!result) return;
-      const { name, subscription, storageAccount, container } = result;
+      const { name, category, subscription, storageAccount, container } = result;
       const id = `${storageAccount.name}-${container.name}-${Date.now()}`;
       this.connectionsService.add({
         id,
         name,
+        category,
         displayName: `${storageAccount.name} / ${container.name}`,
         environment: 'production',
         status: 'online',
@@ -146,9 +200,11 @@ export class ConnectionsPage implements OnInit {
   }
 
   private toCardVm(c: StorageConnection): ConnectionCardVm {
+    const category = c.category?.trim();
     return {
       id: c.id,
       name: c.name,
+      category: category || undefined,
       displayName: c.displayName,
       environment: c.environment,
       accessTier: c.accessTier,

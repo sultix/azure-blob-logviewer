@@ -29,6 +29,15 @@ describe('ConnectionsService', () => {
     expect(service.isEmpty()).toBe(false);
   });
 
+  it('preserves optional categories when loading persisted connections', async () => {
+    const saved = [createConnection({ id: 'conn-1', category: 'Operations' })];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+
+    await service.load();
+
+    expect(service.connections()[0]?.category).toBe('Operations');
+  });
+
   it('falls back to an empty list when persisted data is invalid', async () => {
     localStorage.setItem(STORAGE_KEY, '{not-json');
 

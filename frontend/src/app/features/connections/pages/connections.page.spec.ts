@@ -158,8 +158,66 @@ describe('ConnectionsPage', () => {
     expect(fixture.nativeElement.textContent).not.toContain('prod-logs');
   });
 
+  it('keeps the list flat when no visible connection has a category', () => {
+    connections.connectionsState.set([
+      createConnection({ id: 'conn-1', name: 'prod-logs' }),
+      createConnection({ id: 'conn-2', name: 'staging-logs' }),
+    ]);
+
+    fixture.detectChanges();
+
+    expect(component.showCategoryGroups()).toBe(false);
+    expect(component.cardGroups()).toEqual([]);
+    expect(fixture.nativeElement.textContent).not.toContain('Uncategorized');
+  });
+
+  it('groups visible connections by category and places uncategorized entries last', () => {
+    connections.connectionsState.set([
+      createConnection({ id: 'conn-1', name: 'prod-logs', category: 'Operations' }),
+      createConnection({ id: 'conn-2', name: 'audit-logs', category: 'Security' }),
+      createConnection({ id: 'conn-3', name: 'misc-logs' }),
+      createConnection({ id: 'conn-4', name: 'ops-archive', category: 'Operations' }),
+    ]);
+
+    fixture.detectChanges();
+
+    expect(component.showCategoryGroups()).toBe(true);
+    expect(component.cardGroups().map((group) => group.label)).toEqual([
+      'Operations',
+      'Security',
+      'Uncategorized',
+    ]);
+    expect(component.cardGroups()[0]?.cards.map((card) => card.name)).toEqual([
+      'prod-logs',
+      'ops-archive',
+    ]);
+    expect(component.cardGroups()[2]?.cards.map((card) => card.name)).toEqual(['misc-logs']);
+    expect(fixture.nativeElement.textContent).toContain('Operations');
+    expect(fixture.nativeElement.textContent).toContain('Security');
+    expect(fixture.nativeElement.textContent).toContain('Uncategorized');
+  });
+
+  it('matches categories in search and regroups the filtered result', () => {
+    connections.connectionsState.set([
+      createConnection({ id: 'conn-1', name: 'prod-logs', category: 'Operations' }),
+      createConnection({ id: 'conn-2', name: 'audit-logs', category: 'Security' }),
+      createConnection({ id: 'conn-3', name: 'misc-logs' }),
+    ]);
+
+    fixture.detectChanges();
+    component.onSearch('security');
+    fixture.detectChanges();
+
+    expect(component.cards().map((card) => card.name)).toEqual(['audit-logs']);
+    expect(component.showCategoryGroups()).toBe(true);
+    expect(component.cardGroups().map((group) => group.label)).toEqual(['Security']);
+    expect(fixture.nativeElement.textContent).toContain('audit-logs');
+    expect(fixture.nativeElement.textContent).not.toContain('prod-logs');
+    expect(fixture.nativeElement.textContent).not.toContain('misc-logs');
+  });
+
   it('adds a new connection when the dialog closes with a result', async () => {
-    const result = createDialogResult();
+    const result = createDialogResult({ category: 'Operations' });
     fixture.detectChanges();
 
     component.openDialog();
@@ -171,6 +229,7 @@ describe('ConnectionsPage', () => {
     expect(connections.add).toHaveBeenCalledWith({
       id: 'storage-a-logs-1776081600000',
       name: 'prod',
+      category: 'Operations',
       displayName: 'storage-a / logs',
       environment: 'production',
       status: 'online',

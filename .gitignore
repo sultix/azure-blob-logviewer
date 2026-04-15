@@ -51,3 +51,5 @@ frontend/.angular/
 
 # Wails-generated bindings (regenerated on `wails dev` / `wails generate module`)
 frontend/wailsjs/
+
+.DS_Store
