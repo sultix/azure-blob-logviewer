@@ -17,7 +17,7 @@
     },
     "actions": {
       "cancel": "Abbrechen",
-      "reset": "Zuruecksetzen",
+      "reset": "Zurücksetzen",
       "remove": "Entfernen",
       "copy": "Kopieren",
       "view": "Ansehen",
@@ -28,7 +28,7 @@
       "authFailed": "Authentifizierung fehlgeschlagen",
       "unknownError": "Unbekannter Fehler",
       "noResponseFromBackend": "Keine Antwort vom Backend",
-      "wailsBridgeUnavailable": "Wails-Bridge nicht verfuegbar. Fuehren Sie `wails dev` aus, um Bindings zu erzeugen."
+      "wailsBridgeUnavailable": "Wails-Bridge nicht verfügbar. Führen Sie `wails dev` aus, um Bindings zu erzeugen."
     }
   },
   "shell": {
@@ -41,38 +41,38 @@
       "minimize": "Fenster minimieren",
       "maximize": "Fenster maximieren",
       "restore": "Fenster wiederherstellen",
-      "close": "Fenster schliessen"
+      "close": "Fenster schließen"
     }
   },
   "connections": {
     "page": {
       "eyebrow": "Dashboard",
       "title": "Storage-Verbindungen",
-      "description": "Verwalten Sie gespeicherte Azure-Blob-Storage-Verbindungen und oeffnen Sie Logs aus ausgewaehlten Containern.",
-      "overview": "Uebersicht",
+      "description": "Verwalten Sie gespeicherte Azure-Blob-Storage-Verbindungen und öffnen Sie Logs aus ausgewählten Containern.",
+      "overview": "Übersicht",
       "totalContainers": "Container gesamt",
-      "azureCliRequired": "Azure CLI wird benoetigt",
-      "azureCliDescription": "Die App verwendet Ihre Azure-CLI-Sitzung, speichert keine Azure-Tokens und benoetigt {{command}}.",
+      "azureCliRequired": "Azure CLI wird benötigt",
+      "azureCliDescription": "Die App verwendet Ihre Azure-CLI-Sitzung, speichert keine Azure-Tokens und benötigt {{command}}.",
       "searchPlaceholder": "Verbindungen, Umgebungen durchsuchen...",
       "searchAriaLabel": "Verbindungen durchsuchen",
       "addButton": "Neue Storage-Verbindung",
-      "addButtonTitleEnabled": "Neue Storage-Verbindung hinzufuegen",
+      "addButtonTitleEnabled": "Neue Storage-Verbindung hinzufügen",
       "addButtonTitleDisabled": "Bitte zuerst in den Einstellungen mit Azure verbinden",
       "authNoticeBefore": "Bitte verbinden Sie sich zuerst unter ",
-      "authNoticeAfter": ", um neue Storage-Verbindungen hinzuzufuegen.",
+      "authNoticeAfter": ", um neue Storage-Verbindungen hinzuzufügen.",
       "loading": "Verbindungen werden geladen…",
       "emptyTitle": "Noch keine Storage-Verbindungen",
-      "emptyDescription": "Fuegen Sie Ihre erste Azure-Blob-Storage-Verbindung hinzu, um Logs zu oeffnen.",
+      "emptyDescription": "Fügen Sie Ihre erste Azure-Blob-Storage-Verbindung hinzu, um Logs zu öffnen.",
       "uncategorizedGroup": "Ohne Kategorie",
       "lastUsed": "Zuletzt verwendet {{value}}",
       "tier": "{{tier}}-Tier",
-      "openLogs": "Logs oeffnen",
+      "openLogs": "Logs öffnen",
       "reconnect": "Neu verbinden",
       "removeConnectionAriaLabel": "Verbindung entfernen"
     },
     "dialog": {
-      "title": "Storage-Verbindung hinzufuegen",
-      "description": "Waehlen Sie ein Azure-Abonnement, ein Storage-Konto und einen Container aus.",
+      "title": "Storage-Verbindung hinzufügen",
+      "description": "Wählen Sie ein Azure-Abonnement, ein Storage-Konto und einen Container aus.",
       "connectionName": "Verbindungsname",
       "connectionNamePlaceholder": "az-prod-logs",
       "category": "Kategorie (optional)",
@@ -90,37 +90,37 @@
       "searchAriaLabel": "Logdateien durchsuchen",
       "from": "Von",
       "until": "Bis",
-      "clear": "Filter loeschen",
+      "clear": "Filter löschen",
       "sortAriaLabel": "Logs sortieren",
       "newestFirst": "Neueste zuerst",
-      "oldestFirst": "Aelteste zuerst"
+      "oldestFirst": "Älteste zuerst"
     },
     "fileList": {
-      "title": "Verfuegbare Logs",
+      "title": "Verfügbare Logs",
       "loading": "Blobs werden geladen…",
       "empty": "Keine Blobs in diesem Container gefunden.",
       "live": "LIVE"
     },
     "detail": {
       "loading": "Logs werden geladen…",
-      "empty": "Waehlen Sie eine Logdatei aus, um ihren Inhalt anzuzeigen",
-      "size": "Groesse {{value}}",
-      "modified": "Geaendert {{value}}",
+      "empty": "Wählen Sie eine Logdatei aus, um ihren Inhalt anzuzeigen",
+      "size": "Größe {{value}}",
+      "modified": "Geändert {{value}}",
       "wordWrap": "Zeilenumbruch",
-      "wordWrapToggleAriaLabel": "Zeilenumbruch fuer Loginhalt umschalten",
+      "wordWrapToggleAriaLabel": "Zeilenumbruch für Loginhalt umschalten",
       "searchContentPlaceholder": "Inhalt durchsuchen...",
       "searchContentAriaLabel": "Im Loginhalt suchen",
-      "clearSearch": "Suche loeschen",
-      "clearSearchAriaLabel": "Inhaltssuche loeschen",
+      "clearSearch": "Suche löschen",
+      "clearSearchAriaLabel": "Inhaltssuche löschen",
       "previousMatch": "Vorheriger Treffer",
       "previousMatchAriaLabel": "Vorheriger Treffer",
-      "nextMatch": "Naechster Treffer",
-      "nextMatchAriaLabel": "Naechster Treffer",
+      "nextMatch": "Nächster Treffer",
+      "nextMatchAriaLabel": "Nächster Treffer",
       "refreshAriaLabel": "Aktualisieren",
       "downloadAriaLabel": "Herunterladen",
       "moreActionsAriaLabel": "Weitere Aktionen",
       "loadingContent": "Blob-Inhalt wird geladen…",
-      "searching": "Suche laeuft…",
+      "searching": "Suche läuft…",
       "zeroMatches": "0 Treffer",
       "mobileActions": {
         "refresh": "Aktualisieren",
@@ -157,7 +157,7 @@
       "general": "Allgemeine Einstellungen",
       "language": {
         "title": "Sprache",
-        "description": "Waehlen Sie die Frontend-Sprache fuer Beschriftungen, Meldungen und Datumsformate."
+        "description": "Wählen Sie die Frontend-Sprache für Beschriftungen, Meldungen und Datumsformate."
       },
       "refreshInterval": {
         "title": "Automatisches Aktualisierungsintervall",
@@ -170,7 +170,7 @@
         "description": "Wie lange zwischengespeicherte Log-Inhalte lokal behalten werden.",
         "30d": "30 Tage aufbewahren",
         "90d": "90 Tage aufbewahren",
-        "manual": "Permanent (manuell loeschen)"
+        "manual": "Permanent (manuell löschen)"
       },
       "savedConnections": {
         "title": "Gespeicherte Verbindungen",
@@ -184,7 +184,7 @@
           "authExpired": "Authentifizierung abgelaufen"
         }
       },
-      "securityNote": "Die Authentifizierung verwendet Azure-CLI-Anmeldedaten. Fuehren Sie {{command}} in Ihrem Terminal aus, um sich zu authentifizieren. Diese Anwendung speichert keine Anmeldedaten.",
+      "securityNote": "Die Authentifizierung verwendet Azure-CLI-Anmeldedaten. Führen Sie {{command}} in Ihrem Terminal aus, um sich zu authentifizieren. Diese Anwendung speichert keine Anmeldedaten.",
       "authBadge": {
         "authenticated": "AUTHENTIFIZIERT",
         "authenticating": "AUTHENTIFIZIERUNG",
@@ -194,13 +194,13 @@
     },
     "login": {
       "disconnected": {
-        "description": "Verbinden Sie sich ueber Ihre lokale Azure-CLI-Sitzung mit Azure.",
-        "hint": "Stellen Sie sicher, dass Sie {{command}} im Terminal ausgefuehrt haben.",
+        "description": "Verbinden Sie sich über Ihre lokale Azure-CLI-Sitzung mit Azure.",
+        "hint": "Stellen Sie sicher, dass Sie {{command}} im Terminal ausgeführt haben.",
         "button": "Mit Azure verbinden"
       },
       "authenticating": {
         "title": "Verbindung mit Azure CLI wird hergestellt...",
-        "description": "Azure-CLI-Sitzung wird geprueft."
+        "description": "Azure-CLI-Sitzung wird geprüft."
       },
       "authenticated": {
         "title": "Authentifiziert",
@@ -218,9 +218,9 @@
       "loadingSubscriptions": "Abonnements werden geladen...",
       "loadingStorageAccounts": "Storage-Konten werden geladen...",
       "loadingContainers": "Container werden geladen...",
-      "subscriptionPlaceholder": "Abonnement auswaehlen...",
-      "storageAccountPlaceholder": "Storage-Konto auswaehlen...",
-      "containerPlaceholder": "Container auswaehlen...",
+      "subscriptionPlaceholder": "Abonnement auswählen...",
+      "storageAccountPlaceholder": "Storage-Konto auswählen...",
+      "containerPlaceholder": "Container auswählen...",
       "noSubscriptions": "Keine Abonnements gefunden."
     },
     "blobList": {
@@ -228,8 +228,8 @@
       "empty": "Keine Blobs in diesem Container.",
       "headers": {
         "name": "Name",
-        "size": "Groesse",
-        "modified": "Geaendert"
+        "size": "Größe",
+        "modified": "Geändert"
       },
       "content": "Inhalt: {{name}}",
       "loadingContent": "Inhalt wird geladen..."
