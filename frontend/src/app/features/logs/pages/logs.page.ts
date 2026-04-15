@@ -290,6 +290,7 @@ export class LogsPage implements OnInit {
   }
 
   clearFilters(): void {
+    this.searchTerm.set("");
     this.createdOn.set(null);
     this.createdRange.set(null);
   }

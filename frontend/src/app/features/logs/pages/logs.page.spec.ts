@@ -437,6 +437,7 @@ describe('LogsPage', () => {
     expect(component.rows().map((row) => row.blobName)).toEqual(['beta.log']);
 
     component.clearFilters();
+    expect(component.searchTerm()).toBe('');
     component.toggleSort();
     fixture.detectChanges();
     expect(component.rows().map((row) => row.blobName)).toEqual([
