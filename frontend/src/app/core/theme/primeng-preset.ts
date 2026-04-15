@@ -159,18 +159,6 @@ export const ObsidianConsolePreset = definePreset(Aura, {
       950: "#00344d",
     },
     formField: {
-      paddingX: "0.6875rem",
-      paddingY: "0.6875rem",
-      sm: {
-        fontSize: "0.8125rem",
-        paddingX: "0.5625rem",
-        paddingY: "0.5625rem",
-      },
-      lg: {
-        fontSize: "1rem",
-        paddingX: "0.75rem",
-        paddingY: "0.75rem",
-      },
       borderRadius: "{border.radius.lg}",
     },
     overlay: {
@@ -277,8 +265,8 @@ export const ObsidianConsolePreset = definePreset(Aura, {
             color: "#dae2fd",
           },
           modal: {
-            background: "#222a3d",
-            borderColor: "#3e4850",
+            background: "#101C38",
+            borderColor: "#122133",
             color: "#dae2fd",
           },
         },
@@ -334,7 +322,7 @@ export const ObsidianConsolePreset = definePreset(Aura, {
     }
 
     .p-select .p-select-label {
-      font-size: 0.75rem;
+      font-size: 0.95rem;
     }
 
     .p-datepicker {
