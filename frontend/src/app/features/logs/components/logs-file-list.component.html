@@ -2,7 +2,7 @@
   <h2
     class="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant"
   >
-    {{ 'logs.fileList.title' | translate }}
+    {{ "logs.fileList.title" | translate }}
   </h2>
 </div>
 
@@ -10,7 +10,7 @@
   <div
     class="flex min-h-0 flex-1 items-center justify-center text-xs text-on-surface-variant"
   >
-    {{ 'logs.fileList.loading' | translate }}
+    {{ "logs.fileList.loading" | translate }}
   </div>
 } @else {
   <ul class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-5">
@@ -19,7 +19,7 @@
         <button
           type="button"
           (click)="entrySelected.emit(row.id)"
-          class="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left transition-colors"
+          class="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left transition-colors cursor-pointer hover:bg-surface-container-high"
           [class.bg-surface-container-highest]="selectedEntryIdValue === row.id"
           [class.hover:bg-surface-container]="selectedEntryIdValue !== row.id"
         >
@@ -31,7 +31,7 @@
               <span
                 class="shrink-0 rounded-full bg-tertiary-container px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-on-surface"
               >
-                {{ 'logs.fileList.live' | translate }}
+                {{ "logs.fileList.live" | translate }}
               </span>
             }
           </div>
@@ -45,7 +45,7 @@
       </li>
     } @empty {
       <li class="px-3 py-6 text-center text-xs text-on-surface-variant">
-        {{ 'logs.fileList.empty' | translate }}
+        {{ "logs.fileList.empty" | translate }}
       </li>
     }
   </ul>
