@@ -47,6 +47,12 @@ interface MockBridge {
   DownloadBlobContent: ReturnType<
     typeof vi.fn<(accountName: string, containerName: string, blobName: string) => Promise<string>>
   >;
+  ImportConnectionsFile: ReturnType<
+    typeof vi.fn<() => Promise<{ cancelled: boolean; content: string } | null>>
+  >;
+  ExportConnectionsFile: ReturnType<
+    typeof vi.fn<(content: string) => Promise<{ cancelled: boolean } | null>>
+  >;
 }
 
 interface RuntimeWindow extends Window {
@@ -100,6 +106,8 @@ describe('AppApiService', () => {
     bridge.ListStorageAccounts.mockResolvedValue(null);
     bridge.ListContainers.mockResolvedValue(null);
     bridge.ListBlobs.mockResolvedValue(null);
+    bridge.ImportConnectionsFile.mockResolvedValue(null);
+    bridge.ExportConnectionsFile.mockResolvedValue(null);
 
     await expect(service.listLogEntries()).resolves.toEqual([]);
     await expect(service.startAzureLogin()).resolves.toEqual({
@@ -112,6 +120,8 @@ describe('AppApiService', () => {
     await expect(service.listStorageAccounts('sub-1')).resolves.toEqual([]);
     await expect(service.listContainers('sub-1', 'rg-1', 'storage-a')).resolves.toEqual([]);
     await expect(service.listBlobs('storage-a', 'logs', 'prefix/')).resolves.toEqual([]);
+    await expect(service.importConnectionsFile()).resolves.toEqual({ cancelled: true, content: '' });
+    await expect(service.exportConnectionsFile('[]')).resolves.toEqual({ cancelled: true });
   });
 
   it('passes through non-null bridge responses and forwards method arguments', async () => {
@@ -160,6 +170,8 @@ describe('AppApiService', () => {
     bridge.ListContainers.mockResolvedValue(containers);
     bridge.ListBlobs.mockResolvedValue(blobs);
     bridge.DownloadBlobContent.mockResolvedValue('log line 1');
+    bridge.ImportConnectionsFile.mockResolvedValue({ cancelled: false, content: '[\n  {}\n]' });
+    bridge.ExportConnectionsFile.mockResolvedValue({ cancelled: false });
 
     await expect(service.getVersion()).resolves.toBe('0.1.0');
     await expect(service.listLogEntries()).resolves.toEqual([entry]);
@@ -174,6 +186,11 @@ describe('AppApiService', () => {
     await expect(service.downloadBlobContent('storage-a', 'logs', 'app.log')).resolves.toBe(
       'log line 1',
     );
+    await expect(service.importConnectionsFile()).resolves.toEqual({
+      cancelled: false,
+      content: '[\n  {}\n]',
+    });
+    await expect(service.exportConnectionsFile('[]')).resolves.toEqual({ cancelled: false });
 
     await service.azureLogout();
 
@@ -182,6 +199,7 @@ describe('AppApiService', () => {
     expect(bridge.ListContainers).toHaveBeenCalledWith('sub-1', 'rg-1', 'storage-a');
     expect(bridge.ListBlobs).toHaveBeenCalledWith('storage-a', 'logs', 'prefix/');
     expect(bridge.DownloadBlobContent).toHaveBeenCalledWith('storage-a', 'logs', 'app.log');
+    expect(bridge.ExportConnectionsFile).toHaveBeenCalledWith('[]');
     expect(bridge.AzureLogout).toHaveBeenCalledOnce();
   });
 });
@@ -200,5 +218,7 @@ function createMockBridge(): MockBridge {
     ListContainers: vi.fn(),
     ListBlobs: vi.fn(),
     DownloadBlobContent: vi.fn(),
+    ImportConnectionsFile: vi.fn(),
+    ExportConnectionsFile: vi.fn(),
   };
 }

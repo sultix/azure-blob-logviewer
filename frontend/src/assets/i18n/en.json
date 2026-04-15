@@ -174,14 +174,25 @@
       },
       "savedConnections": {
         "title": "Saved Connections",
-        "managedFromDashboard": "Managed from the Dashboard screen.",
-        "empty": "No saved connections.",
-        "removeAriaLabel": "Remove connection",
-        "status": {
-          "active": "Active",
-          "standby": "Standby",
-          "offline": "Offline",
-          "authExpired": "Auth Expired"
+        "description": "Import or export your saved connections as JSON. Importing will overwrite existing connections.",
+        "managedFromDashboard": "Manage connections in the Dashboard",
+        "dashboardAction": "Open Dashboard",
+        "count": "{{count}} saved",
+        "importAction": "Import",
+        "exportAction": "Export",
+        "toasts": {
+          "importSuccessTitle": "Import complete",
+          "importSuccessDetail": "{{count}} connections imported",
+          "exportSuccessTitle": "Export complete",
+          "exportSuccessDetail": "{{count}} connections exported",
+          "invalidJsonTitle": "Invalid JSON",
+          "invalidJsonDetail": "The selected file does not contain valid JSON.",
+          "invalidFileTitle": "Invalid connections file",
+          "invalidFileDetail": "The selected file does not match the saved connections format.",
+          "importFileErrorTitle": "Import failed",
+          "importFileErrorDetail": "The connections file could not be opened.",
+          "exportFileErrorTitle": "Export failed",
+          "exportFileErrorDetail": "The connections file could not be written."
         }
       },
       "securityNote": "Authentication uses Azure CLI credentials. Run {{command}} in your terminal to authenticate. No credentials are stored by this application.",

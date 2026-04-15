@@ -174,14 +174,25 @@
       },
       "savedConnections": {
         "title": "Gespeicherte Verbindungen",
-        "managedFromDashboard": "Wird im Dashboard verwaltet.",
-        "empty": "Keine gespeicherten Verbindungen.",
-        "removeAriaLabel": "Verbindung entfernen",
-        "status": {
-          "active": "Aktiv",
-          "standby": "Bereit",
-          "offline": "Offline",
-          "authExpired": "Authentifizierung abgelaufen"
+        "description": "Importieren oder exportieren Sie Ihre gespeicherten Verbindungen als JSON. Durch den Import werden bestehende Verbindungen überschrieben.",
+        "managedFromDashboard": "Verbindungen im Dashboard verwalten",
+        "dashboardAction": "Dashboard öffnen",
+        "count": "{{count}} gespeichert",
+        "importAction": "Importieren",
+        "exportAction": "Exportieren",
+        "toasts": {
+          "importSuccessTitle": "Import abgeschlossen",
+          "importSuccessDetail": "{{count}} Verbindungen importiert",
+          "exportSuccessTitle": "Export abgeschlossen",
+          "exportSuccessDetail": "{{count}} Verbindungen exportiert",
+          "invalidJsonTitle": "Ungültiges JSON",
+          "invalidJsonDetail": "Die ausgewählte Datei enthält kein gültiges JSON.",
+          "invalidFileTitle": "Ungültige Verbindungsdatei",
+          "invalidFileDetail": "Die ausgewählte Datei entspricht nicht dem Format gespeicherter Verbindungen.",
+          "importFileErrorTitle": "Import fehlgeschlagen",
+          "importFileErrorDetail": "Die Verbindungsdatei konnte nicht geöffnet werden.",
+          "exportFileErrorTitle": "Export fehlgeschlagen",
+          "exportFileErrorDetail": "Die Verbindungsdatei konnte nicht geschrieben werden."
         }
       },
       "securityNote": "Die Authentifizierung verwendet Azure-CLI-Anmeldedaten. Führen Sie {{command}} in Ihrem Terminal aus, um sich zu authentifizieren. Diese Anwendung speichert keine Anmeldedaten.",

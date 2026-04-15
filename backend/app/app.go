@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/aleksandrsultanov/azure-blob-logviewer/backend/models"
 	"github.com/aleksandrsultanov/azure-blob-logviewer/backend/services"
@@ -13,6 +14,7 @@ type App struct {
 	logs      *services.LogsService
 	azureAuth *services.AzureAuthService
 	azureRes  *services.AzureResourceService
+	files     *services.ConnectionsFileService
 }
 
 func New() *App {
@@ -21,6 +23,7 @@ func New() *App {
 		logs:      services.NewLogsService(),
 		azureAuth: authSvc,
 		azureRes:  services.NewAzureResourceService(authSvc),
+		files:     services.NewConnectionsFileService(),
 	}
 }
 
@@ -112,4 +115,15 @@ func (a *App) DownloadBlobContent(accountName, containerName, blobName string) (
 		return "", fmt.Errorf("blob name is required")
 	}
 	return a.azureRes.DownloadBlobContent(a.ctx, accountName, containerName, blobName)
+}
+
+func (a *App) ImportConnectionsFile() (*models.ConnectionsImportResult, error) {
+	return a.files.Import(a.ctx)
+}
+
+func (a *App) ExportConnectionsFile(content string) (*models.ConnectionsExportResult, error) {
+	if strings.TrimSpace(content) == "" {
+		return nil, fmt.Errorf("connections content is required")
+	}
+	return a.files.Export(a.ctx, content)
 }

@@ -48,6 +48,14 @@ describe('ConnectionsService', () => {
     expect(service.isEmpty()).toBe(true);
   });
 
+  it('falls back to an empty list when persisted connections do not match the schema', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([{ id: 'conn-1' }]));
+
+    await service.load();
+
+    expect(service.connections()).toEqual([]);
+  });
+
   it('adds a connection, persists it, and exposes selection helpers', () => {
     const connection = createConnection({ id: 'conn-1', name: 'prod-logs' });
 
@@ -74,6 +82,61 @@ describe('ConnectionsService', () => {
     expect(service.connections()).toEqual([connections[1]]);
     expect(service.getById('conn-1')).toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify([connections[1]]));
+  });
+
+  it('replaces all saved connections and clears the selection when the selected id disappears', () => {
+    service.add(createConnection({ id: 'conn-1' }));
+    service.select('conn-1');
+
+    const replacement = [createConnection({ id: 'conn-2', name: 'staging-logs' })];
+    service.replaceAll(replacement);
+
+    expect(service.connections()).toEqual(replacement);
+    expect(service.selected()).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(replacement));
+  });
+
+  it('imports valid connections JSON and replaces the existing list', () => {
+    service.add(createConnection({ id: 'conn-1' }));
+
+    const importedJson = JSON.stringify([
+      createConnection({ id: 'conn-2', name: 'staging-logs', category: 'Operations' }),
+    ]);
+
+    const importedCount = service.importFromJson(importedJson);
+
+    expect(importedCount).toBe(1);
+    expect(service.connections()).toEqual([
+      createConnection({ id: 'conn-2', name: 'staging-logs', category: 'Operations' }),
+    ]);
+  });
+
+  it('rejects invalid JSON imports without overwriting the existing list', () => {
+    const original = createConnection({ id: 'conn-1' });
+    service.add(original);
+
+    expect(() => service.importFromJson('{bad-json')).toThrowError('invalid_json');
+    expect(service.connections()).toEqual([original]);
+  });
+
+  it('rejects duplicate ids in imported connections without overwriting the existing list', () => {
+    const original = createConnection({ id: 'conn-1' });
+    service.add(original);
+
+    const duplicateJson = JSON.stringify([
+      createConnection({ id: 'dup' }),
+      createConnection({ id: 'dup', name: 'other' }),
+    ]);
+
+    expect(() => service.importFromJson(duplicateJson)).toThrowError('invalid_file');
+    expect(service.connections()).toEqual([original]);
+  });
+
+  it('exports the current connections as formatted JSON', () => {
+    const connection = createConnection({ id: 'conn-1' });
+    service.add(connection);
+
+    expect(service.exportJson()).toBe(JSON.stringify([connection], null, 2));
   });
 
   it('keeps selection null when no selected id is present', async () => {

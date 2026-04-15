@@ -10,6 +10,15 @@ import type {
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
 
+export interface ConnectionsImportResult {
+  cancelled: boolean;
+  content: string;
+}
+
+export interface ConnectionsExportResult {
+  cancelled: boolean;
+}
+
 export interface AppApi {
   getVersion(): Promise<string>;
   listLogEntries(): Promise<LogEntry[]>;
@@ -23,6 +32,8 @@ export interface AppApi {
   listContainers(subscriptionId: string, resourceGroup: string, accountName: string): Promise<AzureContainer[]>;
   listBlobs(accountName: string, containerName: string, prefix: string): Promise<AzureBlobItem[]>;
   downloadBlobContent(accountName: string, containerName: string, blobName: string): Promise<string>;
+  importConnectionsFile(): Promise<ConnectionsImportResult>;
+  exportConnectionsFile(content: string): Promise<ConnectionsExportResult>;
 }
 
 interface WailsAppBridge {
@@ -38,6 +49,8 @@ interface WailsAppBridge {
   ListContainers(subscriptionId: string, resourceGroup: string, accountName: string): Promise<AzureContainer[] | null>;
   ListBlobs(accountName: string, containerName: string, prefix: string): Promise<AzureBlobItem[] | null>;
   DownloadBlobContent(accountName: string, containerName: string, blobName: string): Promise<string>;
+  ImportConnectionsFile(): Promise<ConnectionsImportResult | null>;
+  ExportConnectionsFile(content: string): Promise<ConnectionsExportResult | null>;
 }
 
 interface WailsWindow {
@@ -109,6 +122,16 @@ export class AppApiService implements AppApi {
 
   async downloadBlobContent(accountName: string, containerName: string, blobName: string): Promise<string> {
     return this.bridge().DownloadBlobContent(accountName, containerName, blobName);
+  }
+
+  async importConnectionsFile(): Promise<ConnectionsImportResult> {
+    const result = await this.bridge().ImportConnectionsFile();
+    return result ?? { cancelled: true, content: '' };
+  }
+
+  async exportConnectionsFile(content: string): Promise<ConnectionsExportResult> {
+    const result = await this.bridge().ExportConnectionsFile(content);
+    return result ?? { cancelled: true };
   }
 
   private bridge(): WailsAppBridge {
