@@ -94,22 +94,33 @@ const (
 func (s *AzureAuthService) authenticate(ctx context.Context, silent bool) *models.AzureAuthState {
 	switch s.tryAuthenticate(ctx) {
 	case authFailureNone:
-		return &models.AzureAuthState{Authenticated: true}
+		return &models.AzureAuthState{
+			Authenticated: true,
+			FailureReason: string(authFailureNone),
+		}
 	case authFailureCLINotAvailable:
 		if silent {
-			return &models.AzureAuthState{Authenticated: false}
+			return &models.AzureAuthState{
+				Authenticated: false,
+				FailureReason: string(authFailureCLINotAvailable),
+			}
 		}
 		return &models.AzureAuthState{
 			Authenticated: false,
 			ErrorMessage:  "Azure CLI nicht gefunden. Bitte installieren Sie die Azure CLI und fuehren Sie 'az login' aus.",
+			FailureReason: string(authFailureCLINotAvailable),
 		}
 	case authFailureNotLoggedIn:
 		if silent {
-			return &models.AzureAuthState{Authenticated: false}
+			return &models.AzureAuthState{
+				Authenticated: false,
+				FailureReason: string(authFailureNotLoggedIn),
+			}
 		}
 		return &models.AzureAuthState{
 			Authenticated: false,
 			ErrorMessage:  "Azure CLI ist nicht angemeldet. Bitte fuehren Sie 'az login' im Terminal aus und versuchen Sie es erneut.",
+			FailureReason: string(authFailureNotLoggedIn),
 		}
 	default:
 		return &models.AzureAuthState{Authenticated: false}

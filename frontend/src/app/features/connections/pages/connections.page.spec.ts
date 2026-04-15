@@ -42,7 +42,9 @@ class ConnectionsServiceStub implements Partial<ConnectionsService> {
 
 class AzureServiceStub implements Partial<AzureService> {
   readonly authenticatedState = signal(true);
+  readonly azureCliMissingState = signal(false);
   readonly isAuthenticated = computed(() => this.authenticatedState());
+  readonly azureCliMissing = computed(() => this.azureCliMissingState());
 }
 
 class DialogServiceStub implements Partial<DialogService> {
@@ -156,6 +158,17 @@ describe('ConnectionsPage', () => {
     expect(component.cards()).toHaveLength(1);
     expect(component.cards()[0]?.name).toBe('staging-archive');
     expect(fixture.nativeElement.textContent).not.toContain('prod-logs');
+  });
+
+  it('renders the Azure CLI card with error styling when the CLI is missing', () => {
+    azure.azureCliMissingState.set(true);
+
+    fixture.detectChanges();
+
+    const article = fixture.nativeElement.querySelector('article');
+    expect(article?.className).toContain('border-error/40');
+    expect(article?.className).toContain('bg-error-container/70');
+    expect(fixture.nativeElement.textContent).toContain('Azure CLI is required');
   });
 
   it('keeps the list flat when no visible connection has a category', () => {

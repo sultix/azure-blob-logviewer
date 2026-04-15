@@ -195,6 +195,8 @@
     "login": {
       "disconnected": {
         "description": "Verbinden Sie sich über Ihre lokale Azure-CLI-Sitzung mit Azure.",
+        "cliMissingTitle": "Azure CLI nicht gefunden",
+        "cliMissingDescription": "Installieren Sie zuerst die Azure CLI auf diesem Gerät und führen Sie dann {{command}} im Terminal aus.",
         "hint": "Stellen Sie sicher, dass Sie {{command}} im Terminal ausgeführt haben.",
         "button": "Mit Azure verbinden"
       },

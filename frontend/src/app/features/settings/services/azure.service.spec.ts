@@ -13,8 +13,12 @@ import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/tr
 import { AzureService } from './azure.service';
 
 class AppApiServiceStub implements Partial<AppApiService> {
-  startAzureLogin = vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string }>>();
-  restoreAzureSession = vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string }>>();
+  startAzureLogin = vi.fn<
+    () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: '' | 'cli_not_available' | 'not_logged_in' }>
+  >();
+  restoreAzureSession = vi.fn<
+    () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: '' | 'cli_not_available' | 'not_logged_in' }>
+  >();
   azureLogout = vi.fn<() => Promise<void>>();
   getAzureAuthState = vi.fn<() => Promise<{ authenticated: boolean }>>();
   listSubscriptions = vi.fn<() => Promise<AzureSubscription[]>>();
@@ -54,6 +58,8 @@ describe('AzureService', () => {
 
     expect(service.authStep()).toBe('authenticated');
     expect(service.authError()).toBeNull();
+    expect(service.authFailureReason()).toBe('');
+    expect(service.azureCliMissing()).toBe(false);
     expect(api.listSubscriptions).toHaveBeenCalledOnce();
     expect(service.subscriptions()).toEqual([createSubscription()]);
   });
@@ -62,12 +68,30 @@ describe('AzureService', () => {
     api.startAzureLogin.mockResolvedValue({
       authenticated: false,
       errorMessage: 'Azure CLI session expired',
+      failureReason: 'not_logged_in',
     });
 
     await service.login();
 
     expect(service.authStep()).toBe('error');
     expect(service.authError()).toBe('Azure CLI session expired');
+    expect(service.authFailureReason()).toBe('not_logged_in');
+    expect(service.azureCliMissing()).toBe(false);
+  });
+
+  it('tracks Azure CLI missing separately from the generic auth error state', async () => {
+    api.startAzureLogin.mockResolvedValue({
+      authenticated: false,
+      errorMessage: 'Azure CLI not found',
+      failureReason: 'cli_not_available',
+    });
+
+    await service.login();
+
+    expect(service.authStep()).toBe('error');
+    expect(service.authError()).toBe('Azure CLI not found');
+    expect(service.authFailureReason()).toBe('cli_not_available');
+    expect(service.azureCliMissing()).toBe(true);
   });
 
   it('stores an authentication error when login throws', async () => {
@@ -77,6 +101,7 @@ describe('AzureService', () => {
 
     expect(service.authStep()).toBe('error');
     expect(service.authError()).toBe('boom');
+    expect(service.authFailureReason()).toBe('');
   });
 
   it('logs out and resets all resource state even when logout fails', async () => {
@@ -100,6 +125,8 @@ describe('AzureService', () => {
 
     expect(service.authStep()).toBe('disconnected');
     expect(service.authError()).toBeNull();
+    expect(service.authFailureReason()).toBe('');
+    expect(service.azureCliMissing()).toBe(false);
     expect(service.selectedSubscription()).toBeNull();
     expect(service.selectedStorageAccount()).toBeNull();
     expect(service.selectedContainer()).toBeNull();
@@ -112,7 +139,7 @@ describe('AzureService', () => {
   });
 
   it('restores the startup session once without eagerly loading subscriptions', async () => {
-    let resolveRestore: ((value: { authenticated: boolean }) => void) | null = null;
+    let resolveRestore: ((value: { authenticated: boolean; failureReason?: '' | 'cli_not_available' | 'not_logged_in' }) => void) | null = null;
     api.restoreAzureSession.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -130,6 +157,7 @@ describe('AzureService', () => {
 
     expect(service.authStep()).toBe('authenticated');
     expect(service.authError()).toBeNull();
+    expect(service.authFailureReason()).toBe('');
     expect(api.restoreAzureSession).toHaveBeenCalledOnce();
     expect(api.listSubscriptions).not.toHaveBeenCalled();
     expect(service.subscriptionsStatus()).toBe('idle');
@@ -143,7 +171,23 @@ describe('AzureService', () => {
 
     expect(service.authStep()).toBe('disconnected');
     expect(service.authError()).toBeNull();
+    expect(service.authFailureReason()).toBe('');
+    expect(service.azureCliMissing()).toBe(false);
     expect(service.subscriptionsStatus()).toBe('idle');
+  });
+
+  it('tracks Azure CLI missing during silent startup restore without entering the error auth step', async () => {
+    api.restoreAzureSession.mockResolvedValue({
+      authenticated: false,
+      failureReason: 'cli_not_available',
+    });
+
+    await service.initializeStartupAuth();
+
+    expect(service.authStep()).toBe('disconnected');
+    expect(service.authError()).toBeNull();
+    expect(service.authFailureReason()).toBe('cli_not_available');
+    expect(service.azureCliMissing()).toBe(true);
   });
 
   it('cascades subscription, storage account, and container selection into downstream loads', async () => {

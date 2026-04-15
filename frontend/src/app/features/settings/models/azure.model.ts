@@ -1,3 +1,5 @@
+export type AzureAuthFailureReason = '' | 'cli_not_available' | 'not_logged_in';
+
 export interface DeviceCodeInfo {
   userCode: string;
   verificationUrl: string;
@@ -8,6 +10,7 @@ export interface AzureAuthState {
   authenticated: boolean;
   userName?: string;
   errorMessage?: string;
+  failureReason?: AzureAuthFailureReason;
 }
 
 export interface AzureSubscription {

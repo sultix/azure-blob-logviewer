@@ -69,6 +69,7 @@ export class ConnectionsPage implements OnInit {
   readonly errorMessage = this.connectionsService.errorMessage;
   readonly isEmpty = this.connectionsService.isEmpty;
   readonly isAuthenticated = this.azure.isAuthenticated;
+  readonly azureCliMissing = this.azure.azureCliMissing;
 
   readonly searchTerm = signal('');
   readonly uncategorizedGroupLabel = computed(() =>
@@ -81,6 +82,22 @@ export class ConnectionsPage implements OnInit {
       .reduce((sum, connection) => sum + (connection.containerCount ?? 0), 0);
     return total.toString().padStart(2, '0');
   });
+
+  readonly azureCliCardStyle = computed(() =>
+    this.azureCliMissing()
+      ? {
+          containerClass: 'border-error/40 bg-error-container/70',
+          eyebrowClass: 'text-error',
+          descriptionClass: 'text-on-surface',
+          iconClass: 'bg-error text-white',
+        }
+      : {
+          containerClass: 'border-primary/15 bg-surface-container',
+          eyebrowClass: 'text-on-surface-variant',
+          descriptionClass: 'text-on-surface',
+          iconClass: 'bg-white/10 text-on-surface-variant',
+        },
+  );
 
   readonly cards = computed<ConnectionCardVm[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();

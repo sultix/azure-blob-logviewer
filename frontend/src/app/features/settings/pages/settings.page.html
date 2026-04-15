@@ -37,6 +37,7 @@
       <app-azure-login
         [authStep]="authStep()"
         [authError]="authError()"
+        [azureCliMissing]="azureCliMissing()"
         (loginRequested)="onLogin()"
         (logoutRequested)="onLogout()"
       />

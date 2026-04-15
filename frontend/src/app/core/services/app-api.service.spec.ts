@@ -17,14 +17,20 @@ interface MockBridge {
   ListLogEntries: ReturnType<typeof vi.fn<() => Promise<LogEntry[] | null>>>;
   GetLogEntry: ReturnType<typeof vi.fn<(id: string) => Promise<LogEntry | null>>>;
   StartAzureLogin: ReturnType<
-    typeof vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string } | null>>
+    typeof vi.fn<
+      () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: string } | null>
+    >
   >;
   RestoreAzureSession: ReturnType<
-    typeof vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string } | null>>
+    typeof vi.fn<
+      () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: string } | null>
+    >
   >;
   AzureLogout: ReturnType<typeof vi.fn<() => Promise<void>>>;
   GetAzureAuthState: ReturnType<
-    typeof vi.fn<() => Promise<{ authenticated: boolean; errorMessage?: string } | null>>
+    typeof vi.fn<
+      () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: string } | null>
+    >
   >;
   ListSubscriptions: ReturnType<typeof vi.fn<() => Promise<AzureSubscription[] | null>>>;
   ListStorageAccounts: ReturnType<
@@ -146,9 +152,9 @@ describe('AppApiService', () => {
     bridge.GetVersion.mockResolvedValue('0.1.0');
     bridge.ListLogEntries.mockResolvedValue([entry]);
     bridge.GetLogEntry.mockResolvedValue(entry);
-    bridge.StartAzureLogin.mockResolvedValue({ authenticated: true });
-    bridge.RestoreAzureSession.mockResolvedValue({ authenticated: true });
-    bridge.GetAzureAuthState.mockResolvedValue({ authenticated: true });
+    bridge.StartAzureLogin.mockResolvedValue({ authenticated: true, failureReason: '' });
+    bridge.RestoreAzureSession.mockResolvedValue({ authenticated: true, failureReason: '' });
+    bridge.GetAzureAuthState.mockResolvedValue({ authenticated: true, failureReason: '' });
     bridge.ListSubscriptions.mockResolvedValue(subscriptions);
     bridge.ListStorageAccounts.mockResolvedValue(accounts);
     bridge.ListContainers.mockResolvedValue(containers);
@@ -158,9 +164,9 @@ describe('AppApiService', () => {
     await expect(service.getVersion()).resolves.toBe('0.1.0');
     await expect(service.listLogEntries()).resolves.toEqual([entry]);
     await expect(service.getLogEntry('log-1')).resolves.toEqual(entry);
-    await expect(service.startAzureLogin()).resolves.toEqual({ authenticated: true });
-    await expect(service.restoreAzureSession()).resolves.toEqual({ authenticated: true });
-    await expect(service.getAzureAuthState()).resolves.toEqual({ authenticated: true });
+    await expect(service.startAzureLogin()).resolves.toEqual({ authenticated: true, failureReason: '' });
+    await expect(service.restoreAzureSession()).resolves.toEqual({ authenticated: true, failureReason: '' });
+    await expect(service.getAzureAuthState()).resolves.toEqual({ authenticated: true, failureReason: '' });
     await expect(service.listSubscriptions()).resolves.toEqual(subscriptions);
     await expect(service.listStorageAccounts('sub-1')).resolves.toEqual(accounts);
     await expect(service.listContainers('sub-1', 'rg-1', 'storage-a')).resolves.toEqual(containers);

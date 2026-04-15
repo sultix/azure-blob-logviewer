@@ -24,6 +24,9 @@ func TestAzureAuthServiceRestoreSessionSuccess(t *testing.T) {
 	if state.ErrorMessage != "" {
 		t.Fatalf("expected silent restore without error message, got %q", state.ErrorMessage)
 	}
+	if state.FailureReason != "" {
+		t.Fatalf("expected no failure reason for successful restore, got %q", state.FailureReason)
+	}
 	if !service.IsAuthenticated() {
 		t.Fatal("expected service to be marked authenticated after restore")
 	}
@@ -37,25 +40,55 @@ func TestAzureAuthServiceRestoreSessionSuccess(t *testing.T) {
 }
 
 func TestAzureAuthServiceRestoreSessionFailureIsSilent(t *testing.T) {
-	service := NewAzureAuthService()
-	service.newCredential = func() (azcore.TokenCredential, error) {
-		return fakeTokenCredential{tokenErr: errors.New("no session")}, nil
-	}
+	t.Run("cli missing", func(t *testing.T) {
+		service := NewAzureAuthService()
+		service.newCredential = func() (azcore.TokenCredential, error) {
+			return nil, errors.New("missing az")
+		}
 
-	state := service.RestoreSession(context.Background())
+		state := service.RestoreSession(context.Background())
 
-	if state.Authenticated {
-		t.Fatalf("expected disconnected restore state, got %#v", state)
-	}
-	if state.ErrorMessage != "" {
-		t.Fatalf("expected no user-facing restore error, got %q", state.ErrorMessage)
-	}
-	if service.IsAuthenticated() {
-		t.Fatal("expected service to stay disconnected after failed restore")
-	}
-	if _, err := service.GetCredential(); !errors.Is(err, errNotAuthenticated) {
-		t.Fatalf("expected not authenticated error after failed restore, got %v", err)
-	}
+		if state.Authenticated {
+			t.Fatalf("expected disconnected restore state, got %#v", state)
+		}
+		if state.ErrorMessage != "" {
+			t.Fatalf("expected no user-facing restore error, got %q", state.ErrorMessage)
+		}
+		if state.FailureReason != string(authFailureCLINotAvailable) {
+			t.Fatalf("expected CLI missing failure reason, got %q", state.FailureReason)
+		}
+		if service.IsAuthenticated() {
+			t.Fatal("expected service to stay disconnected after failed restore")
+		}
+		if _, err := service.GetCredential(); !errors.Is(err, errNotAuthenticated) {
+			t.Fatalf("expected not authenticated error after failed restore, got %v", err)
+		}
+	})
+
+	t.Run("not logged in", func(t *testing.T) {
+		service := NewAzureAuthService()
+		service.newCredential = func() (azcore.TokenCredential, error) {
+			return fakeTokenCredential{tokenErr: errors.New("no session")}, nil
+		}
+
+		state := service.RestoreSession(context.Background())
+
+		if state.Authenticated {
+			t.Fatalf("expected disconnected restore state, got %#v", state)
+		}
+		if state.ErrorMessage != "" {
+			t.Fatalf("expected no user-facing restore error, got %q", state.ErrorMessage)
+		}
+		if state.FailureReason != string(authFailureNotLoggedIn) {
+			t.Fatalf("expected not-logged-in failure reason, got %q", state.FailureReason)
+		}
+		if service.IsAuthenticated() {
+			t.Fatal("expected service to stay disconnected after failed restore")
+		}
+		if _, err := service.GetCredential(); !errors.Is(err, errNotAuthenticated) {
+			t.Fatalf("expected not authenticated error after failed restore, got %v", err)
+		}
+	})
 }
 
 func TestAzureAuthServiceLoginReturnsHelpfulErrors(t *testing.T) {
@@ -76,6 +109,9 @@ func TestAzureAuthServiceLoginReturnsHelpfulErrors(t *testing.T) {
 		if state.ErrorMessage != expected {
 			t.Fatalf("expected CLI help message %q, got %q", expected, state.ErrorMessage)
 		}
+		if state.FailureReason != string(authFailureCLINotAvailable) {
+			t.Fatalf("expected CLI missing failure reason, got %q", state.FailureReason)
+		}
 	})
 
 	t.Run("not logged in", func(t *testing.T) {
@@ -95,6 +131,9 @@ func TestAzureAuthServiceLoginReturnsHelpfulErrors(t *testing.T) {
 		if state.ErrorMessage != expected {
 			t.Fatalf("expected login help message %q, got %q", expected, state.ErrorMessage)
 		}
+		if state.FailureReason != string(authFailureNotLoggedIn) {
+			t.Fatalf("expected not-logged-in failure reason, got %q", state.FailureReason)
+		}
 	})
 }
 
@@ -110,6 +149,9 @@ func TestAzureAuthServiceLoginStoresCachedCredential(t *testing.T) {
 	}
 	if !state.Authenticated {
 		t.Fatalf("expected authenticated login state, got %#v", state)
+	}
+	if state.FailureReason != "" {
+		t.Fatalf("expected no failure reason for successful login, got %q", state.FailureReason)
 	}
 
 	credential, err := service.GetCredential()

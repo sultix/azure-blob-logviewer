@@ -14,6 +14,7 @@ import { SettingsService } from '../services/settings.service';
 class AzureServiceStub implements Partial<AzureService> {
   readonly authStep = signal<'disconnected' | 'authenticating' | 'authenticated' | 'error'>('disconnected');
   readonly authError = signal<string | null>(null);
+  readonly azureCliMissing = signal(false);
   login = vi.fn<() => Promise<void>>(async () => undefined);
   logout = vi.fn<() => Promise<void>>(async () => undefined);
 }
@@ -73,5 +74,14 @@ describe('SettingsPage', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('AUTHENTIFIZIERT');
+  });
+
+  it('shows the disconnected Azure CLI warning when the CLI is missing', () => {
+    azure.azureCliMissing.set(true);
+
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Azure CLI not found');
+    expect(fixture.nativeElement.textContent).not.toContain('Make sure you have run az login in your terminal.');
   });
 });

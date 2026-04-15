@@ -9,9 +9,20 @@
       <p class="text-sm text-on-surface-variant">
         {{ 'settings.login.disconnected.description' | translate }}
       </p>
-      <p class="text-xs text-on-surface-variant">
-        {{ 'settings.login.disconnected.hint' | translate: { command: 'az login' } }}
-      </p>
+      @if (azureCliMissingValue) {
+        <div class="max-w-md rounded-xl border border-error bg-error-container/60 px-4 py-3 text-left">
+          <p class="text-sm font-semibold text-error">
+            {{ 'settings.login.disconnected.cliMissingTitle' | translate }}
+          </p>
+          <p class="mt-1 text-xs leading-relaxed text-on-surface">
+            {{ 'settings.login.disconnected.cliMissingDescription' | translate: { command: 'az login' } }}
+          </p>
+        </div>
+      } @else {
+        <p class="text-xs text-on-surface-variant">
+          {{ 'settings.login.disconnected.hint' | translate: { command: 'az login' } }}
+        </p>
+      }
       <button
         class="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition hover:opacity-90"
         (click)="loginRequested.emit()"

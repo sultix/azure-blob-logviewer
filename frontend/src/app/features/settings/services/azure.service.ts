@@ -5,6 +5,7 @@ import { AppApiService } from '@app/core/services/app-api.service';
 import type {
   AzureBlobItem,
   AzureContainer,
+  AzureAuthFailureReason,
   AzureStorageAccount,
   AzureSubscription,
 } from '../models/azure.model';
@@ -28,8 +29,10 @@ export class AzureService {
   // --- Authentication state ---
   readonly authStep = signal<AzureAuthStep>('disconnected');
   readonly authError = signal<string | null>(null);
+  readonly authFailureReason = signal<AzureAuthFailureReason>('');
 
   readonly isAuthenticated = computed(() => this.authStep() === 'authenticated');
+  readonly azureCliMissing = computed(() => this.authFailureReason() === 'cli_not_available');
 
   // --- Subscriptions ---
   private readonly subscriptionsState = signal<ResourceState<AzureSubscription>>({ status: 'idle' });
@@ -95,6 +98,7 @@ export class AzureService {
 
     try {
       const result = await this.api.startAzureLogin();
+      this.authFailureReason.set(result.failureReason ?? '');
 
       if (result.authenticated) {
         this.authStep.set('authenticated');
@@ -106,6 +110,7 @@ export class AzureService {
       }
     } catch (err) {
       this.authStep.set('error');
+      this.authFailureReason.set('');
       this.authError.set(
         err instanceof Error ? err.message : this.i18n.translate('common.errors.authFailed'),
       );
@@ -120,6 +125,7 @@ export class AzureService {
     }
     this.authStep.set('disconnected');
     this.authError.set(null);
+    this.authFailureReason.set('');
     this.resetAllResources();
   }
 
@@ -134,6 +140,7 @@ export class AzureService {
     this.startupRestorePromise = (async () => {
       try {
         const state = await this.api.restoreAzureSession();
+        this.authFailureReason.set(state.failureReason ?? '');
         if (state.authenticated) {
           this.authStep.set('authenticated');
           this.authError.set(null);
@@ -141,6 +148,7 @@ export class AzureService {
         }
       } catch {
         // Startup restore stays silent and leaves the app disconnected.
+        this.authFailureReason.set('');
       } finally {
         this.authError.set(null);
         if (this.authStep() !== 'authenticated') {

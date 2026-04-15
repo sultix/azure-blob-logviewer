@@ -43,6 +43,7 @@ export class SettingsPage implements OnInit {
   // Azure auth
   readonly authStep = this.azure.authStep;
   readonly authError = this.azure.authError;
+  readonly azureCliMissing = this.azure.azureCliMissing;
 
   // General settings
   readonly general = this.settings.general;

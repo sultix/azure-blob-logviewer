@@ -12,6 +12,7 @@ type AzureAuthState struct {
 	Authenticated bool   `json:"authenticated"`
 	UserName      string `json:"userName,omitempty"`
 	ErrorMessage  string `json:"errorMessage,omitempty"`
+	FailureReason string `json:"failureReason,omitempty"`
 }
 
 // AzureSubscription represents an Azure subscription visible to the authenticated user.

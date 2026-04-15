@@ -12,6 +12,7 @@ import type { AzureAuthStep } from '../services/azure.service';
 export class AzureLoginComponent {
   readonly authStep = input.required<AzureAuthStep>();
   readonly authError = input<string | null>(null);
+  readonly azureCliMissing = input(false);
 
   readonly loginRequested = output<void>();
   readonly logoutRequested = output<void>();
@@ -22,5 +23,9 @@ export class AzureLoginComponent {
 
   get authErrorValue(): string | null {
     return this.authError();
+  }
+
+  get azureCliMissingValue(): boolean {
+    return this.azureCliMissing();
   }
 }
