@@ -22,6 +22,9 @@ import { LogsService } from './logs.service';
 class AppApiServiceStub implements Partial<AppApiService> {
   listBlobs = vi.fn<() => Promise<AzureBlobItem[]>>();
   readBlobTextChunk = vi.fn<(request: AzureBlobTextChunkRequest) => Promise<AzureBlobTextChunk>>();
+  downloadBlobContent = vi.fn<
+    (accountName: string, containerName: string, blobName: string) => Promise<string>
+  >();
   openBlobViewSession = vi.fn<
     (request: OpenBlobViewSessionRequest) => Promise<BlobViewSessionStatus>
   >();
@@ -332,6 +335,48 @@ describe('LogsService', () => {
     expect(service.largeViewerTailPreviewLines()).toEqual(['tail refreshed']);
     expect(api.openBlobViewSession).toHaveBeenCalledTimes(2);
     expect(api.closeBlobViewSession).toHaveBeenCalledWith('session-1');
+  });
+
+  it('switches a fully loaded large file to wrapped full-content mode', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.openBlobViewSession.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 20_000_000,
+        indexedLineCount: 350,
+        isComplete: true,
+        hasPendingBefore: false,
+        hasPendingAfter: false,
+        tailPreviewLines: [],
+        canEnableWordWrap: true,
+      }),
+    );
+    api.getBlobViewLines.mockResolvedValue({
+      startLine: 0,
+      totalLines: 350,
+      isComplete: true,
+      lines: [{ lineNumber: 0, content: 'line 1' }],
+    });
+    api.downloadBlobContent.mockResolvedValue('wrapped content');
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    await service.enableWrappedLargeContent();
+
+    expect(api.downloadBlobContent).toHaveBeenCalledWith(
+      'myaccount',
+      'logs',
+      'file.log',
+    );
+    expect(api.closeBlobViewSession).toHaveBeenCalledWith('session-1');
+    expect(service.largeViewerStatus()).toBeNull();
+    expect(service.selectedContent()).toBe('wrapped content');
+    expect(service.selectedContentLoaded()).toBe(true);
+    expect(service.isLargeBlob()).toBe(false);
   });
 
   it('tracks content loading errors separately from the rendered content', async () => {

@@ -100,7 +100,7 @@
       "searchPlaceholder": "Logs durchsuchen...",
       "searchAriaLabel": "Logdateien durchsuchen",
       "createdOn": "Erstellt am",
-      "dateRange": "Von - Bis",
+      "dateRange": "Erstellt von - Erstellt bis",
       "clear": "Filter löschen",
       "sortAriaLabel": "Logs sortieren",
       "newestFirst": "Neueste zuerst",

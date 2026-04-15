@@ -402,6 +402,86 @@ export class LogsService implements OnDestroy {
     return result.cancelled === false;
   }
 
+  async enableWrappedLargeContent(): Promise<void> {
+    const viewer = this.largeViewerState();
+    const entry = this.selectedEntry();
+    if (
+      !viewer ||
+      !viewer.status.isComplete ||
+      !viewer.status.canEnableWordWrap ||
+      !entry?.storageAccountName ||
+      !entry.containerName
+    ) {
+      return;
+    }
+
+    const connectionLoadToken = this.connectionLoadToken;
+    const contentLoadToken = ++this.contentLoadToken;
+    this._contentLoading.set(true);
+    this.selectedContentErrorState.set(null);
+
+    try {
+      const content = await this.api.downloadBlobContent(
+        entry.storageAccountName,
+        entry.containerName,
+        entry.blobName,
+      );
+      if (
+        connectionLoadToken !== this.connectionLoadToken ||
+        contentLoadToken !== this.contentLoadToken
+      ) {
+        return;
+      }
+
+      await this.closeLargeViewer();
+      if (
+        connectionLoadToken !== this.connectionLoadToken ||
+        contentLoadToken !== this.contentLoadToken
+      ) {
+        return;
+      }
+
+      this.selectedContentState.set({
+        mode: 'single',
+        entryIds: [entry.id],
+        chunk: {
+          content,
+          blobSize: viewer.status.blobSize,
+          contentType: viewer.status.contentType || entry.contentType || 'text/plain',
+          etag: '',
+          lastModified: entry.createdAt,
+          startOffset: 0,
+          endOffsetExclusive: viewer.status.blobSize,
+          truncatedStart: false,
+          truncatedEnd: false,
+          isLargeBlob: false,
+        },
+      });
+    } catch (error) {
+      if (
+        connectionLoadToken !== this.connectionLoadToken ||
+        contentLoadToken !== this.contentLoadToken
+      ) {
+        return;
+      }
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : this.i18n.translate('common.errors.unknownError');
+      this.selectedContentErrorState.set(
+        this.i18n.translate('logs.service.loadContentFailed', { message }),
+      );
+    } finally {
+      if (
+        connectionLoadToken === this.connectionLoadToken &&
+        contentLoadToken === this.contentLoadToken
+      ) {
+        this._contentLoading.set(false);
+      }
+    }
+  }
+
   clearRequestedScrollLine(): void {
     this.largeViewerState.update((current) =>
       current ? { ...current, requestedScrollLine: null } : current,

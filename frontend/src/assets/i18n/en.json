@@ -100,7 +100,7 @@
       "searchPlaceholder": "Search logs...",
       "searchAriaLabel": "Search log files",
       "createdOn": "Created on",
-      "dateRange": "From - To",
+      "dateRange": "Created from - Created to",
       "clear": "Clear filters",
       "sortAriaLabel": "Sort logs",
       "newestFirst": "Newest first",

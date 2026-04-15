@@ -84,6 +84,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly nextLargeMatchRequested = output<void>();
   readonly largeViewportChanged = output<{ startLine: number; lineCount: number }>();
   readonly largeScrollHandled = output<void>();
+  readonly wordWrapChanged = output<boolean>();
 
   private contentSearchApplyTimer: ReturnType<typeof setTimeout> | null = null;
   private lastScrolledMatchKey: string | null = null;
@@ -109,7 +110,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.wordWrapEnabled() ? "whitespace-pre-wrap break-all" : "whitespace-pre",
   );
   readonly largeLineContentClass = computed(
-    () => `block min-w-0 w-full ${this.contentClass()}`,
+    () => "inline-block min-w-full whitespace-pre leading-5",
   );
   readonly canToggleWordWrap = computed(() => {
     const largeViewer = this.largeViewer();
@@ -305,19 +306,11 @@ export class LogsDetailPanelComponent implements OnDestroy {
   }
 
   onWordWrapChange(value: boolean): void {
-    if (!this.canToggleWordWrap()) {
-      return;
-    }
-    this.settings.updateLogsPreferences({ wordWrapEnabled: value });
+    this.updateWordWrap(value);
   }
 
   toggleWordWrap(): void {
-    if (!this.canToggleWordWrap()) {
-      return;
-    }
-    this.settings.updateLogsPreferences({
-      wordWrapEnabled: !this.wordWrapEnabled(),
-    });
+    this.updateWordWrap(!this.wordWrapEnabled());
   }
 
   onContentSearchChange(value: string): void {
@@ -445,6 +438,15 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
     clearTimeout(this.contentSearchApplyTimer);
     this.contentSearchApplyTimer = null;
+  }
+
+  private updateWordWrap(value: boolean): void {
+    if (!this.canToggleWordWrap()) {
+      return;
+    }
+
+    this.settings.updateLogsPreferences({ wordWrapEnabled: value });
+    this.wordWrapChanged.emit(value);
   }
 }
 

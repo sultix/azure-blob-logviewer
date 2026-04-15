@@ -361,6 +361,14 @@ export class LogsPage implements OnInit {
     this.logs.clearRequestedScrollLine();
   }
 
+  onWordWrapChange(enabled: boolean): void {
+    if (!enabled) {
+      return;
+    }
+
+    void this.logs.enableWrappedLargeContent();
+  }
+
   async download(): Promise<void> {
     const selectedEntries = this.selectedEntries();
     if (selectedEntries.length === 0 || this.contentLoading()) {

@@ -282,9 +282,11 @@ describe('LogsDetailPanelComponent', () => {
     const highlights = fixture.nativeElement.querySelectorAll('mark.log-search-match');
     const renderedLine = highlights[0]?.closest('span') as HTMLSpanElement | null;
     expect(renderedLine).not.toBeNull();
-    expect(renderedLine.className).toContain('block');
-    expect(renderedLine.className).toContain('min-w-0');
-    expect(renderedLine.className).toContain('w-full');
+    expect(renderedLine.className).toContain('inline-block');
+    expect(renderedLine.className).toContain('min-w-full');
+    expect(renderedLine.className).toContain('whitespace-pre');
+    expect(renderedLine.className).toContain('leading-5');
+    expect(renderedLine.className).not.toContain('whitespace-pre-wrap');
     expect(highlights).toHaveLength(2);
     expect(highlights[0]?.className).toContain('active-search-match');
     expect(highlights[1]?.className).not.toContain('active-search-match');
@@ -354,6 +356,7 @@ describe('LogsDetailPanelComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('plain line content');
     expect(fixture.nativeElement.querySelectorAll('mark.log-search-match')).toHaveLength(0);
+    expect(component.canToggleWordWrap()).toBe(true);
   });
 
   it('renders tail preview lines with precomputed html', () => {
@@ -457,6 +460,46 @@ describe('LogsDetailPanelComponent', () => {
     expect(content.className).toContain('break-all');
     expect(settings.logs().wordWrapEnabled).toBe(true);
     expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toContain('"wordWrapEnabled":true');
+  });
+
+  it('emits word wrap changes for fully loaded large files', () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+    const largeViewer: LogLargeViewerVm = {
+      progressLabel: '100.0 MB / 100.0 MB loaded',
+      statusLabel: 'File fully loaded',
+      searchStatusLabel: '',
+      searchQuery: '',
+      matchCount: 0,
+      activeMatchLineNumber: null,
+      requestedScrollLine: null,
+      topSpacerPx: 0,
+      bottomSpacerPx: 0,
+      lines: [{ lineNumber: 7, content: 'plain line content' }],
+      totalLines: 1,
+      tailPreviewLines: [],
+      pendingBeforeLabel: null,
+      pendingAfterLabel: null,
+      canEnableWordWrap: true,
+      downloadDisabled: false,
+    };
+    const wordWrapChanged = vi.fn<(value: boolean) => void>();
+    component.wordWrapChanged.subscribe(wordWrapChanged);
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', largeViewer);
+    fixture.detectChanges();
+
+    component.onWordWrapChange(true);
+
+    expect(wordWrapChanged).toHaveBeenCalledWith(true);
+    expect(settings.logs().wordWrapEnabled).toBe(true);
   });
 
   it('uses the persisted word wrap preference on startup', async () => {

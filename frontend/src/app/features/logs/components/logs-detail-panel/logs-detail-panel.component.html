@@ -180,7 +180,7 @@
 
     <div
       #contentScrollContainer
-      class="min-h-0 flex-1 overflow-auto bg-surface-container-lowest p-6 font-mono text-[12px] leading-relaxed text-on-surface"
+      class="min-h-0 flex-1 overflow-auto bg-surface-container-lowest p-6 font-mono text-[12px] text-on-surface"
       (scroll)="onLargeViewerScroll()"
     >
       @if (contentLoading()) {
@@ -202,7 +202,7 @@
               {{ "logs.detail.viewer.tailPreview" | translate }}
             </div>
             @for (line of renderedTailPreviewLines(); track line.lineNumber) {
-              <div class="py-0.5">
+              <div class="h-5">
                 <span
                   [class]="largeLineContentClass()"
                   [innerHTML]="line.html"
@@ -228,7 +228,7 @@
           <div [style.height.px]="viewer.topSpacerPx"></div>
 
           @for (line of renderedLargeLines(); track line.lineNumber) {
-            <div class="border-surface-container-highest/40 py-0.5">
+            <div class="h-5 border-surface-container-highest/40">
               <span
                 [class]="largeLineContentClass()"
                 [innerHTML]="line.html"

@@ -128,6 +128,7 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly selectPreviousSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly selectNextSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly exportLargeViewer = vi.fn<() => Promise<boolean>>(async () => false);
+  readonly enableWrappedLargeContent = vi.fn<() => Promise<void>>(async () => undefined);
   readonly clearRequestedScrollLine = vi.fn<() => void>(() => {
     this.largeViewerRequestedScrollLineState.set(null);
   });
