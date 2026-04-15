@@ -135,6 +135,33 @@ describe('ConnectionsPage', () => {
     expect(connections.load).toHaveBeenCalledOnce();
   });
 
+  it('keeps the page header fixed and renders the connections list in its own scroll container', () => {
+    connections.connectionsState.set([createConnection({ id: 'conn-1', name: 'prod-logs' })]);
+
+    fixture.detectChanges();
+
+    const page = fixture.nativeElement.querySelector(
+      '[data-testid="connections-page"]',
+    ) as HTMLElement | null;
+    const header = fixture.nativeElement.querySelector(
+      '[data-testid="connections-page-header"]',
+    ) as HTMLElement | null;
+    const listScroll = fixture.nativeElement.querySelector(
+      '[data-testid="connections-list-scroll"]',
+    ) as HTMLElement | null;
+    const searchField = fixture.nativeElement.querySelector('.p-iconfield') as HTMLElement | null;
+
+    expect(page?.className).toContain('overflow-hidden');
+    expect(page?.className).not.toContain('overflow-auto');
+    expect(header?.className).toContain('shrink-0');
+    expect(listScroll?.className).toContain('min-h-0');
+    expect(listScroll?.className).toContain('flex-1');
+    expect(listScroll?.className).toContain('overflow-y-auto');
+    expect(header?.contains(searchField)).toBe(true);
+    expect(listScroll?.contains(searchField)).toBe(false);
+    expect(listScroll?.textContent).toContain('prod-logs');
+  });
+
   it('derives the total container stat, renders the compact Azure CLI card, and filters the visible cards', () => {
     connections.connectionsState.set([
       createConnection({
@@ -213,6 +240,22 @@ describe('ConnectionsPage', () => {
     expect(component.showCategoryGroups()).toBe(false);
     expect(component.cardGroups()).toEqual([]);
     expect(fixture.nativeElement.textContent).not.toContain('Uncategorized');
+  });
+
+  it('renders loading feedback inside the list scroll area', () => {
+    connections.statusState.set('loading');
+
+    fixture.detectChanges();
+
+    const listScroll = fixture.nativeElement.querySelector(
+      '[data-testid="connections-list-scroll"]',
+    ) as HTMLElement | null;
+    const header = fixture.nativeElement.querySelector(
+      '[data-testid="connections-page-header"]',
+    ) as HTMLElement | null;
+
+    expect(listScroll?.textContent).toContain('Loading connections…');
+    expect(header?.textContent).toContain('Overview');
   });
 
   it('groups visible connections by category and places uncategorized entries last', () => {

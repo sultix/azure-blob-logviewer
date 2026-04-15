@@ -1,235 +1,247 @@
-<section class="flex h-full flex-col overflow-auto">
+<section
+  data-testid="connections-page"
+  class="flex h-full min-h-0 flex-col overflow-hidden"
+>
   <p-confirmdialog appendTo="body" />
 
-  <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 p-10">
-    <header class="flex flex-col gap-2">
-      <span
-        class="text-xs font-semibold uppercase tracking-[0.2em] text-primary"
-      >
-        {{ 'connections.page.eyebrow' | translate }}
-      </span>
-      <h1 class="font-display text-3xl font-bold text-on-surface">
-        {{ 'connections.page.title' | translate }}
-      </h1>
-      <p class="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
-        {{ 'connections.page.description' | translate }}
-      </p>
-    </header>
-    <div class="flex items-center justify-between">
-      <h2 class="font-display text-lg font-semibold text-on-surface">
-        {{ 'connections.page.overview' | translate }}
-      </h2>
-    </div>
-    <div class="grid grid-cols-1 gap-4 xl:grid-cols-4">
-      <div
-        class="flex items-start justify-between rounded-xl bg-surface-container p-5"
-      >
-        <div class="flex flex-col gap-1">
+  <div
+    class="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col px-10 pb-10 pt-10"
+  >
+    <div
+      data-testid="connections-page-header"
+      class="shrink-0 flex flex-col gap-8 pb-8"
+    >
+      <header class="flex flex-col gap-2">
+        <span
+          class="text-xs font-semibold uppercase tracking-[0.2em] text-primary"
+        >
+          {{ 'connections.page.eyebrow' | translate }}
+        </span>
+        <h1 class="font-display text-3xl font-bold text-on-surface">
+          {{ 'connections.page.title' | translate }}
+        </h1>
+        <p class="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+          {{ 'connections.page.description' | translate }}
+        </p>
+      </header>
+      <div class="flex items-center justify-between">
+        <h2 class="font-display text-lg font-semibold text-on-surface">
+          {{ 'connections.page.overview' | translate }}
+        </h2>
+      </div>
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-4">
+        <div
+          class="flex items-start justify-between rounded-xl bg-surface-container p-5"
+        >
+          <div class="flex flex-col gap-1">
+            <span
+              class="text-[11px] font-medium uppercase tracking-wider text-on-surface-variant"
+            >
+              {{ 'connections.page.totalContainers' | translate }}
+            </span>
+            <span class="font-display text-2xl font-bold text-on-surface">
+              {{ totalContainers() }}
+            </span>
+          </div>
           <span
-            class="text-[11px] font-medium uppercase tracking-wider text-on-surface-variant"
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-primary"
           >
-            {{ 'connections.page.totalContainers' | translate }}
-          </span>
-          <span class="font-display text-2xl font-bold text-on-surface">
-            {{ totalContainers() }}
+            <i class="pi pi-database text-sm"></i>
           </span>
         </div>
-        <span
-          class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-primary"
+
+        <article
+          class="flex flex-col gap-3 rounded-xl border p-4 xl:col-span-3"
+          [class]="azureCliCardStyle().containerClass"
         >
-          <i class="pi pi-database text-sm"></i>
-        </span>
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex min-w-0 flex-col gap-2">
+              <span
+                class="text-[11px] font-medium uppercase tracking-wider"
+                [class]="azureCliCardStyle().eyebrowClass"
+              >
+                {{ 'connections.page.azureCliRequired' | translate }}
+              </span>
+              <p
+                class="max-w-3xl text-sm leading-relaxed"
+                [class]="azureCliCardStyle().descriptionClass"
+              >
+                {{ 'connections.page.azureCliDescription' | translate: {
+                command: 'az login' } }}
+              </p>
+            </div>
+            <span
+              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+              [class]="azureCliCardStyle().iconClass"
+            >
+              <i class="pi pi-microsoft text-base"></i>
+            </span>
+          </div>
+        </article>
       </div>
 
-      <article
-        class="flex flex-col gap-3 rounded-xl border p-4 xl:col-span-3"
-        [class]="azureCliCardStyle().containerClass"
-      >
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex min-w-0 flex-col gap-2">
-            <span
-              class="text-[11px] font-medium uppercase tracking-wider"
-              [class]="azureCliCardStyle().eyebrowClass"
-            >
-              {{ 'connections.page.azureCliRequired' | translate }}
-            </span>
-            <p
-              class="max-w-3xl text-sm leading-relaxed"
-              [class]="azureCliCardStyle().descriptionClass"
-            >
-              {{ 'connections.page.azureCliDescription' | translate: { command:
-              'az login' } }}
-            </p>
-          </div>
-          <span
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-            [class]="azureCliCardStyle().iconClass"
+      <div class="flex items-center gap-3">
+        <p-iconfield
+          iconPosition="left"
+          class="flex-1 rounded-lg bg-surface-container-lowest"
+        >
+          <p-inputicon>
+            <i class="pi pi-search text-sm text-on-surface-variant"></i>
+          </p-inputicon>
+          <input
+            pInputText
+            pSize="large"
+            type="text"
+            [placeholder]="'connections.page.searchPlaceholder' | translate"
+            [ngModel]="searchTerm()"
+            (ngModelChange)="onSearch($event)"
+            class="w-full border-0 bg-transparent px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant shadow-none focus:outline-none"
+            [attr.aria-label]="'connections.page.searchAriaLabel' | translate"
+          />
+        </p-iconfield>
+        <button
+          type="button"
+          (click)="openDialog()"
+          [disabled]="!isAuthenticated()"
+          class="flex items-center gap-2 rounded-lg bg-primary-gradient px-5 py-2.5 text-sm font-semibold text-on-primary shadow-ambient transition-transform hover:-translate-y-[1px] disabled:opacity-40 disabled:hover:translate-y-0"
+          [title]="isAuthenticated() ? ('connections.page.addButtonTitleEnabled' | translate) : ('connections.page.addButtonTitleDisabled' | translate)"
+        >
+          <i class="pi pi-plus text-xs"></i>
+          {{ 'connections.page.addButton' | translate }}
+        </button>
+      </div>
+
+      @if (!isAuthenticated()) {
+      <div class="flex items-start gap-3 rounded-xl bg-surface-container p-5">
+        <i class="pi pi-info-circle mt-0.5 text-sm text-tertiary"></i>
+        <p class="text-xs leading-relaxed text-on-surface-variant">
+          {{ 'connections.page.authNoticeBefore' | translate }}
+          <a routerLink="/settings" class="font-semibold text-primary underline"
+            >{{ 'shell.navigation.settings' | translate }}</a
           >
-            <i class="pi pi-microsoft text-base"></i>
-          </span>
-        </div>
-      </article>
-    </div>
-
-    <div class="flex items-center gap-3">
-      <p-iconfield
-        iconPosition="left"
-        class="flex-1 rounded-lg bg-surface-container-lowest"
-      >
-        <p-inputicon>
-          <i class="pi pi-search text-sm text-on-surface-variant"></i>
-        </p-inputicon>
-        <input
-          pInputText
-          pSize="large"
-          type="text"
-          [placeholder]="'connections.page.searchPlaceholder' | translate"
-          [ngModel]="searchTerm()"
-          (ngModelChange)="onSearch($event)"
-          class="w-full border-0 bg-transparent px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant shadow-none focus:outline-none"
-          [attr.aria-label]="'connections.page.searchAriaLabel' | translate"
-        />
-      </p-iconfield>
-      <button
-        type="button"
-        (click)="openDialog()"
-        [disabled]="!isAuthenticated()"
-        class="flex items-center gap-2 rounded-lg bg-primary-gradient px-5 py-2.5 text-sm font-semibold text-on-primary shadow-ambient transition-transform hover:-translate-y-[1px] disabled:opacity-40 disabled:hover:translate-y-0"
-        [title]="isAuthenticated() ? ('connections.page.addButtonTitleEnabled' | translate) : ('connections.page.addButtonTitleDisabled' | translate)"
-      >
-        <i class="pi pi-plus text-xs"></i>
-        {{ 'connections.page.addButton' | translate }}
-      </button>
-    </div>
-
-    @if (!isAuthenticated()) {
-    <div class="flex items-start gap-3 rounded-xl bg-surface-container p-5">
-      <i class="pi pi-info-circle mt-0.5 text-sm text-tertiary"></i>
-      <p class="text-xs leading-relaxed text-on-surface-variant">
-        {{ 'connections.page.authNoticeBefore' | translate }}
-        <a routerLink="/settings" class="font-semibold text-primary underline"
-          >{{ 'shell.navigation.settings' | translate }}</a
-        >
-        {{ 'connections.page.authNoticeAfter' | translate }}
-      </p>
-    </div>
-    } @if (status() === 'loading') {
-    <p class="text-sm text-on-surface-variant">
-      {{ 'connections.page.loading' | translate }}
-    </p>
-    } @else if (status() === 'error') {
-    <p class="text-sm text-error">{{ errorMessage() }}</p>
-    } @else if (isEmpty()) {
-    <div
-      class="flex flex-col items-center gap-3 rounded-xl bg-surface-container p-12 text-center"
-    >
-      <i class="pi pi-cloud-upload text-3xl text-on-surface-variant"></i>
-      <h3 class="font-display text-lg font-semibold text-on-surface">
-        {{ 'connections.page.emptyTitle' | translate }}
-      </h3>
-      <p class="max-w-sm text-sm text-on-surface-variant">
-        {{ 'connections.page.emptyDescription' | translate }}
-      </p>
-    </div>
-    } @else {
-    <ng-template #cardList let-cards>
-      <ul class="flex flex-col gap-2">
-        @for (card of cards; track card.id) {
-        <li
-          class="group flex items-center gap-5 rounded-xl bg-surface-container p-5 transition-colors hover:bg-surface-container-high"
-        >
-          <span
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-container-high"
-            [class]="card.statusColorClass"
-          >
-            <i class="pi text-base" [class]="card.statusIcon"></i>
-          </span>
-
-          <div class="flex min-w-0 flex-1 flex-col gap-1">
-            <div class="flex items-center gap-3">
-              <span
-                class="truncate font-mono text-sm font-medium text-on-surface"
-              >
-                {{ card.name }}
-              </span>
-            </div>
-            <div
-              class="flex items-center gap-4 text-xs text-on-surface-variant"
-            >
-              <span>{{ card.displayName }}</span>
-              <span class="text-outline-variant">•</span>
-              <span
-                >{{ 'connections.page.lastUsed' | translate: { value:
-                card.lastUsedRelative } }}</span
-              >
-              <span class="text-outline-variant">•</span>
-              <span
-                >{{ 'connections.page.tier' | translate: { tier: card.accessTier
-                } }}</span
-              >
-            </div>
-          </div>
-
-          <div class="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              (click)="openEditDialog(card)"
-              [disabled]="!isAuthenticated()"
-              [title]="isAuthenticated() ? ('connections.page.editButtonTitleEnabled' | translate) : ('connections.page.editButtonTitleDisabled' | translate)"
-              [attr.aria-label]="'connections.page.editConnectionAriaLabel' | translate"
-              class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:opacity-40"
-            >
-              <i class="pi pi-pencil text-xs"></i>
-            </button>
-
-            <button
-              type="button"
-              (click)="requestRemove(card)"
-              [attr.aria-label]="'connections.page.removeConnectionAriaLabel' | translate"
-              class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-surface"
-            >
-              <i class="pi pi-trash text-xs"></i>
-            </button>
-
-            <button
-              type="button"
-              (click)="openLogs(card)"
-              class="flex h-10 items-center gap-2 rounded-lg bg-surface-container-highest px-4 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright"
-            >
-              @if (card.isOffline) {
-              <i class="pi pi-refresh text-xs"></i>
-              {{ 'connections.page.reconnect' | translate }} } @else { {{
-              'connections.page.openLogs' | translate }}
-              <i class="pi pi-arrow-right text-xs"></i>
-              }
-            </button>
-          </div>
-        </li>
-        }
-      </ul>
-    </ng-template>
-
-    @if (showCategoryGroups()) {
-    <div class="flex flex-col gap-6">
-      @for (group of cardGroups(); track group.key) {
-      <section class="flex flex-col gap-2">
-        <h3
-          class="text-xs font-semibold uppercase tracking-[0.16em] text-on-surface-variant"
-        >
-          {{ group.label }}
-        </h3>
-        <ng-container
-          [ngTemplateOutlet]="cardList"
-          [ngTemplateOutletContext]="{ $implicit: group.cards }"
-        />
-      </section>
+          {{ 'connections.page.authNoticeAfter' | translate }}
+        </p>
+      </div>
       }
     </div>
-    } @else {
-    <ng-container
-      [ngTemplateOutlet]="cardList"
-      [ngTemplateOutletContext]="{ $implicit: cards() }"
-    />
-    } }
+
+    <div
+      data-testid="connections-list-scroll"
+      class="min-h-0 flex-1 overflow-y-auto"
+    >
+      @if (status() === 'loading') {
+      <p class="text-sm text-on-surface-variant">
+        {{ 'connections.page.loading' | translate }}
+      </p>
+      } @else if (status() === 'error') {
+      <p class="text-sm text-error">{{ errorMessage() }}</p>
+      } @else if (isEmpty()) {
+      <div
+        class="flex flex-col items-center gap-3 rounded-xl bg-surface-container p-12 text-center"
+      >
+        <i class="pi pi-cloud-upload text-3xl text-on-surface-variant"></i>
+        <h3 class="font-display text-lg font-semibold text-on-surface">
+          {{ 'connections.page.emptyTitle' | translate }}
+        </h3>
+        <p class="max-w-sm text-sm text-on-surface-variant">
+          {{ 'connections.page.emptyDescription' | translate }}
+        </p>
+      </div>
+      } @else {
+      <ng-template #cardList let-cards>
+        <ul class="flex flex-col gap-2">
+          @for (card of cards; track card.id) {
+          <li
+            class="group flex items-center gap-5 rounded-xl bg-surface-container p-5 transition-colors hover:bg-surface-container-high"
+          >
+            <span
+              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-container-high"
+              [class]="card.statusColorClass"
+            >
+              <i class="pi text-base" [class]="card.statusIcon"></i>
+            </span>
+
+            <div class="flex min-w-0 flex-1 flex-col gap-1">
+              <div class="flex items-center gap-3">
+                <span
+                  class="truncate font-mono text-sm font-medium text-on-surface"
+                >
+                  {{ card.name }}
+                </span>
+              </div>
+              <div
+                class="flex items-center gap-4 text-xs text-on-surface-variant"
+              >
+                <span>{{ card.displayName }}</span>
+                <span class="text-outline-variant">•</span>
+                <span
+                  >{{ 'connections.page.tier' | translate: { tier:
+                  card.accessTier } }}</span
+                >
+              </div>
+            </div>
+
+            <div class="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                (click)="openEditDialog(card)"
+                [disabled]="!isAuthenticated()"
+                [title]="isAuthenticated() ? ('connections.page.editButtonTitleEnabled' | translate) : ('connections.page.editButtonTitleDisabled' | translate)"
+                [attr.aria-label]="'connections.page.editConnectionAriaLabel' | translate"
+                class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:opacity-40"
+              >
+                <i class="pi pi-pencil text-xs"></i>
+              </button>
+
+              <button
+                type="button"
+                (click)="requestRemove(card)"
+                [attr.aria-label]="'connections.page.removeConnectionAriaLabel' | translate"
+                class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-surface"
+              >
+                <i class="pi pi-trash text-xs"></i>
+              </button>
+
+              <button
+                type="button"
+                (click)="openLogs(card)"
+                class="flex h-10 items-center gap-2 rounded-lg bg-surface-container-highest px-4 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright"
+              >
+                @if (card.isOffline) {
+                <i class="pi pi-refresh text-xs"></i>
+                {{ 'connections.page.reconnect' | translate }} } @else { {{
+                'connections.page.openLogs' | translate }}
+                <i class="pi pi-arrow-right text-xs"></i>
+                }
+              </button>
+            </div>
+          </li>
+          }
+        </ul>
+      </ng-template>
+
+      @if (showCategoryGroups()) {
+      <div class="flex flex-col gap-6">
+        @for (group of cardGroups(); track group.key) {
+        <section class="flex flex-col gap-2">
+          <h3
+            class="text-xs font-semibold uppercase tracking-[0.16em] text-on-surface-variant"
+          >
+            {{ group.label }}
+          </h3>
+          <ng-container
+            [ngTemplateOutlet]="cardList"
+            [ngTemplateOutletContext]="{ $implicit: group.cards }"
+          />
+        </section>
+        }
+      </div>
+      } @else {
+      <ng-container
+        [ngTemplateOutlet]="cardList"
+        [ngTemplateOutletContext]="{ $implicit: cards() }"
+      />
+      } }
+    </div>
   </div>
 </section>
