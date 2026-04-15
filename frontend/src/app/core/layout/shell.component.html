@@ -9,15 +9,15 @@
       <div
         class="flex w-[var(--layout-sidebar-width)] shrink-0 items-center gap-2.5"
       >
-        <img
-          [src]="appLogoPath"
-          alt=""
-          class="h-7 w-7 shrink-0 rounded-md object-cover ring-1 ring-white/10"
-        />
+        <span
+          class="flex h-6 w-6 items-center justify-center rounded bg-primary-gradient text-on-primary"
+        >
+          <i class="pi pi-database text-[12px]"></i>
+        </span>
         <span
           class="font-display text-sm font-semibold tracking-wide text-on-surface"
         >
-          {{ 'shell.appName' | translate }}
+          {{ "shell.appName" | translate }}
         </span>
         <span
           class="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant"
@@ -34,7 +34,7 @@
           class="flex items-center gap-2 border-b-2 border-transparent pe-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
         >
           <i class="pi pi-th-large text-[13px]"></i>
-          {{ 'shell.navigation.dashboard' | translate }}
+          {{ "shell.navigation.dashboard" | translate }}
         </a>
         <a
           routerLink="/settings"
@@ -42,7 +42,7 @@
           class="flex items-center gap-2 border-b-2 border-transparent px-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
         >
           <i class="pi pi-cog text-[13px]"></i>
-          {{ 'shell.navigation.settings' | translate }}
+          {{ "shell.navigation.settings" | translate }}
         </a>
       </nav>
     </div>
