@@ -32,7 +32,7 @@ import {
   type ConnectionDialogData,
   type ConnectionDialogMode,
   type ConnectionDialogResult,
-} from '../components/add-connection-dialog.component';
+} from '../components/add-connection-dialog/add-connection-dialog.component';
 
 interface ConnectionCardVm {
   id: string;

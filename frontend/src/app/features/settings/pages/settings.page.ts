@@ -26,7 +26,7 @@ import { AzureService } from '../services/azure.service';
 import { SettingsService } from '../services/settings.service';
 import type { RefreshInterval, RetentionPolicy } from '../models/app-config.model';
 
-import { AzureLoginComponent } from '../components/azure-login.component';
+import { AzureLoginComponent } from '../components/azure-login/azure-login.component';
 
 @Component({
   selector: 'app-settings-page',

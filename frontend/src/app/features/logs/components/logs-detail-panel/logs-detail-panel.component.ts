@@ -24,7 +24,7 @@ import type {
   LogFooterVm,
   LogsStatus,
   LogToolbarVm,
-} from "../models/logs-view.model";
+} from "../../models/logs-view.model";
 
 interface ContentSearchVm {
   readonly matchCount: number;

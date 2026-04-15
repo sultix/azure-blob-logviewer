@@ -143,6 +143,13 @@ src/
         models/
 ```
 
+Directory rule for Angular UI artifacts:
+
+- Every new `@Component`, `@Pipe`, and `@Directive` must live in its own dedicated directory.
+- Keep the artifact implementation, template, style, and test files together in that directory.
+- Apply this rule in `features/`, `shared/`, and `core/` when those artifact types are introduced there.
+- Do not keep new components, pipes, or directives as flat sibling files directly under `components/`, `pipes/`, `directives/`, or similar folders.
+
 ### Components
 
 - Prefer `ChangeDetectionStrategy.OnPush`
@@ -412,6 +419,8 @@ export interface AppApi {
 - One primary class/component per frontend file
 - Co-locate template/style/test files with the component
 - Keep feature internals inside the feature folder unless clearly shared
+- Place each Angular component, pipe, and directive in its own folder named after the artifact
+- Keep `pages/`, `services/`, `models/`, and other non-UI artifact folders on the existing repo conventions unless a separate rule explicitly says otherwise
 
 ### Suggested Angular naming
 
@@ -420,6 +429,25 @@ export interface AppApi {
 - `feature-name.service.ts` for focused business services
 - `feature-name.store.ts` only when there is a real local store abstraction
 - `feature-name.types.ts` or `feature-name.models.ts` for domain models
+
+Recommended Angular artifact folder layout:
+
+```text
+shared/
+  ui/
+    user-card/
+      user-card.component.ts
+      user-card.component.html
+      user-card.component.spec.ts
+  pipes/
+    file-size/
+      file-size.pipe.ts
+      file-size.pipe.spec.ts
+  directives/
+    autofocus/
+      autofocus.directive.ts
+      autofocus.directive.spec.ts
+```
 
 ### Suggested Go structure
 

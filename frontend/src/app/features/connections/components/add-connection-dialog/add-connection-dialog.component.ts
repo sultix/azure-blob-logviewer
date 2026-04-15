@@ -20,14 +20,14 @@ import {
 } from 'primeng/dynamicdialog';
 import { InputText } from 'primeng/inputtext';
 
-import type { StorageConnection } from '../models/storage-connection.model';
-import { AzureResourcePickerComponent } from '@app/features/settings/components/azure-resource-picker.component';
+import { AzureResourcePickerComponent } from '@app/features/settings/components/azure-resource-picker/azure-resource-picker.component';
 import { AzureService } from '@app/features/settings/services/azure.service';
 import type {
   AzureContainer,
   AzureStorageAccount,
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
+import type { StorageConnection } from '../../models/storage-connection.model';
 
 export type ConnectionDialogMode = 'create' | 'edit';
 

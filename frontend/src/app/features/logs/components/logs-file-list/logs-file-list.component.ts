@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import type { LogFileRowVm } from '../models/logs-view.model';
+import type { LogFileRowVm } from '../../models/logs-view.model';
 
 @Component({
   selector: 'app-logs-file-list',

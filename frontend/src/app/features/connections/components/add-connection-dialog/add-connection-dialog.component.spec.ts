@@ -8,7 +8,7 @@ import {
 } from 'primeng/dynamicdialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StorageConnection } from '../models/storage-connection.model';
+import type { StorageConnection } from '../../models/storage-connection.model';
 import type {
   AzureContainer,
   AzureStorageAccount,

@@ -7,7 +7,7 @@ import {
 } from "@angular/core";
 import { TranslatePipe } from "@ngx-translate/core";
 
-import type { AzureBlobItem } from "../models/azure.model";
+import type { AzureBlobItem } from "../../models/azure.model";
 
 interface BlobRowVm {
   name: string;

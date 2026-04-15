@@ -9,7 +9,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 
 import type {
   ConnectionDialogResult,
-} from '@app/features/connections/components/add-connection-dialog.component';
+} from '@app/features/connections/components/add-connection-dialog/add-connection-dialog.component';
 import type { StorageConnection } from '@app/features/connections/models/storage-connection.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import type {

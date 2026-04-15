@@ -12,9 +12,9 @@ import { MessageService } from "primeng/api";
 import { AppI18nService } from "@app/core/i18n/app-i18n.service";
 import { ConnectionsService } from "@app/features/connections/services/connections.service";
 
-import { LogsDetailPanelComponent } from "../components/logs-detail-panel.component";
-import { LogsFileListComponent } from "../components/logs-file-list.component";
-import { LogsFiltersComponent } from "../components/logs-filters.component";
+import { LogsDetailPanelComponent } from "../components/logs-detail-panel/logs-detail-panel.component";
+import { LogsFileListComponent } from "../components/logs-file-list/logs-file-list.component";
+import { LogsFiltersComponent } from "../components/logs-filters/logs-filters.component";
 import type {
   LogFileRowVm,
   LogFooterVm,

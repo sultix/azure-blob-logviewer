@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import type { AzureAuthStep } from '../services/azure.service';
+import type { AzureAuthStep } from '../../services/azure.service';
 
 @Component({
   selector: 'app-azure-login',

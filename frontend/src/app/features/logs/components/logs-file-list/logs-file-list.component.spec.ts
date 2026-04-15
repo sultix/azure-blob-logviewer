@@ -4,7 +4,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
-import type { LogFileRowVm } from '../models/logs-view.model';
+import type { LogFileRowVm } from '../../models/logs-view.model';
 
 import { LogsFileListComponent } from './logs-file-list.component';
 

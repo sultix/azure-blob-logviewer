@@ -7,7 +7,7 @@ import { Tooltip } from 'primeng/tooltip';
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 import { SettingsService } from '@app/features/settings/services/settings.service';
 
-import type { LogFooterVm, LogToolbarVm } from '../models/logs-view.model';
+import type { LogFooterVm, LogToolbarVm } from '../../models/logs-view.model';
 
 import { LogsDetailPanelComponent } from './logs-detail-panel.component';
 

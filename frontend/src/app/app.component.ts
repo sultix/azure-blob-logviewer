@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import type { OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
-import { ShellComponent } from './core/layout/shell.component';
+import { ShellComponent } from './core/layout/shell/shell.component';
 import { AzureService } from './features/settings/services/azure.service';
 
 @Component({
