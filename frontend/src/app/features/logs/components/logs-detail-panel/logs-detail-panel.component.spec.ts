@@ -276,6 +276,9 @@ describe('LogsDetailPanelComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('File is loading in the background');
     expect(fixture.nativeElement.textContent).toContain('4.0 MB / 100.0 MB loaded');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Word wrap is unavailable for large files to keep the viewer responsive.',
+    );
     expect(fixture.nativeElement.textContent).toContain('Earlier lines are still loading');
     expect(fixture.nativeElement.textContent).toContain('Later lines are still loading');
     expect(fixture.nativeElement.textContent).toContain('error on current line');
@@ -355,8 +358,11 @@ describe('LogsDetailPanelComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('plain line content');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Word wrap is unavailable for large files to keep the viewer responsive.',
+    );
     expect(fixture.nativeElement.querySelectorAll('mark.log-search-match')).toHaveLength(0);
-    expect(component.canToggleWordWrap()).toBe(true);
+    expect(component.canToggleWordWrap()).toBe(false);
   });
 
   it('renders tail preview lines with precomputed html', () => {
@@ -462,7 +468,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toContain('"wordWrapEnabled":true');
   });
 
-  it('emits word wrap changes for fully loaded large files', () => {
+  it('does not toggle word wrap for fully loaded large files', () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -487,8 +493,6 @@ describe('LogsDetailPanelComponent', () => {
       canEnableWordWrap: true,
       downloadDisabled: false,
     };
-    const wordWrapChanged = vi.fn<(value: boolean) => void>();
-    component.wordWrapChanged.subscribe(wordWrapChanged);
 
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
@@ -498,8 +502,8 @@ describe('LogsDetailPanelComponent', () => {
 
     component.onWordWrapChange(true);
 
-    expect(wordWrapChanged).toHaveBeenCalledWith(true);
-    expect(settings.logs().wordWrapEnabled).toBe(true);
+    expect(component.canToggleWordWrap()).toBe(false);
+    expect(settings.logs().wordWrapEnabled).toBe(false);
   });
 
   it('uses the persisted word wrap preference on startup', async () => {
@@ -609,6 +613,47 @@ describe('LogsDetailPanelComponent', () => {
     expect(
       fixture.nativeElement.querySelector('button[aria-label="Clear content search"]'),
     ).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('1 / 2');
+  });
+
+  it('resets the content search when the selected blob changes', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '1.5 KB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('selectionKey', 'alpha');
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('content', 'Error line\nSecond ERROR line');
+    fixture.detectChanges();
+
+    const searchInput = fixture.nativeElement.querySelector(
+      'input[aria-label="Search within log content"]',
+    ) as HTMLInputElement;
+    await runContentSearch(fixture, searchInput, 'error');
+
+    expect(fixture.nativeElement.querySelectorAll('mark')).toHaveLength(2);
+    expect(fixture.nativeElement.textContent).toContain('1 / 2');
+
+    fixture.componentRef.setInput('selectionKey', 'beta');
+    fixture.componentRef.setInput('toolbar', {
+      ...toolbar,
+      blobName: 'beta.log',
+      path: 'storage-a/logs/beta.log',
+    });
+    fixture.componentRef.setInput('content', 'beta content without matches');
+    fixture.detectChanges();
+    await settleComponent(fixture);
+
+    const updatedSearchInput = fixture.nativeElement.querySelector(
+      'input[aria-label="Search within log content"]',
+    ) as HTMLInputElement;
+    expect(updatedSearchInput.value).toBe('');
+    expect(fixture.nativeElement.querySelectorAll('mark')).toHaveLength(0);
     expect(fixture.nativeElement.textContent).not.toContain('1 / 2');
   });
 

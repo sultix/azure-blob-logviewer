@@ -140,6 +140,7 @@
         "progress": "{{loaded}} / {{total}} geladen",
         "backgroundLoading": "Datei wird im Hintergrund geladen",
         "complete": "Datei vollständig geladen",
+        "wordWrapUnavailable": "Zeilenumbruch ist für große Dateien nicht verfügbar, damit der Viewer flüssig bleibt.",
         "pendingBefore": "Frühere Zeilen werden noch geladen",
         "pendingAfter": "Spätere Zeilen werden noch geladen",
         "tailPreview": "Es werden zuerst die neuesten Zeilen gezeigt, während die vollständige Datei geladen wird.",

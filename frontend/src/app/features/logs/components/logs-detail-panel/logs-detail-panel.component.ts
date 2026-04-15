@@ -4,6 +4,7 @@ import {
   ElementRef,
   afterRenderEffect,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -69,6 +70,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly status = input.required<LogsStatus>();
   readonly errorMessage = input<string | null>(null);
   readonly hasSelection = input(false);
+  readonly selectionKey = input("");
   readonly toolbar = input<LogToolbarVm | null>(null);
   readonly largeViewer = input<LogLargeViewerVm | null>(null);
   readonly content = input("");
@@ -84,13 +86,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly nextLargeMatchRequested = output<void>();
   readonly largeViewportChanged = output<{ startLine: number; lineCount: number }>();
   readonly largeScrollHandled = output<void>();
-  readonly wordWrapChanged = output<boolean>();
 
   private contentSearchApplyTimer: ReturnType<typeof setTimeout> | null = null;
   private lastScrolledMatchKey: string | null = null;
   private lastActiveMatch: HTMLElement | null = null;
   private lastLargeViewportKey: string | null = null;
   private lastRequestedLargeScrollLine: number | null = null;
+  private lastAppliedSelectionKey: string | null = null;
   private readonly contentElement = viewChild("contentElement", {
     read: ElementRef<HTMLPreElement>,
   });
@@ -112,13 +114,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly largeLineContentClass = computed(
     () => "inline-block min-w-full whitespace-pre leading-5",
   );
-  readonly canToggleWordWrap = computed(() => {
-    const largeViewer = this.largeViewer();
-    if (!largeViewer) {
-      return true;
-    }
-    return largeViewer.canEnableWordWrap;
-  });
+  readonly canToggleWordWrap = computed(() => this.largeViewer() === null);
   readonly isLargeViewer = computed(() => this.largeViewer() !== null);
   readonly normalizedToolbar = computed<NormalizedToolbarVm | null>(() => {
     const toolbar = this.toolbar();
@@ -242,6 +238,16 @@ export class LogsDetailPanelComponent implements OnDestroy {
   });
 
   constructor() {
+    effect(() => {
+      const nextSelectionKey = this.selectionKey();
+      if (this.lastAppliedSelectionKey === nextSelectionKey) {
+        return;
+      }
+
+      this.lastAppliedSelectionKey = nextSelectionKey;
+      this.resetContentSearchState();
+    });
+
     afterRenderEffect(() => {
       const largeViewer = this.largeViewer();
       const scrollContainer = this.contentScrollContainer()?.nativeElement;
@@ -325,11 +331,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
   }
 
   clearContentSearch(): void {
-    this.clearContentSearchApplyTimer();
-    this.contentSearchInput.set("");
-    this.contentSearchQuery.set("");
-    this.requestedMatchIndex.set(0);
-    this.lastScrolledMatchKey = null;
+    this.resetContentSearchState();
 
     if (this.largeViewer()) {
       this.largeSearchChanged.emit("");
@@ -440,13 +442,20 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.contentSearchApplyTimer = null;
   }
 
+  private resetContentSearchState(): void {
+    this.clearContentSearchApplyTimer();
+    this.contentSearchInput.set("");
+    this.contentSearchQuery.set("");
+    this.requestedMatchIndex.set(0);
+    this.lastScrolledMatchKey = null;
+  }
+
   private updateWordWrap(value: boolean): void {
     if (!this.canToggleWordWrap()) {
       return;
     }
 
     this.settings.updateLogsPreferences({ wordWrapEnabled: value });
-    this.wordWrapChanged.emit(value);
   }
 }
 

@@ -29,6 +29,7 @@
     [status]="status()"
     [errorMessage]="errorMessage()"
     [hasSelection]="hasSelectedEntry()"
+    [selectionKey]="detailSelectionKey()"
     [toolbar]="toolbar()"
     [largeViewer]="largeViewer()"
     [content]="selectedContent()"
@@ -42,7 +43,6 @@
     (nextLargeMatchRequested)="onNextLargeMatch()"
     (largeViewportChanged)="onLargeViewportChange($event)"
     (largeScrollHandled)="onLargeScrollHandled()"
-    (wordWrapChanged)="onWordWrapChange($event)"
     (refreshRequested)="refresh()"
   />
 </section>

@@ -140,6 +140,7 @@
         "progress": "{{loaded}} / {{total}} loaded",
         "backgroundLoading": "File is loading in the background",
         "complete": "File fully loaded",
+        "wordWrapUnavailable": "Word wrap is unavailable for large files to keep the viewer responsive.",
         "pendingBefore": "Earlier lines are still loading",
         "pendingAfter": "Later lines are still loading",
         "tailPreview": "Showing the newest lines first while the full file is loading.",

@@ -183,6 +183,7 @@ export class LogsPage implements OnInit {
       : this.i18n.translate('logs.filters.oldestFirst'),
   );
   readonly hasSelectedEntry = computed(() => this.selectedEntryIds().length > 0);
+  readonly detailSelectionKey = computed(() => this.selectedEntryIds().join("|"));
   readonly sidebarLoading = computed(() => this.status() === "loading");
   readonly largeViewer = computed<LogLargeViewerVm | null>(() => {
     const status = this.largeViewerStatus();
@@ -359,14 +360,6 @@ export class LogsPage implements OnInit {
 
   onLargeScrollHandled(): void {
     this.logs.clearRequestedScrollLine();
-  }
-
-  onWordWrapChange(enabled: boolean): void {
-    if (!enabled) {
-      return;
-    }
-
-    void this.logs.enableWrappedLargeContent();
   }
 
   async download(): Promise<void> {
