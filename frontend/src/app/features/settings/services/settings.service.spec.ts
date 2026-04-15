@@ -65,6 +65,7 @@ describe('SettingsService', () => {
     });
     expect(service.logs()).toEqual({
       wordWrapEnabled: false,
+      initialLargeFileFocus: 'start',
     });
   });
 
@@ -114,6 +115,7 @@ describe('SettingsService', () => {
     });
     expect(service.logs()).toEqual({
       wordWrapEnabled: true,
+      initialLargeFileFocus: 'start',
     });
     expect(localStorage.getItem(STORAGE_KEY)).toBe(
       JSON.stringify({

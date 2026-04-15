@@ -48,3 +48,26 @@ type AzureBlobItem struct {
 	LastModified string `json:"lastModified"`
 	BlobType     string `json:"blobType"`
 }
+
+// AzureBlobTextChunkRequest describes a chunked text read against a blob.
+type AzureBlobTextChunkRequest struct {
+	AccountName   string `json:"accountName"`
+	ContainerName string `json:"containerName"`
+	BlobName      string `json:"blobName"`
+	StartOffset   *int64 `json:"startOffset,omitempty"`
+	Count         *int64 `json:"count,omitempty"`
+}
+
+// AzureBlobTextChunk contains a text preview window plus blob metadata.
+type AzureBlobTextChunk struct {
+	Content            string `json:"content"`
+	BlobSize           int64  `json:"blobSize"`
+	ContentType        string `json:"contentType"`
+	ETag               string `json:"etag"`
+	LastModified       string `json:"lastModified"`
+	StartOffset        int64  `json:"startOffset"`
+	EndOffsetExclusive int64  `json:"endOffsetExclusive"`
+	TruncatedStart     bool   `json:"truncatedStart"`
+	TruncatedEnd       bool   `json:"truncatedEnd"`
+	IsLargeBlob        bool   `json:"isLargeBlob"`
+}

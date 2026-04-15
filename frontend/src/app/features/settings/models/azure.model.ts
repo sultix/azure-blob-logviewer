@@ -42,3 +42,24 @@ export interface AzureBlobItem {
   lastModified: string;
   blobType: string;
 }
+
+export interface AzureBlobTextChunkRequest {
+  accountName: string;
+  containerName: string;
+  blobName: string;
+  startOffset?: number | null;
+  count?: number | null;
+}
+
+export interface AzureBlobTextChunk {
+  content: string;
+  blobSize: number;
+  contentType: string;
+  etag: string;
+  lastModified: string;
+  startOffset: number;
+  endOffsetExclusive: number;
+  truncatedStart: boolean;
+  truncatedEnd: boolean;
+  isLargeBlob: boolean;
+}

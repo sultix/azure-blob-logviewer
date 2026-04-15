@@ -22,6 +22,7 @@ import { AppI18nService } from "@app/core/i18n/app-i18n.service";
 import { SettingsService } from "@app/features/settings/services/settings.service";
 import type {
   LogFooterVm,
+  LogLargeViewerVm,
   LogsStatus,
   LogToolbarVm,
 } from "../../models/logs-view.model";
@@ -31,7 +32,19 @@ interface ContentSearchVm {
   readonly html: string;
 }
 
+interface RenderedTailPreviewLineVm {
+  readonly lineNumber: number;
+  readonly html: string;
+}
+
+interface RenderedLargeLineVm {
+  readonly lineNumber: number;
+  readonly html: string;
+}
+
 const CONTENT_SEARCH_DELAY_MS = 120;
+const LARGE_VIEW_LINE_HEIGHT_PX = 20;
+const LARGE_VIEW_OVERSCAN_LINES = 16;
 
 @Component({
   selector: "app-logs-detail-panel",
@@ -51,17 +64,26 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly errorMessage = input<string | null>(null);
   readonly hasSelection = input(false);
   readonly toolbar = input<LogToolbarVm | null>(null);
+  readonly largeViewer = input<LogLargeViewerVm | null>(null);
   readonly content = input("");
   readonly contentErrorMessage = input<string | null>(null);
   readonly contentLoading = input(false);
+  readonly downloadDisabled = input(false);
   readonly footer = input<LogFooterVm | null>(null);
 
   readonly downloadRequested = output<void>();
   readonly refreshRequested = output<void>();
+  readonly largeSearchChanged = output<string>();
+  readonly previousLargeMatchRequested = output<void>();
+  readonly nextLargeMatchRequested = output<void>();
+  readonly largeViewportChanged = output<{ startLine: number; lineCount: number }>();
+  readonly largeScrollHandled = output<void>();
 
   private contentSearchApplyTimer: ReturnType<typeof setTimeout> | null = null;
   private lastScrolledMatchKey: string | null = null;
   private lastActiveMatch: HTMLElement | null = null;
+  private lastLargeViewportKey: string | null = null;
+  private lastRequestedLargeScrollLine: number | null = null;
   private readonly contentElement = viewChild("contentElement", {
     read: ElementRef<HTMLPreElement>,
   });
@@ -80,6 +102,49 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly contentClass = computed(() =>
     this.wordWrapEnabled() ? "whitespace-pre-wrap break-all" : "whitespace-pre",
   );
+  readonly largeLineContentClass = computed(
+    () => `block min-w-0 w-full ${this.contentClass()}`,
+  );
+  readonly canToggleWordWrap = computed(() => {
+    const largeViewer = this.largeViewer();
+    if (!largeViewer) {
+      return true;
+    }
+    return largeViewer.canEnableWordWrap;
+  });
+  readonly isLargeViewer = computed(() => this.largeViewer() !== null);
+  readonly renderedTailPreviewLines = computed<RenderedTailPreviewLineVm[]>(() => {
+    const largeViewer = this.largeViewer();
+    if (!largeViewer) {
+      return [];
+    }
+
+    const query = largeViewer.searchQuery.trim();
+    return largeViewer.tailPreviewLines.map((content, index) => ({
+      lineNumber: index,
+      html: renderLargeLineHtml(
+        content,
+        query,
+        largeViewer.activeMatchLineNumber === index,
+      ),
+    }));
+  });
+  readonly renderedLargeLines = computed<RenderedLargeLineVm[]>(() => {
+    const largeViewer = this.largeViewer();
+    if (!largeViewer) {
+      return [];
+    }
+
+    const query = largeViewer.searchQuery.trim();
+    return largeViewer.lines.map((line) => ({
+      lineNumber: line.lineNumber,
+      html: renderLargeLineHtml(
+        line.content,
+        query,
+        largeViewer.activeMatchLineNumber === line.lineNumber,
+      ),
+    }));
+  });
   private readonly contentSearchBase = computed(() =>
     buildContentSearchBase(this.content(), this.contentSearchQuery().trim()),
   );
@@ -92,9 +157,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly contentSearch = computed<ContentSearchVm>(() =>
     buildContentSearch(this.contentSearchBase(), 0),
   );
-  readonly hasContentSearchMatches = computed(
-    () => !this.isContentSearchPending() && this.contentSearch().matchCount > 0,
-  );
+  readonly hasContentSearchMatches = computed(() => {
+    const largeViewer = this.largeViewer();
+    if (largeViewer) {
+      return largeViewer.matchCount > 0;
+    }
+    return !this.isContentSearchPending() && this.contentSearch().matchCount > 0;
+  });
   readonly hasActiveContentSearch = computed(
     () => this.contentSearchInput().trim().length > 0,
   );
@@ -110,6 +179,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
     {
       label: this.i18n.translate('logs.detail.mobileActions.download'),
       icon: "pi pi-download",
+      disabled: this.downloadDisabled(),
       command: () => this.downloadRequested.emit(),
     },
     {
@@ -117,10 +187,16 @@ export class LogsDetailPanelComponent implements OnDestroy {
         ? this.i18n.translate('logs.detail.mobileActions.wordWrapOn')
         : this.i18n.translate('logs.detail.mobileActions.wordWrapOff'),
       icon: "pi pi-align-left",
+      disabled: !this.canToggleWordWrap(),
       command: () => this.toggleWordWrap(),
     },
   ]);
   readonly contentSearchMatchText = computed(() => {
+    const largeViewer = this.largeViewer();
+    if (largeViewer) {
+      return largeViewer.searchStatusLabel;
+    }
+
     if (this.isContentSearchPending()) {
       return this.i18n.translate('logs.detail.searching');
     }
@@ -137,6 +213,29 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
   constructor() {
     afterRenderEffect(() => {
+      const largeViewer = this.largeViewer();
+      const scrollContainer = this.contentScrollContainer()?.nativeElement;
+
+      if (largeViewer && scrollContainer) {
+        this.emitLargeViewport(scrollContainer, largeViewer);
+
+        if (
+          largeViewer.requestedScrollLine !== null &&
+          largeViewer.requestedScrollLine !== this.lastRequestedLargeScrollLine
+        ) {
+          scrollContainer.scrollTo({
+            top: largeViewer.requestedScrollLine * LARGE_VIEW_LINE_HEIGHT_PX,
+            behavior: "auto",
+          });
+          this.lastRequestedLargeScrollLine = largeViewer.requestedScrollLine;
+          this.largeScrollHandled.emit();
+        }
+        return;
+      }
+
+      this.lastLargeViewportKey = null;
+      this.lastRequestedLargeScrollLine = null;
+
       if (this.contentLoading()) {
         this.lastActiveMatch = null;
         return;
@@ -152,7 +251,6 @@ export class LogsDetailPanelComponent implements OnDestroy {
       }
 
       const scrollKey = `${searchQuery}:${activeMatchIndex}:${this.content().length}`;
-      const scrollContainer = this.contentScrollContainer()?.nativeElement;
       const contentElement = this.contentElement()?.nativeElement;
       if (!scrollContainer || !contentElement) {
         return;
@@ -178,10 +276,16 @@ export class LogsDetailPanelComponent implements OnDestroy {
   }
 
   onWordWrapChange(value: boolean): void {
+    if (!this.canToggleWordWrap()) {
+      return;
+    }
     this.settings.updateLogsPreferences({ wordWrapEnabled: value });
   }
 
   toggleWordWrap(): void {
+    if (!this.canToggleWordWrap()) {
+      return;
+    }
     this.settings.updateLogsPreferences({
       wordWrapEnabled: !this.wordWrapEnabled(),
     });
@@ -189,6 +293,12 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
   onContentSearchChange(value: string): void {
     this.contentSearchInput.set(value);
+
+    if (this.largeViewer()) {
+      this.largeSearchChanged.emit(value);
+      return;
+    }
+
     this.queueContentSearch(value);
   }
 
@@ -198,9 +308,20 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.contentSearchQuery.set("");
     this.requestedMatchIndex.set(0);
     this.lastScrolledMatchKey = null;
+
+    if (this.largeViewer()) {
+      this.largeSearchChanged.emit("");
+    }
   }
 
   scrollToPreviousMatch(): void {
+    if (this.largeViewer()) {
+      if (this.hasContentSearchMatches()) {
+        this.previousLargeMatchRequested.emit();
+      }
+      return;
+    }
+
     const matchCount = this.contentSearch().matchCount;
     const activeMatchIndex = this.activeContentSearchMatchIndex();
     if (matchCount === 0) {
@@ -213,6 +334,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
   }
 
   scrollToNextMatch(): void {
+    if (this.largeViewer()) {
+      if (this.hasContentSearchMatches()) {
+        this.nextLargeMatchRequested.emit();
+      }
+      return;
+    }
+
     const matchCount = this.contentSearch().matchCount;
     const activeMatchIndex = this.activeContentSearchMatchIndex();
     if (matchCount === 0) {
@@ -224,8 +352,50 @@ export class LogsDetailPanelComponent implements OnDestroy {
     );
   }
 
+  onLargeViewerScroll(): void {
+    const largeViewer = this.largeViewer();
+    const scrollContainer = this.contentScrollContainer()?.nativeElement;
+    if (!largeViewer || !scrollContainer) {
+      return;
+    }
+
+    this.emitLargeViewport(scrollContainer, largeViewer);
+  }
+
   ngOnDestroy(): void {
     this.clearContentSearchApplyTimer();
+  }
+
+  private emitLargeViewport(
+    scrollContainer: HTMLDivElement,
+    largeViewer: LogLargeViewerVm,
+  ): void {
+    if (largeViewer.tailPreviewLines.length > 0) {
+      return;
+    }
+
+    const visibleLineCount =
+      Math.ceil(scrollContainer.clientHeight / LARGE_VIEW_LINE_HEIGHT_PX) +
+      LARGE_VIEW_OVERSCAN_LINES * 2;
+    const startLine = Math.max(
+      Math.floor(scrollContainer.scrollTop / LARGE_VIEW_LINE_HEIGHT_PX) -
+        LARGE_VIEW_OVERSCAN_LINES,
+      0,
+    );
+    const viewportKey = `${startLine}:${visibleLineCount}:${largeViewer.totalLines}`;
+    const shouldRetryEmptyViewport =
+      largeViewer.tailPreviewLines.length === 0 &&
+      largeViewer.lines.length === 0 &&
+      largeViewer.totalLines > 0;
+    if (!shouldRetryEmptyViewport && this.lastLargeViewportKey === viewportKey) {
+      return;
+    }
+
+    this.lastLargeViewportKey = viewportKey;
+    this.largeViewportChanged.emit({
+      startLine,
+      lineCount: visibleLineCount,
+    });
   }
 
   private queueContentSearch(value: string): void {
@@ -335,27 +505,60 @@ function buildContentSearch(
   };
 }
 
+function highlightContent(
+  content: string,
+  query: string,
+  isActive: boolean,
+): string {
+  if (query.length === 0 || content.length === 0) {
+    return escapeHtml(content);
+  }
+
+  const normalizedContent = content.toLowerCase();
+  const normalizedQuery = query.toLowerCase();
+  const matchIndex = normalizedContent.indexOf(normalizedQuery);
+  if (matchIndex === -1) {
+    return escapeHtml(content);
+  }
+
+  const before = escapeHtml(content.slice(0, matchIndex));
+  const match = escapeHtml(content.slice(matchIndex, matchIndex + query.length));
+  const after = escapeHtml(content.slice(matchIndex + query.length));
+  const activeClass = isActive ? " active-search-match" : "";
+
+  return `${before}<mark class="log-search-match${activeClass} bg-primary-container/20 text-on-surface">${match}</mark>${after}`;
+}
+
+function renderLargeLineHtml(
+  content: string,
+  query: string,
+  isActive: boolean,
+): string {
+  if (query.length === 0) {
+    return escapeHtml(content);
+  }
+
+  return highlightContent(content, query, isActive);
+}
+
 function scrollMatchIntoView(
   scrollContainer: HTMLDivElement,
   activeMatch: HTMLElement,
 ): void {
   const containerRect = scrollContainer.getBoundingClientRect();
   const matchRect = activeMatch.getBoundingClientRect();
-  const isAbove = matchRect.top < containerRect.top;
-  const isBelow = matchRect.bottom > containerRect.bottom;
 
-  if (!isAbove && !isBelow) {
+  if (
+    matchRect.top >= containerRect.top &&
+    matchRect.bottom <= containerRect.bottom
+  ) {
     return;
   }
 
-  const targetTop =
-    scrollContainer.scrollTop +
-    (matchRect.top - containerRect.top) -
-    scrollContainer.clientHeight / 2 +
-    matchRect.height / 2;
-
+  const offsetTop =
+    matchRect.top - containerRect.top + scrollContainer.scrollTop - 16;
   scrollContainer.scrollTo({
-    top: Math.max(0, targetTop),
+    top: Math.max(offsetTop, 0),
     behavior: "auto",
   });
 }

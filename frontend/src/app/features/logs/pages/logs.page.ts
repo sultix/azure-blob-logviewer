@@ -21,6 +21,7 @@ import { LogsFiltersComponent } from "../components/logs-filters/logs-filters.co
 import type {
   LogFileRowVm,
   LogFooterVm,
+  LogLargeViewerVm,
   LogToolbarVm,
 } from "../models/logs-view.model";
 import { LogsService } from "../services/logs.service";
@@ -36,6 +37,8 @@ interface ContentFooterStatsVm {
   readonly lineCountLabel: string;
   readonly lineEndingsLabel: string;
 }
+
+const LOG_VIRTUAL_LINE_HEIGHT_PX = 20;
 
 @Component({
   selector: "app-logs-page",
@@ -65,6 +68,8 @@ export class LogsPage implements OnInit {
   readonly selectedContentError = this.logs.selectedContentError;
   readonly selectedEntry = this.logs.selectedEntry;
   readonly contentLoading = this.logs.contentLoading;
+  readonly isLargeBlob = this.logs.isLargeBlob;
+  readonly largeViewerStatus = this.logs.largeViewerStatus;
 
   readonly searchTerm = signal("");
   readonly sortDir = signal<SortDir>("desc");
@@ -127,16 +132,84 @@ export class LogsPage implements OnInit {
   readonly selectedEntryId = computed(() => this.selectedEntry()?.id ?? null);
   readonly hasSelectedEntry = computed(() => this.selectedEntry() !== null);
   readonly sidebarLoading = computed(() => this.status() === "loading");
+  readonly largeViewer = computed<LogLargeViewerVm | null>(() => {
+    const status = this.largeViewerStatus();
+    if (!status) {
+      return null;
+    }
+
+    const lines = this.logs.largeViewerLines();
+    const viewportStartLine = this.logs.largeViewerViewportStartLine();
+    const totalLines = this.logs.largeViewerTotalLines();
+    const topSpacerPx = viewportStartLine * LOG_VIRTUAL_LINE_HEIGHT_PX;
+    const bottomSpacerPx = Math.max(
+      totalLines - viewportStartLine - lines.length,
+      0,
+    ) * LOG_VIRTUAL_LINE_HEIGHT_PX;
+
+    return {
+      progressLabel: this.i18n.translate("logs.detail.viewer.progress", {
+        loaded: this.formatProgressSize(status.bytesDownloaded),
+        total: this.formatProgressSize(status.blobSize),
+      }),
+      statusLabel: status.isComplete
+        ? this.i18n.translate("logs.detail.viewer.complete")
+        : this.i18n.translate("logs.detail.viewer.backgroundLoading"),
+      searchStatusLabel: this.buildLargeViewerSearchStatusLabel(),
+      searchQuery: this.logs.largeViewerSearchQuery(),
+      matchCount: this.logs.largeViewerSearchMatches().length,
+      activeMatchLineNumber: this.logs.largeViewerActiveMatchLine(),
+      requestedScrollLine: this.logs.largeViewerRequestedScrollLine(),
+      topSpacerPx,
+      bottomSpacerPx,
+      lines: lines.map((line) => ({
+        lineNumber: line.lineNumber,
+        content: line.content,
+      })),
+      totalLines,
+      tailPreviewLines: this.logs.largeViewerTailPreviewLines(),
+      pendingBeforeLabel: status.hasPendingBefore
+        ? this.i18n.translate("logs.detail.viewer.pendingBefore")
+        : null,
+      pendingAfterLabel: status.hasPendingAfter
+        ? this.i18n.translate("logs.detail.viewer.pendingAfter")
+        : null,
+      canEnableWordWrap: status.canEnableWordWrap,
+      downloadDisabled: !status.isComplete,
+    };
+  });
+  readonly downloadDisabled = computed(() => this.largeViewer()?.downloadDisabled ?? false);
   readonly contentFooterStats = computed<ContentFooterStatsVm | null>(() => {
+    const largeViewer = this.largeViewer();
+    if (largeViewer) {
+      const status = this.largeViewerStatus();
+      if (!status) {
+        return null;
+      }
+      return {
+        lineCountLabel: this.i18n.translate('logs.detail.footer.linesWindow', {
+          count: status.indexedLineCount,
+        }),
+        lineEndingsLabel: status.isComplete
+          ? this.i18n.translate('logs.detail.footer.lineEndings.unknown')
+          : this.i18n.translate('logs.detail.footer.loadingSearch'),
+      };
+    }
+
     if (this.contentLoading() || this.selectedContentError() !== null) {
       return null;
     }
 
     const content = this.selectedContent();
     return {
-      lineCountLabel: this.i18n.translate('logs.detail.footer.lines', {
+      lineCountLabel: this.i18n.translate(
+        this.isLargeBlob()
+          ? "logs.detail.footer.linesWindow"
+          : "logs.detail.footer.lines",
+        {
         count: countLogicalLines(content),
-      }),
+        },
+      ),
       lineEndingsLabel: this.i18n.translate(
         `logs.detail.footer.lineEndings.${detectLineEndings(content)}`,
       ),
@@ -206,9 +279,46 @@ export class LogsPage implements OnInit {
     void this.logs.refreshContent();
   }
 
+  onLargeViewportChange(event: { startLine: number; lineCount: number }): void {
+    void this.logs.updateLargeViewport(event.startLine, event.lineCount);
+  }
+
+  onLargeSearchChange(query: string): void {
+    void this.logs.updateLargeSearchQuery(query);
+  }
+
+  onPreviousLargeMatch(): void {
+    void this.logs.selectPreviousSearchMatch();
+  }
+
+  onNextLargeMatch(): void {
+    void this.logs.selectNextSearchMatch();
+  }
+
+  onLargeScrollHandled(): void {
+    this.logs.clearRequestedScrollLine();
+  }
+
   async download(): Promise<void> {
     const entry = this.selectedEntry();
     if (!entry || this.contentLoading()) {
+      return;
+    }
+
+    if (this.isLargeBlob()) {
+      const exported = await this.logs.exportLargeViewer();
+      if (!exported) {
+        return;
+      }
+
+      this.messageService.add({
+        severity: "success",
+        summary: this.i18n.translate('logs.detail.toast.downloadComplete'),
+        detail: this.i18n.translate('logs.detail.toast.downloaded', {
+          name: entry.blobName,
+        }),
+        life: 2500,
+      });
       return;
     }
 
@@ -304,6 +414,27 @@ export class LogsPage implements OnInit {
     if (bytes < 1024 * 1024 * 1024)
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+
+  private formatProgressSize(bytes: number): string {
+    return this.formatSize(bytes);
+  }
+
+  private buildLargeViewerSearchStatusLabel(): string {
+    const matches = this.logs.largeViewerSearchMatches();
+    const query = this.logs.largeViewerSearchQuery().trim();
+    const isComplete = this.logs.largeViewerSearchIsComplete();
+    if (query.length === 0) {
+      return "";
+    }
+    if (matches.length === 0) {
+      return isComplete
+        ? this.i18n.translate('logs.detail.zeroMatches')
+        : this.i18n.translate('logs.detail.viewer.searchPartialZero');
+    }
+    return isComplete
+      ? this.i18n.translate('logs.detail.viewer.matches', { count: matches.length })
+      : this.i18n.translate('logs.detail.viewer.matchesPartial', { count: matches.length });
   }
 }
 

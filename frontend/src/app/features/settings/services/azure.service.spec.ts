@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppApiService } from '@app/core/services/app-api.service';
 import type {
   AzureBlobItem,
+  AzureBlobTextChunk,
+  AzureBlobTextChunkRequest,
   AzureContainer,
   AzureStorageAccount,
   AzureSubscription,
@@ -27,6 +29,9 @@ class AppApiServiceStub implements Partial<AppApiService> {
     (subscriptionId: string, resourceGroup: string, accountName: string) => Promise<AzureContainer[]>
   >();
   listBlobs = vi.fn<(accountName: string, containerName: string, prefix: string) => Promise<AzureBlobItem[]>>();
+  readBlobTextChunk = vi.fn<
+    (request: AzureBlobTextChunkRequest) => Promise<AzureBlobTextChunk>
+  >();
   downloadBlobContent = vi.fn<
     (accountName: string, containerName: string, blobName: string) => Promise<string>
   >();
@@ -119,6 +124,8 @@ describe('AzureService', () => {
     service.selectedStorageAccount.set(account);
     service.selectedContainer.set(container);
     service.blobContent.set('log line 1');
+    service.blobContentChunk.set(createBlobChunk());
+    service.blobContentError.set('preview failed');
     service.selectedBlobName.set(blob.name);
 
     await service.logout();
@@ -131,6 +138,8 @@ describe('AzureService', () => {
     expect(service.selectedStorageAccount()).toBeNull();
     expect(service.selectedContainer()).toBeNull();
     expect(service.blobContent()).toBeNull();
+    expect(service.blobContentChunk()).toBeNull();
+    expect(service.blobContentError()).toBeNull();
     expect(service.selectedBlobName()).toBeNull();
     expect(service.subscriptionsStatus()).toBe('idle');
     expect(service.storageAccountsStatus()).toBe('idle');
@@ -279,28 +288,44 @@ describe('AzureService', () => {
     const container = createContainer();
     service.selectedStorageAccount.set(account);
     service.selectedContainer.set(container);
-    api.downloadBlobContent.mockResolvedValueOnce('line 1\nline 2');
-    api.downloadBlobContent.mockRejectedValueOnce(new Error('network failed'));
+    api.readBlobTextChunk.mockResolvedValueOnce(
+      createBlobChunk({ content: 'line 1\nline 2', blobSize: 1024, endOffsetExclusive: 1024 }),
+    );
+    api.readBlobTextChunk.mockRejectedValueOnce(new Error('network failed'));
 
     await service.downloadBlobContent('app.log');
 
     expect(service.selectedBlobName()).toBe('app.log');
     expect(service.blobContent()).toBe('line 1\nline 2');
+    expect(service.blobContentChunk()).toEqual(
+      createBlobChunk({ content: 'line 1\nline 2', blobSize: 1024, endOffsetExclusive: 1024 }),
+    );
+    expect(service.blobContentError()).toBeNull();
     expect(service.blobContentLoading()).toBe(false);
 
     await service.downloadBlobContent('error.log');
 
     expect(service.selectedBlobName()).toBe('error.log');
-    expect(service.blobContent()).toBe('Error loading blob: network failed');
+    expect(service.blobContent()).toBeNull();
+    expect(service.blobContentChunk()).toBeNull();
+    expect(service.blobContentError()).toBe('Error loading blob: network failed');
     expect(service.blobContentLoading()).toBe(false);
-    expect(api.downloadBlobContent).toHaveBeenCalledWith(account.name, container.name, 'app.log');
-    expect(api.downloadBlobContent).toHaveBeenCalledWith(account.name, container.name, 'error.log');
+    expect(api.readBlobTextChunk).toHaveBeenCalledWith({
+      accountName: account.name,
+      containerName: container.name,
+      blobName: 'app.log',
+    });
+    expect(api.readBlobTextChunk).toHaveBeenCalledWith({
+      accountName: account.name,
+      containerName: container.name,
+      blobName: 'error.log',
+    });
   });
 
   it('skips blob download when no storage account or container is selected', async () => {
     await service.downloadBlobContent('app.log');
 
-    expect(api.downloadBlobContent).not.toHaveBeenCalled();
+    expect(api.readBlobTextChunk).not.toHaveBeenCalled();
     expect(service.selectedBlobName()).toBeNull();
   });
 });
@@ -345,6 +370,22 @@ function createBlob(overrides: Partial<AzureBlobItem> = {}): AzureBlobItem {
     contentType: 'text/plain',
     lastModified: '2026-04-13T10:30:00Z',
     blobType: 'BlockBlob',
+    ...overrides,
+  };
+}
+
+function createBlobChunk(overrides: Partial<AzureBlobTextChunk> = {}): AzureBlobTextChunk {
+  return {
+    content: 'preview',
+    blobSize: 42,
+    contentType: 'text/plain',
+    etag: '"etag-1"',
+    lastModified: '2026-04-13T10:30:00Z',
+    startOffset: 0,
+    endOffsetExclusive: 42,
+    truncatedStart: false,
+    truncatedEnd: false,
+    isLargeBlob: false,
     ...overrides,
   };
 }

@@ -133,6 +133,27 @@
       "loadingContent": "Blob-Inhalt wird geladen…",
       "searching": "Suche läuft…",
       "zeroMatches": "0 Treffer",
+      "viewer": {
+        "progress": "{{loaded}} / {{total}} geladen",
+        "backgroundLoading": "Datei wird im Hintergrund geladen",
+        "complete": "Datei vollständig geladen",
+        "pendingBefore": "Frühere Zeilen werden noch geladen",
+        "pendingAfter": "Spätere Zeilen werden noch geladen",
+        "tailPreview": "Es werden zuerst die neuesten Zeilen gezeigt, während die vollständige Datei geladen wird.",
+        "preparingLines": "Sichtbare Zeilen werden vorbereitet…",
+        "matches": "{{count}} Treffer",
+        "matchesPartial": "{{count}} Treffer bisher",
+        "searchPartialZero": "Geladener Inhalt wird durchsucht…"
+      },
+      "chunk": {
+        "mode": "Große-Datei-Modus",
+        "range": "Zeige {{start}}-{{end}} von {{total}}",
+        "hint": "Es wird nur ein Ausschnitt geladen, damit der Viewer flüssig bleibt.",
+        "searchHint": "Die Suche gilt nur für den aktuell geladenen Ausschnitt.",
+        "downloadDisabled": "Der Download ist für große Dateien im Inline-Viewer deaktiviert.",
+        "loadOlder": "Älteren Ausschnitt laden",
+        "loadNewer": "Neueren Ausschnitt laden"
+      },
       "mobileActions": {
         "refresh": "Aktualisieren",
         "download": "Herunterladen",
@@ -141,8 +162,11 @@
       },
       "footer": {
         "lines": "Zeilen: {{count}}",
+        "linesWindow": "Zeilen im Ausschnitt: {{count}}",
+        "loadingSearch": "Suche läuft",
         "lineEndings": {
           "none": "Keine",
+          "unknown": "Unbekannt",
           "mixed": "Gemischt",
           "crlf": "CRLF",
           "lf": "LF",
@@ -169,6 +193,12 @@
       "language": {
         "title": "Sprache",
         "description": "Wählen Sie die Frontend-Sprache für Beschriftungen, Meldungen und Datumsformate."
+      },
+      "largeFileFocus": {
+        "title": "Startpunkt großer Dateien",
+        "description": "Legen Sie fest, ob große Logs zuerst vom Anfang oder vom neuesten Tail-Bereich geöffnet werden.",
+        "start": "Anfang",
+        "end": "Ende"
       },
       "refreshInterval": {
         "title": "Automatisches Aktualisierungsintervall",

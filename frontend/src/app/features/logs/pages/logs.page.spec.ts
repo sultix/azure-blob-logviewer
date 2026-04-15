@@ -7,6 +7,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { BehaviorSubject } from 'rxjs';
 
 import type { StorageConnection } from '@app/features/connections/models/storage-connection.model';
+import type { BlobViewSessionStatus } from '@app/features/logs/models/blob-view.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
@@ -24,6 +25,26 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly selectedContentLoadedState = signal(false);
   readonly selectedContentErrorState = signal<string | null>(null);
   readonly contentLoading = signal(false);
+  readonly contentWindowState = signal<{
+    startOffset: number;
+    endOffsetExclusive: number;
+    blobSize: number;
+    hasOlderContent: boolean;
+    hasNewerContent: boolean;
+  } | null>(null);
+  readonly isLargeBlobState = signal(false);
+  readonly largeViewerStatusState = signal<BlobViewSessionStatus | null>(null);
+  readonly largeViewerLinesState = signal<{ lineNumber: number; content: string }[]>([]);
+  readonly largeViewerViewportStartLineState = signal(0);
+  readonly largeViewerViewportLineCountState = signal(120);
+  readonly largeViewerTotalLinesState = signal(0);
+  readonly largeViewerSearchQueryState = signal('');
+  readonly largeViewerSearchMatchesState = signal<{ lineNumber: number; preview: string }[]>([]);
+  readonly largeViewerSearchIsCompleteState = signal(true);
+  readonly largeViewerRequestedScrollLineState = signal<number | null>(null);
+  readonly largeViewerActiveMatchLineState = signal<number | null>(null);
+  readonly largeViewerTailPreviewLinesState = signal<string[]>([]);
+  readonly largeViewerCanEnableWordWrapState = signal(true);
 
   readonly status = computed(() => this.statusState());
   readonly entries = computed(() => this.entriesState());
@@ -41,6 +62,20 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly selectedContent = computed(() => this.selectedContentState());
   readonly selectedContentLoaded = computed(() => this.selectedContentLoadedState());
   readonly selectedContentError = computed(() => this.selectedContentErrorState());
+  readonly contentWindow = computed(() => this.contentWindowState());
+  readonly isLargeBlob = computed(() => this.isLargeBlobState());
+  readonly largeViewerStatus = computed(() => this.largeViewerStatusState());
+  readonly largeViewerLines = computed(() => this.largeViewerLinesState());
+  readonly largeViewerViewportStartLine = computed(() => this.largeViewerViewportStartLineState());
+  readonly largeViewerViewportLineCount = computed(() => this.largeViewerViewportLineCountState());
+  readonly largeViewerTotalLines = computed(() => this.largeViewerTotalLinesState());
+  readonly largeViewerSearchQuery = computed(() => this.largeViewerSearchQueryState());
+  readonly largeViewerSearchMatches = computed(() => this.largeViewerSearchMatchesState());
+  readonly largeViewerSearchIsComplete = computed(() => this.largeViewerSearchIsCompleteState());
+  readonly largeViewerRequestedScrollLine = computed(() => this.largeViewerRequestedScrollLineState());
+  readonly largeViewerActiveMatchLine = computed(() => this.largeViewerActiveMatchLineState());
+  readonly largeViewerTailPreviewLines = computed(() => this.largeViewerTailPreviewLinesState());
+  readonly largeViewerCanEnableWordWrap = computed(() => this.largeViewerCanEnableWordWrapState());
 
   readonly loadForConnection = vi.fn<(accountName: string, containerName: string) => Promise<void>>(
     async () => undefined,
@@ -50,6 +85,16 @@ class LogsServiceStub implements Partial<LogsService> {
     this.selectedEntryId.set(id);
   });
   readonly refreshContent = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly updateLargeViewport = vi.fn<(startLine: number, lineCount: number) => Promise<void>>(
+    async () => undefined,
+  );
+  readonly updateLargeSearchQuery = vi.fn<(query: string) => Promise<void>>(async () => undefined);
+  readonly selectPreviousSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly selectNextSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly exportLargeViewer = vi.fn<() => Promise<boolean>>(async () => false);
+  readonly clearRequestedScrollLine = vi.fn<() => void>(() => {
+    this.largeViewerRequestedScrollLineState.set(null);
+  });
   readonly reset = vi.fn<() => void>(() => {
     this.statusState.set('idle');
     this.entriesState.set([]);
@@ -59,6 +104,20 @@ class LogsServiceStub implements Partial<LogsService> {
     this.selectedContentLoadedState.set(false);
     this.selectedContentErrorState.set(null);
     this.contentLoading.set(false);
+    this.contentWindowState.set(null);
+    this.isLargeBlobState.set(false);
+    this.largeViewerStatusState.set(null);
+    this.largeViewerLinesState.set([]);
+    this.largeViewerViewportStartLineState.set(0);
+    this.largeViewerViewportLineCountState.set(120);
+    this.largeViewerTotalLinesState.set(0);
+    this.largeViewerSearchQueryState.set('');
+    this.largeViewerSearchMatchesState.set([]);
+    this.largeViewerSearchIsCompleteState.set(true);
+    this.largeViewerRequestedScrollLineState.set(null);
+    this.largeViewerActiveMatchLineState.set(null);
+    this.largeViewerTailPreviewLinesState.set([]);
+    this.largeViewerCanEnableWordWrapState.set(true);
   });
   readonly setError = vi.fn<(message: string) => void>((message) => {
     this.statusState.set('error');
@@ -69,6 +128,20 @@ class LogsServiceStub implements Partial<LogsService> {
     this.selectedContentLoadedState.set(false);
     this.selectedContentErrorState.set(null);
     this.contentLoading.set(false);
+    this.contentWindowState.set(null);
+    this.isLargeBlobState.set(false);
+    this.largeViewerStatusState.set(null);
+    this.largeViewerLinesState.set([]);
+    this.largeViewerViewportStartLineState.set(0);
+    this.largeViewerViewportLineCountState.set(120);
+    this.largeViewerTotalLinesState.set(0);
+    this.largeViewerSearchQueryState.set('');
+    this.largeViewerSearchMatchesState.set([]);
+    this.largeViewerSearchIsCompleteState.set(true);
+    this.largeViewerRequestedScrollLineState.set(null);
+    this.largeViewerActiveMatchLineState.set(null);
+    this.largeViewerTailPreviewLinesState.set([]);
+    this.largeViewerCanEnableWordWrapState.set(true);
   });
 }
 

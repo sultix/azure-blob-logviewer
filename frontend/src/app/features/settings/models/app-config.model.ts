@@ -7,12 +7,9 @@ export interface AzurePreferences {
   lastContainerName: string;
 }
 
-export interface LogsPreferences {
-  wordWrapEnabled: boolean;
-}
-
 export type RefreshInterval = 5 | 15 | 60;
 export type RetentionPolicy = '30d' | '90d' | 'manual';
+export type InitialLargeFileFocus = 'start' | 'end';
 
 export interface GeneralConfig {
   refreshIntervalMinutes: RefreshInterval;
@@ -24,6 +21,11 @@ export interface AppConfig {
   azure: AzurePreferences;
   general: GeneralConfig;
   logs: LogsPreferences;
+}
+
+export interface LogsPreferences {
+  wordWrapEnabled: boolean;
+  initialLargeFileFocus: InitialLargeFileFocus;
 }
 
 export const DEFAULT_APP_CONFIG: AppConfig = createDefaultAppConfig('en');
@@ -42,6 +44,7 @@ export function createDefaultAppConfig(language = detectPreferredLanguage()): Ap
     },
     logs: {
       wordWrapEnabled: false,
+      initialLargeFileFocus: 'start',
     },
   };
 }

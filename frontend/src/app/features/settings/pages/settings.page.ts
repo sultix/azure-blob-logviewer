@@ -24,7 +24,11 @@ import {
 
 import { AzureService } from '../services/azure.service';
 import { SettingsService } from '../services/settings.service';
-import type { RefreshInterval, RetentionPolicy } from '../models/app-config.model';
+import type {
+  InitialLargeFileFocus,
+  RefreshInterval,
+  RetentionPolicy,
+} from '../models/app-config.model';
 
 import { AzureLoginComponent } from '../components/azure-login/azure-login.component';
 
@@ -49,6 +53,7 @@ export class SettingsPage implements OnInit {
 
   // General settings
   readonly general = this.settings.general;
+  readonly logs = this.settings.logs;
   readonly refreshOptions = computed(() =>
     ([5, 15, 60] as const).map((value) => ({
       value,
@@ -66,6 +71,10 @@ export class SettingsPage implements OnInit {
   readonly languageOptions = computed<{ value: AppLanguage; label: string }[]>(() => [
     { value: 'en', label: this.i18n.translate('common.languageNames.en') },
     { value: 'de', label: this.i18n.translate('common.languageNames.de') },
+  ]);
+  readonly largeFileFocusOptions = computed<{ value: InitialLargeFileFocus; label: string }[]>(() => [
+    { value: 'start', label: this.i18n.translate('settings.page.largeFileFocus.start') },
+    { value: 'end', label: this.i18n.translate('settings.page.largeFileFocus.end') },
   ]);
   readonly savedConnectionsCount = computed(() => this.connections.connections().length);
   readonly hasSavedConnections = computed(() => this.savedConnectionsCount() > 0);
@@ -120,6 +129,10 @@ export class SettingsPage implements OnInit {
   setLanguage(value: AppLanguage): void {
     this.settings.updateGeneral({ language: value });
     void this.i18n.setLanguage(value);
+  }
+
+  setInitialLargeFileFocus(value: InitialLargeFileFocus): void {
+    this.settings.updateLogsPreferences({ initialLargeFileFocus: value });
   }
 
   resetSettings(): void {

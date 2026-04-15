@@ -4,6 +4,7 @@ import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import { AppApiService } from '@app/core/services/app-api.service';
 import type {
   AzureBlobItem,
+  AzureBlobTextChunk,
   AzureContainer,
   AzureAuthFailureReason,
   AzureStorageAccount,
@@ -91,6 +92,8 @@ export class AzureService {
 
   // --- Blob content ---
   readonly blobContent = signal<string | null>(null);
+  readonly blobContentChunk = signal<AzureBlobTextChunk | null>(null);
+  readonly blobContentError = signal<string | null>(null);
   readonly blobContentLoading = signal(false);
   readonly selectedBlobName = signal<string | null>(null);
 
@@ -282,6 +285,8 @@ export class AzureService {
     this.selectedContainer.set(container);
     this.blobsState.set({ status: 'idle' });
     this.blobContent.set(null);
+    this.blobContentChunk.set(null);
+    this.blobContentError.set(null);
     this.selectedBlobName.set(null);
     if (container) {
       const account = this.selectedStorageAccount();
@@ -313,12 +318,21 @@ export class AzureService {
     if (!account || !container) return;
 
     this.blobContentLoading.set(true);
+    this.blobContentError.set(null);
+    this.blobContentChunk.set(null);
     this.selectedBlobName.set(blobName);
     try {
-      const content = await this.api.downloadBlobContent(account.name, container.name, blobName);
-      this.blobContent.set(content);
+      const chunk = await this.api.readBlobTextChunk({
+        accountName: account.name,
+        containerName: container.name,
+        blobName,
+      });
+      this.blobContent.set(chunk.content);
+      this.blobContentChunk.set(chunk);
     } catch (err) {
-      this.blobContent.set(
+      this.blobContent.set(null);
+      this.blobContentChunk.set(null);
+      this.blobContentError.set(
         this.i18n.translate('settings.service.loadBlobFailed', {
           message:
             err instanceof Error ? err.message : this.i18n.translate('common.errors.unknownError'),
@@ -343,6 +357,8 @@ export class AzureService {
     this.selectedContainer.set(null);
     this.blobsState.set({ status: 'idle' });
     this.blobContent.set(null);
+    this.blobContentChunk.set(null);
+    this.blobContentError.set(null);
     this.selectedBlobName.set(null);
   }
 

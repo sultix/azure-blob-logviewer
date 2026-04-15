@@ -14,7 +14,7 @@ import {
 } from "@app/testing/translate-testing";
 
 import { SettingsPage } from "./settings.page";
-import type { GeneralConfig } from "../models/app-config.model";
+import type { GeneralConfig, LogsPreferences } from "../models/app-config.model";
 import { AzureService } from "../services/azure.service";
 import { SettingsService } from "../services/settings.service";
 
@@ -34,7 +34,12 @@ class SettingsServiceStub implements Partial<SettingsService> {
     retentionPolicy: "30d" as const,
     language: "en" as const,
   });
+  readonly logs = signal<LogsPreferences>({
+    wordWrapEnabled: false,
+    initialLargeFileFocus: "start",
+  });
   updateGeneral = vi.fn();
+  updateLogsPreferences = vi.fn();
   reset = vi.fn();
 }
 
@@ -132,6 +137,19 @@ describe("SettingsPage", () => {
     expect(fixture.nativeElement.textContent).not.toContain(
       "Make sure you have run az login in your terminal.",
     );
+  });
+
+  it("renders and updates the large-file focus preference", () => {
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain("Large File Start");
+    const endButton = getButtonByText(fixture, "End");
+    endButton.click();
+
+    const settings = TestBed.inject(SettingsService) as unknown as SettingsServiceStub;
+    expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
+      initialLargeFileFocus: "end",
+    });
   });
 
   it("renders import/export actions and the dashboard management hint instead of a connection list", () => {

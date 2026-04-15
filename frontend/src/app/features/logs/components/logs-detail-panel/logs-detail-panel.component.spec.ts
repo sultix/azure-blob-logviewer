@@ -7,7 +7,7 @@ import { Tooltip } from 'primeng/tooltip';
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 import { SettingsService } from '@app/features/settings/services/settings.service';
 
-import type { LogFooterVm, LogToolbarVm } from '../../models/logs-view.model';
+import type { LogFooterVm, LogLargeViewerVm, LogToolbarVm } from '../../models/logs-view.model';
 
 import { LogsDetailPanelComponent } from './logs-detail-panel.component';
 
@@ -214,6 +214,223 @@ describe('LogsDetailPanelComponent', () => {
     downloadButton.click();
 
     expect(downloadRequested).toHaveBeenCalledOnce();
+  });
+
+  it('renders the large viewer state, emits search actions, and disables download until export is ready', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      modified: '1 hr ago',
+    };
+    const largeViewer: LogLargeViewerVm = {
+      progressLabel: '4.0 MB / 100.0 MB loaded',
+      statusLabel: 'File is loading in the background',
+      searchStatusLabel: '2 matches so far',
+      searchQuery: 'error',
+      matchCount: 2,
+      activeMatchLineNumber: 18,
+      requestedScrollLine: 18,
+      topSpacerPx: 0,
+      bottomSpacerPx: 800,
+      lines: [
+        { lineNumber: 18, content: 'error on current line' },
+        { lineNumber: 19, content: 'next error line' },
+      ],
+      totalLines: 42,
+      tailPreviewLines: [],
+      pendingBeforeLabel: 'Earlier lines are still loading',
+      pendingAfterLabel: 'Later lines are still loading',
+      canEnableWordWrap: false,
+      downloadDisabled: true,
+    };
+    const downloadRequested = vi.fn<() => void>();
+    const largeSearchChanged = vi.fn<(value: string) => void>();
+    const previousLargeMatchRequested = vi.fn<() => void>();
+    const nextLargeMatchRequested = vi.fn<() => void>();
+    const largeViewportChanged = vi.fn<
+      (value: { startLine: number; lineCount: number }) => void
+    >();
+    component.downloadRequested.subscribe(downloadRequested);
+    component.largeSearchChanged.subscribe(largeSearchChanged);
+    component.previousLargeMatchRequested.subscribe(previousLargeMatchRequested);
+    component.nextLargeMatchRequested.subscribe(nextLargeMatchRequested);
+    component.largeViewportChanged.subscribe(largeViewportChanged);
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', largeViewer);
+    fixture.componentRef.setInput('downloadDisabled', true);
+    fixture.detectChanges();
+    await settleComponent();
+
+    const scrollContainer = fixture.nativeElement.querySelector('.overflow-auto') as HTMLDivElement;
+    Object.defineProperty(scrollContainer, 'clientHeight', {
+      configurable: true,
+      value: 160,
+    });
+    scrollContainer.scrollTop = 0;
+    component.onLargeViewerScroll();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('File is loading in the background');
+    expect(fixture.nativeElement.textContent).toContain('4.0 MB / 100.0 MB loaded');
+    expect(fixture.nativeElement.textContent).toContain('Earlier lines are still loading');
+    expect(fixture.nativeElement.textContent).toContain('Later lines are still loading');
+    expect(fixture.nativeElement.textContent).toContain('error on current line');
+    const renderedLine = fixture.nativeElement.querySelector(
+      '.border-b.border-surface-container-highest\\/40 span',
+    ) as HTMLSpanElement;
+    expect(renderedLine.className).toContain('block');
+    expect(renderedLine.className).toContain('min-w-0');
+    expect(renderedLine.className).toContain('w-full');
+    const highlights = fixture.nativeElement.querySelectorAll('mark.log-search-match');
+    expect(highlights).toHaveLength(2);
+    expect(highlights[0]?.className).toContain('active-search-match');
+    expect(highlights[1]?.className).not.toContain('active-search-match');
+
+    const downloadButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Download"]',
+    ) as HTMLButtonElement;
+    expect(downloadButton.disabled).toBe(true);
+    downloadButton.click();
+    expect(downloadRequested).not.toHaveBeenCalled();
+
+    const searchInput = fixture.nativeElement.querySelector(
+      'input[aria-label="Search within log content"]',
+    ) as HTMLInputElement;
+    searchInput.value = 'warning';
+    searchInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const previousButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Previous match"]',
+    ) as HTMLButtonElement;
+    const nextButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Next match"]',
+    ) as HTMLButtonElement;
+    previousButton.click();
+    nextButton.click();
+
+    expect(largeSearchChanged).toHaveBeenCalledWith('warning');
+    expect(previousLargeMatchRequested).toHaveBeenCalledOnce();
+    expect(nextLargeMatchRequested).toHaveBeenCalledOnce();
+    expect(largeViewportChanged).toHaveBeenCalledWith({ startLine: 0, lineCount: 40 });
+    expect(component.mobileActionItems()[1]?.disabled).toBe(true);
+    expect(component.canToggleWordWrap()).toBe(false);
+  });
+
+  it('renders large viewer lines without highlight markup when no search query is set', () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      modified: '1 hr ago',
+    };
+    const largeViewer: LogLargeViewerVm = {
+      progressLabel: '100.0 MB / 100.0 MB loaded',
+      statusLabel: 'File fully loaded',
+      searchStatusLabel: '',
+      searchQuery: '',
+      matchCount: 0,
+      activeMatchLineNumber: null,
+      requestedScrollLine: null,
+      topSpacerPx: 0,
+      bottomSpacerPx: 0,
+      lines: [{ lineNumber: 7, content: 'plain line content' }],
+      totalLines: 1,
+      tailPreviewLines: [],
+      pendingBeforeLabel: null,
+      pendingAfterLabel: null,
+      canEnableWordWrap: true,
+      downloadDisabled: false,
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', largeViewer);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('plain line content');
+    expect(fixture.nativeElement.querySelectorAll('mark.log-search-match')).toHaveLength(0);
+  });
+
+  it('renders tail preview lines with precomputed html', () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      modified: '1 hr ago',
+    };
+    const largeViewer: LogLargeViewerVm = {
+      progressLabel: '4.0 MB / 100.0 MB loaded',
+      statusLabel: 'File is loading in the background',
+      searchStatusLabel: '1 match so far',
+      searchQuery: 'error',
+      matchCount: 1,
+      activeMatchLineNumber: 0,
+      requestedScrollLine: null,
+      topSpacerPx: 0,
+      bottomSpacerPx: 0,
+      lines: [],
+      totalLines: 0,
+      tailPreviewLines: ['tail error line', 'tail info line'],
+      pendingBeforeLabel: null,
+      pendingAfterLabel: null,
+      canEnableWordWrap: false,
+      downloadDisabled: true,
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', largeViewer);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'Showing the newest lines first while the full file is loading.',
+    );
+    expect(fixture.nativeElement.textContent).toContain('tail error line');
+    const highlights = fixture.nativeElement.querySelectorAll('mark.log-search-match');
+    expect(highlights).toHaveLength(1);
+    expect(highlights[0]?.className).toContain('active-search-match');
+  });
+
+  it('shows a placeholder while visible large-file lines are still being prepared', () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      modified: '1 hr ago',
+    };
+    const largeViewer: LogLargeViewerVm = {
+      progressLabel: '100.0 MB / 100.0 MB loaded',
+      statusLabel: 'File fully loaded',
+      searchStatusLabel: '',
+      searchQuery: '',
+      matchCount: 0,
+      activeMatchLineNumber: null,
+      requestedScrollLine: null,
+      topSpacerPx: 0,
+      bottomSpacerPx: 0,
+      lines: [],
+      totalLines: 1500,
+      tailPreviewLines: [],
+      pendingBeforeLabel: null,
+      pendingAfterLabel: null,
+      canEnableWordWrap: true,
+      downloadDisabled: false,
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', largeViewer);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Preparing visible lines…');
   });
 
   it('toggles word wrap for the log content', () => {

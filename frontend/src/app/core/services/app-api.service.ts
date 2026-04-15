@@ -1,10 +1,20 @@
 import { Injectable, inject } from '@angular/core';
 
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
+import type {
+  BlobViewExportResult,
+  BlobViewLinesResponse,
+  BlobViewSearchRequest,
+  BlobViewSearchResponse,
+  BlobViewSessionStatus,
+  OpenBlobViewSessionRequest,
+} from '@app/features/logs/models/blob-view.model';
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
 import type {
   AzureAuthState,
   AzureBlobItem,
+  AzureBlobTextChunk,
+  AzureBlobTextChunkRequest,
   AzureContainer,
   AzureStorageAccount,
   AzureSubscription,
@@ -31,6 +41,13 @@ export interface AppApi {
   listStorageAccounts(subscriptionId: string): Promise<AzureStorageAccount[]>;
   listContainers(subscriptionId: string, resourceGroup: string, accountName: string): Promise<AzureContainer[]>;
   listBlobs(accountName: string, containerName: string, prefix: string): Promise<AzureBlobItem[]>;
+  readBlobTextChunk(request: AzureBlobTextChunkRequest): Promise<AzureBlobTextChunk>;
+  openBlobViewSession(request: OpenBlobViewSessionRequest): Promise<BlobViewSessionStatus>;
+  getBlobViewStatus(sessionId: string): Promise<BlobViewSessionStatus>;
+  getBlobViewLines(sessionId: string, startLine: number, lineCount: number): Promise<BlobViewLinesResponse>;
+  searchBlobView(request: BlobViewSearchRequest): Promise<BlobViewSearchResponse>;
+  exportBlobViewSession(sessionId: string): Promise<BlobViewExportResult>;
+  closeBlobViewSession(sessionId: string): Promise<void>;
   downloadBlobContent(accountName: string, containerName: string, blobName: string): Promise<string>;
   importConnectionsFile(): Promise<ConnectionsImportResult>;
   exportConnectionsFile(content: string): Promise<ConnectionsExportResult>;
@@ -48,6 +65,13 @@ interface WailsAppBridge {
   ListStorageAccounts(subscriptionId: string): Promise<AzureStorageAccount[] | null>;
   ListContainers(subscriptionId: string, resourceGroup: string, accountName: string): Promise<AzureContainer[] | null>;
   ListBlobs(accountName: string, containerName: string, prefix: string): Promise<AzureBlobItem[] | null>;
+  ReadBlobTextChunk(request: AzureBlobTextChunkRequest): Promise<AzureBlobTextChunk | null>;
+  OpenBlobViewSession(request: OpenBlobViewSessionRequest): Promise<BlobViewSessionStatus | null>;
+  GetBlobViewStatus(sessionId: string): Promise<BlobViewSessionStatus | null>;
+  GetBlobViewLines(sessionId: string, startLine: number, lineCount: number): Promise<BlobViewLinesResponse | null>;
+  SearchBlobView(request: BlobViewSearchRequest): Promise<BlobViewSearchResponse | null>;
+  ExportBlobViewSession(sessionId: string): Promise<BlobViewExportResult | null>;
+  CloseBlobViewSession(sessionId: string): Promise<void>;
   DownloadBlobContent(accountName: string, containerName: string, blobName: string): Promise<string>;
   ImportConnectionsFile(): Promise<ConnectionsImportResult | null>;
   ExportConnectionsFile(content: string): Promise<ConnectionsExportResult | null>;
@@ -120,6 +144,55 @@ export class AppApiService implements AppApi {
     return result ?? [];
   }
 
+  async readBlobTextChunk(request: AzureBlobTextChunkRequest): Promise<AzureBlobTextChunk> {
+    const result = await this.bridge().ReadBlobTextChunk(request);
+    if (!result) {
+      throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
+    }
+    return result;
+  }
+
+  async openBlobViewSession(request: OpenBlobViewSessionRequest): Promise<BlobViewSessionStatus> {
+    const result = await this.bridge().OpenBlobViewSession(request);
+    if (!result) {
+      throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
+    }
+    return normalizeBlobViewSessionStatus(result);
+  }
+
+  async getBlobViewStatus(sessionId: string): Promise<BlobViewSessionStatus> {
+    const result = await this.bridge().GetBlobViewStatus(sessionId);
+    if (!result) {
+      throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
+    }
+    return normalizeBlobViewSessionStatus(result);
+  }
+
+  async getBlobViewLines(sessionId: string, startLine: number, lineCount: number): Promise<BlobViewLinesResponse> {
+    const result = await this.bridge().GetBlobViewLines(sessionId, startLine, lineCount);
+    if (!result) {
+      throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
+    }
+    return normalizeBlobViewLinesResponse(result);
+  }
+
+  async searchBlobView(request: BlobViewSearchRequest): Promise<BlobViewSearchResponse> {
+    const result = await this.bridge().SearchBlobView(request);
+    if (!result) {
+      throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
+    }
+    return normalizeBlobViewSearchResponse(result);
+  }
+
+  async exportBlobViewSession(sessionId: string): Promise<BlobViewExportResult> {
+    const result = await this.bridge().ExportBlobViewSession(sessionId);
+    return result ?? { cancelled: true };
+  }
+
+  async closeBlobViewSession(sessionId: string): Promise<void> {
+    return this.bridge().CloseBlobViewSession(sessionId);
+  }
+
   async downloadBlobContent(accountName: string, containerName: string, blobName: string): Promise<string> {
     return this.bridge().DownloadBlobContent(accountName, containerName, blobName);
   }
@@ -141,4 +214,25 @@ export class AppApiService implements AppApi {
     }
     return bridge;
   }
+}
+
+function normalizeBlobViewSessionStatus(status: BlobViewSessionStatus): BlobViewSessionStatus {
+  return {
+    ...status,
+    tailPreviewLines: status.tailPreviewLines ?? [],
+  };
+}
+
+function normalizeBlobViewLinesResponse(response: BlobViewLinesResponse): BlobViewLinesResponse {
+  return {
+    ...response,
+    lines: response.lines ?? [],
+  };
+}
+
+function normalizeBlobViewSearchResponse(response: BlobViewSearchResponse): BlobViewSearchResponse {
+  return {
+    ...response,
+    matches: response.matches ?? [],
+  };
 }

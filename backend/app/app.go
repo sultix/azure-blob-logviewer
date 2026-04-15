@@ -14,6 +14,7 @@ type App struct {
 	logs      *services.LogsService
 	azureAuth *services.AzureAuthService
 	azureRes  *services.AzureResourceService
+	blobView  *services.BlobViewService
 	files     *services.ConnectionsFileService
 }
 
@@ -23,6 +24,7 @@ func New() *App {
 		logs:      services.NewLogsService(),
 		azureAuth: authSvc,
 		azureRes:  services.NewAzureResourceService(authSvc),
+		blobView:  services.NewBlobViewService(authSvc),
 		files:     services.NewConnectionsFileService(),
 	}
 }
@@ -30,6 +32,10 @@ func New() *App {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	a.azureAuth.SetContext(ctx)
+}
+
+func (a *App) Shutdown(ctx context.Context) {
+	a.blobView.Shutdown()
 }
 
 func (a *App) GetVersion() string {
@@ -115,6 +121,67 @@ func (a *App) DownloadBlobContent(accountName, containerName, blobName string) (
 		return "", fmt.Errorf("blob name is required")
 	}
 	return a.azureRes.DownloadBlobContent(a.ctx, accountName, containerName, blobName)
+}
+
+func (a *App) ReadBlobTextChunk(request models.AzureBlobTextChunkRequest) (*models.AzureBlobTextChunk, error) {
+	if request.AccountName == "" {
+		return nil, fmt.Errorf("account name is required")
+	}
+	if request.ContainerName == "" {
+		return nil, fmt.Errorf("container name is required")
+	}
+	if request.BlobName == "" {
+		return nil, fmt.Errorf("blob name is required")
+	}
+	return a.azureRes.ReadBlobTextChunk(a.ctx, request)
+}
+
+func (a *App) OpenBlobViewSession(request models.OpenBlobViewSessionRequest) (*models.BlobViewSessionStatus, error) {
+	if request.AccountName == "" {
+		return nil, fmt.Errorf("account name is required")
+	}
+	if request.ContainerName == "" {
+		return nil, fmt.Errorf("container name is required")
+	}
+	if request.BlobName == "" {
+		return nil, fmt.Errorf("blob name is required")
+	}
+	return a.blobView.OpenSession(a.ctx, request)
+}
+
+func (a *App) GetBlobViewStatus(sessionID string) (*models.BlobViewSessionStatus, error) {
+	if sessionID == "" {
+		return nil, fmt.Errorf("session id is required")
+	}
+	return a.blobView.GetStatus(sessionID)
+}
+
+func (a *App) GetBlobViewLines(sessionID string, startLine, lineCount int64) (*models.BlobViewLinesResponse, error) {
+	if sessionID == "" {
+		return nil, fmt.Errorf("session id is required")
+	}
+	return a.blobView.GetLines(sessionID, startLine, lineCount)
+}
+
+func (a *App) SearchBlobView(request models.BlobViewSearchRequest) (*models.BlobViewSearchResponse, error) {
+	if request.SessionID == "" {
+		return nil, fmt.Errorf("session id is required")
+	}
+	return a.blobView.Search(request)
+}
+
+func (a *App) ExportBlobViewSession(sessionID string) (*models.BlobViewExportResult, error) {
+	if sessionID == "" {
+		return nil, fmt.Errorf("session id is required")
+	}
+	return a.blobView.Export(a.ctx, sessionID)
+}
+
+func (a *App) CloseBlobViewSession(sessionID string) error {
+	if sessionID == "" {
+		return fmt.Errorf("session id is required")
+	}
+	return a.blobView.CloseSession(sessionID)
 }
 
 func (a *App) ImportConnectionsFile() (*models.ConnectionsImportResult, error) {

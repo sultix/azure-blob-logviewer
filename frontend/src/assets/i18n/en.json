@@ -133,6 +133,27 @@
       "loadingContent": "Loading blob content…",
       "searching": "Searching…",
       "zeroMatches": "0 matches",
+      "viewer": {
+        "progress": "{{loaded}} / {{total}} loaded",
+        "backgroundLoading": "File is loading in the background",
+        "complete": "File fully loaded",
+        "pendingBefore": "Earlier lines are still loading",
+        "pendingAfter": "Later lines are still loading",
+        "tailPreview": "Showing the newest lines first while the full file is loading.",
+        "preparingLines": "Preparing visible lines…",
+        "matches": "{{count}} matches",
+        "matchesPartial": "{{count}} matches so far",
+        "searchPartialZero": "Searching loaded content…"
+      },
+      "chunk": {
+        "mode": "Large file mode",
+        "range": "Showing {{start}}-{{end}} of {{total}}",
+        "hint": "Only a partial excerpt is loaded to keep the viewer responsive.",
+        "searchHint": "Search applies to the current excerpt only.",
+        "downloadDisabled": "Download is disabled for large files in the inline viewer.",
+        "loadOlder": "Load older excerpt",
+        "loadNewer": "Load newer excerpt"
+      },
       "mobileActions": {
         "refresh": "Refresh",
         "download": "Download",
@@ -141,8 +162,11 @@
       },
       "footer": {
         "lines": "Lines: {{count}}",
+        "linesWindow": "Lines in excerpt: {{count}}",
+        "loadingSearch": "Searching",
         "lineEndings": {
           "none": "None",
+          "unknown": "Unknown",
           "mixed": "Mixed",
           "crlf": "CRLF",
           "lf": "LF",
@@ -169,6 +193,12 @@
       "language": {
         "title": "Language",
         "description": "Choose the frontend language for labels, messages, and date formatting."
+      },
+      "largeFileFocus": {
+        "title": "Large File Start",
+        "description": "Choose whether large logs initially open from the beginning or from the newest tail section.",
+        "start": "Start",
+        "end": "End"
       },
       "refreshInterval": {
         "title": "Auto-refresh Interval",
