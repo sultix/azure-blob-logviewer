@@ -194,13 +194,16 @@ export class UserCardComponent {
 }
 ```
 
-### No function calls in templates
+### Template expression rules
 
-- Function and method calls in Angular templates are forbidden for binding expressions.
-- This includes interpolation, property bindings, class bindings, style bindings, and control-flow conditions.
-- Use signals, `computed()`, or pure pipes for derived UI state.
-- Precompute bindable values in the component class.
-- Method calls are allowed only in event handlers, for example `(click)="save()"`.
+- Do not call arbitrary component methods or getters from templates.
+- Direct reads of Angular `signal()`, `input()`, and `computed()` values in templates are allowed in this repository, for example `status()`, `rows()`, `footer()`, `savedConnectionsCount()`, or `pageVm()`.
+- This allowance applies only to signal-style reactive reads. It does not make normal methods or getters acceptable in bindings.
+- Template expressions must stay cheap, side-effect free, and allocation free.
+- If a value requires mapping, sorting, filtering, formatting, object creation, array creation, service access, DOM access, or combining multiple reactive sources, compute it in the component or service first.
+- Avoid proxy getters such as `get rowsValue()` or `get statusValue()` that only wrap a signal read for template usage. Prefer binding the signal or `computed()` directly.
+- If the same signal or `computed()` is read several times in one block, prefer aliasing or a dedicated view-model `computed()`, for example `@if (pageVm(); as vm)` or `@if (statusBadge(); as badge)`.
+- Event handlers are still allowed to call methods, for example `(click)="save()"`.
 
 ### Signals
 
@@ -547,13 +550,15 @@ describe('UserCardComponent', () => {
 - Prefer `input()`, `output()`, and `computed()` where appropriate
 - Keep components, directives, and pipes focused and small
 - Avoid complex logic in templates
+- Do not enable blanket template call-expression rules that would flag signal reads; configure linting to distinguish signal/computed reads from arbitrary method calls
 - Prefer `readonly` for immutable members and injected dependencies where applicable
 
 ### Angular template linting
 
 - Lint HTML templates with Angular ESLint template rules
 - Prefer accessibility-friendly markup
-- Avoid expensive template calls
+- Avoid expensive template calls, hidden side effects, and allocation-heavy expressions in bindings
+- Direct signal and `computed()` reads in templates are acceptable; expensive or imperative methods are not
 - Keep templates declarative and readable
 
 ### Frontend boundary rules
