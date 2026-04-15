@@ -28,64 +28,7 @@ export interface AddConnectionResult {
   selector: 'app-add-connection-dialog',
   imports: [FormsModule, AzureResourcePickerComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="flex flex-col gap-5">
-      <p class="text-xs text-on-surface-variant">
-        {{ 'connections.dialog.description' | translate }}
-      </p>
-
-      <!-- Connection Name -->
-      <label class="flex flex-col gap-1.5">
-        <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-          {{ 'connections.dialog.connectionName' | translate }}
-        </span>
-        <input
-          type="text"
-          [placeholder]="'connections.dialog.connectionNamePlaceholder' | translate"
-          [ngModel]="draftName()"
-          (ngModelChange)="draftName.set($event)"
-          class="rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
-        />
-      </label>
-
-      <!-- Azure Resource Picker -->
-      <app-azure-resource-picker
-        [subscriptions]="subscriptions()"
-        [subscriptionsLoading]="subscriptionsLoading()"
-        [subscriptionsError]="subscriptionsError()"
-        [selectedSubscription]="selectedSubscription()"
-        [storageAccounts]="storageAccounts()"
-        [storageAccountsLoading]="storageAccountsLoading()"
-        [storageAccountsError]="storageAccountsError()"
-        [selectedStorageAccount]="selectedStorageAccount()"
-        [containers]="containers()"
-        [containersLoading]="containersLoading()"
-        [containersError]="containersError()"
-        [selectedContainer]="selectedContainer()"
-        (subscriptionSelected)="onSubscriptionSelected($event)"
-        (storageAccountSelected)="onStorageAccountSelected($event)"
-        (containerSelected)="onContainerSelected($event)"
-      />
-
-      <div class="flex justify-end gap-2 pt-2">
-        <button
-          type="button"
-          (click)="cancel()"
-          class="rounded-lg px-4 py-2 text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
-        >
-          {{ 'common.actions.cancel' | translate }}
-        </button>
-        <button
-          type="button"
-          (click)="save()"
-          [disabled]="!canSave()"
-          class="rounded-lg bg-primary-gradient px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-40"
-        >
-          {{ 'connections.dialog.save' | translate }}
-        </button>
-      </div>
-    </div>
-  `,
+  templateUrl: './add-connection-dialog.component.html',
 })
 export class AddConnectionDialogComponent {
   private readonly ref = inject(DynamicDialogRef);
@@ -119,6 +62,66 @@ export class AddConnectionDialogComponent {
     }
   }
 
+  get draftNameValue(): string {
+    return this.draftName();
+  }
+
+  get subscriptionsValue(): AzureSubscription[] {
+    return this.subscriptions();
+  }
+
+  get subscriptionsLoadingValue(): boolean {
+    return this.subscriptionsLoading();
+  }
+
+  get subscriptionsErrorValue(): string | null {
+    return this.subscriptionsError();
+  }
+
+  get selectedSubscriptionValue(): AzureSubscription | null {
+    return this.selectedSubscription();
+  }
+
+  get storageAccountsValue(): AzureStorageAccount[] {
+    return this.storageAccounts();
+  }
+
+  get storageAccountsLoadingValue(): boolean {
+    return this.storageAccountsLoading();
+  }
+
+  get storageAccountsErrorValue(): string | null {
+    return this.storageAccountsError();
+  }
+
+  get selectedStorageAccountValue(): AzureStorageAccount | null {
+    return this.selectedStorageAccount();
+  }
+
+  get containersValue(): AzureContainer[] {
+    return this.containers();
+  }
+
+  get containersLoadingValue(): boolean {
+    return this.containersLoading();
+  }
+
+  get containersErrorValue(): string | null {
+    return this.containersError();
+  }
+
+  get selectedContainerValue(): AzureContainer | null {
+    return this.selectedContainer();
+  }
+
+  get canSaveValue(): boolean {
+    return this.canSave();
+  }
+
+  onDraftNameChange(value: string): void {
+    this.draftName.set(value);
+  }
+
   onSubscriptionSelected(sub: AzureSubscription | null): void {
     this.azure.selectSubscription(sub);
   }
@@ -132,10 +135,10 @@ export class AddConnectionDialogComponent {
   }
 
   save(): void {
-    const name = this.draftName().trim();
-    const subscription = this.selectedSubscription();
-    const storageAccount = this.selectedStorageAccount();
-    const container = this.selectedContainer();
+    const name = this.draftNameValue.trim();
+    const subscription = this.selectedSubscriptionValue;
+    const storageAccount = this.selectedStorageAccountValue;
+    const container = this.selectedContainerValue;
     if (!name || !subscription || !storageAccount || !container) return;
 
     const result: AddConnectionResult = { name, subscription, storageAccount, container };

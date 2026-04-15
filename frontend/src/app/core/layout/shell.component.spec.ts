@@ -41,11 +41,13 @@ describe('ShellComponent', () => {
 
   it('renders the maximize icon and label in the normal window state', () => {
     const branding = getBrandingBlock(fixture);
+    const brandingImage = branding.querySelector('img');
     const maximizeButton = getMaximizeButton(fixture);
     const maximizeIcon = maximizeButton.querySelector('rect');
 
     expect(branding.className).toContain('w-[var(--layout-sidebar-width)]');
     expect(branding.className).toContain('shrink-0');
+    expect(brandingImage?.getAttribute('src')).toContain('assets/branding/app-logo-80.png');
     expect(maximizeButton.getAttribute('aria-label')).toBe('Maximize window');
     expect(maximizeIcon).not.toBeNull();
   });

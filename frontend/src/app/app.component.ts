@@ -8,11 +8,7 @@ import { AzureService } from './features/settings/services/azure.service';
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, ShellComponent],
-  template: `
-    <app-shell>
-      <router-outlet />
-    </app-shell>
-  `,
+  templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit {

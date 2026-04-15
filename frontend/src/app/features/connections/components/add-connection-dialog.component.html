@@ -1,0 +1,54 @@
+<div class="flex flex-col gap-5">
+  <p class="text-xs text-on-surface-variant">
+    {{ 'connections.dialog.description' | translate }}
+  </p>
+
+  <label class="flex flex-col gap-1.5">
+    <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
+      {{ 'connections.dialog.connectionName' | translate }}
+    </span>
+    <input
+      type="text"
+      [placeholder]="'connections.dialog.connectionNamePlaceholder' | translate"
+      [ngModel]="draftNameValue"
+      (ngModelChange)="onDraftNameChange($event)"
+      class="rounded-lg bg-surface-container-lowest px-4 py-2.5 font-mono text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50"
+    />
+  </label>
+
+  <app-azure-resource-picker
+    [subscriptions]="subscriptionsValue"
+    [subscriptionsLoading]="subscriptionsLoadingValue"
+    [subscriptionsError]="subscriptionsErrorValue"
+    [selectedSubscription]="selectedSubscriptionValue"
+    [storageAccounts]="storageAccountsValue"
+    [storageAccountsLoading]="storageAccountsLoadingValue"
+    [storageAccountsError]="storageAccountsErrorValue"
+    [selectedStorageAccount]="selectedStorageAccountValue"
+    [containers]="containersValue"
+    [containersLoading]="containersLoadingValue"
+    [containersError]="containersErrorValue"
+    [selectedContainer]="selectedContainerValue"
+    (subscriptionSelected)="onSubscriptionSelected($event)"
+    (storageAccountSelected)="onStorageAccountSelected($event)"
+    (containerSelected)="onContainerSelected($event)"
+  />
+
+  <div class="flex justify-end gap-2 pt-2">
+    <button
+      type="button"
+      (click)="cancel()"
+      class="rounded-lg px-4 py-2 text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
+    >
+      {{ 'common.actions.cancel' | translate }}
+    </button>
+    <button
+      type="button"
+      (click)="save()"
+      [disabled]="!canSaveValue"
+      class="rounded-lg bg-primary-gradient px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-40"
+    >
+      {{ 'connections.dialog.save' | translate }}
+    </button>
+  </div>
+</div>

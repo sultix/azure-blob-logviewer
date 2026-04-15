@@ -1,0 +1,199 @@
+<div class="flex h-full flex-col overflow-hidden bg-surface">
+  @if (statusValue === "loading") {
+    <div
+      class="flex flex-1 items-center justify-center text-sm text-on-surface-variant"
+    >
+      {{ 'logs.detail.loading' | translate }}
+    </div>
+  } @else if (statusValue === "error") {
+    <div class="flex flex-1 items-center justify-center text-sm text-error">
+      {{ errorText }}
+    </div>
+  } @else if (!hasSelectionValue) {
+    <div
+      class="flex flex-1 flex-col items-center justify-center gap-3 text-on-surface-variant"
+    >
+      <i class="pi pi-file text-3xl"></i>
+      <p class="text-sm">{{ 'logs.detail.empty' | translate }}</p>
+    </div>
+  } @else if (toolbarValue; as tb) {
+    <header
+      class="flex flex-wrap items-start justify-between gap-4 bg-surface-container-high px-6 py-4"
+    >
+      <div class="flex min-w-0 flex-col gap-1">
+        <h2
+          class="truncate font-display text-base font-semibold text-on-surface"
+        >
+          {{ tb.blobName }}
+        </h2>
+        <p class="truncate font-mono text-[11px] text-on-surface-variant">
+          {{ tb.path }}
+        </p>
+        <div
+          class="flex items-center gap-3 text-[10px] text-on-surface-variant"
+        >
+          <span
+            class="rounded-full bg-surface-container-highest px-2 py-0.5"
+          >
+            {{ 'logs.detail.size' | translate: { value: tb.sizeLabel } }}
+          </span>
+          <span
+            class="rounded-full bg-surface-container-highest px-2 py-0.5"
+          >
+            {{ 'logs.detail.modified' | translate: { value: tb.modified } }}
+          </span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-start justify-end gap-4">
+        <div class="flex flex-wrap items-center justify-end gap-4">
+          <label
+            for="logs-word-wrap"
+            class="hidden items-center self-center gap-2 text-xs font-semibold text-on-surface 2xl:flex"
+          >
+            <span>{{ 'logs.detail.wordWrap' | translate }}</span>
+            <p-toggleswitch
+              inputId="logs-word-wrap"
+              [ngModel]="wordWrapEnabledValue"
+              (ngModelChange)="onWordWrapChange($event)"
+              [ariaLabel]="'logs.detail.wordWrapToggleAriaLabel' | translate"
+            />
+          </label>
+          <div
+            class="flex min-w-[15rem] items-center gap-2 rounded-lg bg-surface-container-highest px-3 py-2"
+          >
+            <i class="pi pi-search text-[11px] text-on-surface-variant"></i>
+            <input
+              type="text"
+              [placeholder]="'logs.detail.searchContentPlaceholder' | translate"
+              [ngModel]="contentSearchQueryValue"
+              (ngModelChange)="onContentSearchChange($event)"
+              class="min-w-0 flex-1 bg-transparent text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+              [attr.aria-label]="'logs.detail.searchContentAriaLabel' | translate"
+            />
+            @if (hasActiveContentSearchValue) {
+              <button
+                type="button"
+                (click)="clearContentSearch()"
+                [pTooltip]="'logs.detail.clearSearch' | translate"
+                tooltipPosition="top"
+                [attr.aria-label]="'logs.detail.clearSearchAriaLabel' | translate"
+                class="flex h-6 w-6 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface hover:text-on-surface"
+              >
+                <i class="pi pi-times text-[10px]"></i>
+              </button>
+              <span
+                class="shrink-0 rounded-full bg-primary-container/20 px-2 py-0.5 text-[10px] font-semibold text-on-surface"
+              >
+                {{ contentSearchMatchLabel }}
+              </span>
+              <button
+                type="button"
+                (click)="scrollToPreviousMatch()"
+                [disabled]="!hasContentSearchMatchesValue"
+                [pTooltip]="'logs.detail.previousMatch' | translate"
+                tooltipPosition="top"
+                [attr.aria-label]="'logs.detail.previousMatchAriaLabel' | translate"
+                class="flex h-7 w-7 items-center justify-center rounded-md bg-surface text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <i class="pi pi-chevron-up text-[10px]"></i>
+              </button>
+              <button
+                type="button"
+                (click)="scrollToNextMatch()"
+                [disabled]="!hasContentSearchMatchesValue"
+                [pTooltip]="'logs.detail.nextMatch' | translate"
+                tooltipPosition="top"
+                [attr.aria-label]="'logs.detail.nextMatchAriaLabel' | translate"
+                class="flex h-7 w-7 items-center justify-center rounded-md bg-surface text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <i class="pi pi-chevron-down text-[10px]"></i>
+              </button>
+            }
+          </div>
+          <div class="hidden 2xl:flex 2xl:items-center 2xl:gap-4">
+            <button
+              type="button"
+              (click)="refreshRequested.emit()"
+              [pTooltip]="'logs.detail.mobileActions.refresh' | translate"
+              tooltipPosition="top"
+              [attr.aria-label]="'logs.detail.refreshAriaLabel' | translate"
+              class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface transition-colors hover:bg-surface-bright"
+            >
+              <i class="pi pi-refresh text-xs"></i>
+            </button>
+            <button
+              type="button"
+              (click)="downloadRequested.emit()"
+              [pTooltip]="'logs.detail.mobileActions.download' | translate"
+              tooltipPosition="top"
+              [attr.aria-label]="'logs.detail.downloadAriaLabel' | translate"
+              class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface transition-colors hover:bg-surface-bright"
+            >
+              <i class="pi pi-download text-xs"></i>
+            </button>
+          </div>
+          <div class="2xl:hidden">
+            <button
+              type="button"
+              (click)="moreActionsMenu.toggle($event)"
+              [attr.aria-label]="'logs.detail.moreActionsAriaLabel' | translate"
+              class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface transition-colors hover:bg-surface-bright"
+            >
+              <i class="pi pi-ellipsis-v text-xs"></i>
+            </button>
+            <p-menu
+              #moreActionsMenu
+              [model]="mobileActionItemsValue"
+              [popup]="true"
+              appendTo="body"
+            />
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div
+      #contentScrollContainer
+      class="min-h-0 flex-1 overflow-auto bg-surface-container-lowest p-6 font-mono text-[12px] leading-relaxed text-on-surface"
+    >
+      @if (contentLoadingValue) {
+        <div
+          class="flex h-full items-center justify-center text-on-surface-variant"
+        >
+          {{ 'logs.detail.loadingContent' | translate }}
+        </div>
+      } @else if (contentErrorText) {
+        <div class="flex h-full items-center justify-center text-sm text-error">
+          {{ contentErrorText }}
+        </div>
+      } @else {
+        <pre
+          #contentElement
+          [class]="contentClassName"
+          [innerHTML]="contentHtmlValue"
+        ></pre>
+      }
+    </div>
+
+    @if (footerValue; as footerVm) {
+      <footer
+        class="flex items-center justify-between gap-4 bg-surface-container-high px-6 py-2 text-[10px] font-medium uppercase tracking-wider text-on-surface-variant"
+      >
+        <div class="min-w-0">
+          @if (footerVm.lineCountLabel; as lineCountLabel) {
+            <span>{{ lineCountLabel }}</span>
+          }
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-4">
+          @if (footerVm.typeLabel; as typeLabel) {
+            <span>{{ typeLabel }}</span>
+          }
+          @if (footerVm.lineEndingsLabel; as lineEndingsLabel) {
+            <span>{{ lineEndingsLabel }}</span>
+          }
+        </div>
+      </footer>
+    }
+  }
+</div>

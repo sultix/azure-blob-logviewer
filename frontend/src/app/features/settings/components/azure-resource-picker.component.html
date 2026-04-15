@@ -1,0 +1,96 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col gap-2">
+    <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+      {{ 'settings.resourcePicker.subscription' | translate }}
+    </span>
+    @if (subscriptionsLoadingValue) {
+      <div class="flex items-center gap-2 text-sm text-on-surface-variant">
+        <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        {{ 'settings.resourcePicker.loadingSubscriptions' | translate }}
+      </div>
+    } @else if (subscriptionsErrorValue) {
+      <p class="text-sm text-error">{{ subscriptionsErrorValue }}</p>
+    } @else {
+      <p-select
+        [options]="subscriptionsValue"
+        optionLabel="displayName"
+        [ngModel]="selectedSubscriptionValue"
+        (ngModelChange)="subscriptionSelected.emit($event)"
+        [filter]="true"
+        filterBy="displayName,id"
+        [placeholder]="'settings.resourcePicker.subscriptionPlaceholder' | translate"
+        [showClear]="true"
+        appendTo="body"
+        styleClass="w-full"
+      />
+      @if (!hasSubscriptions) {
+        <p class="text-xs text-on-surface-variant">{{ 'settings.resourcePicker.noSubscriptions' | translate }}</p>
+      }
+    }
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+      {{ 'settings.resourcePicker.storageAccount' | translate }}
+    </span>
+    @if (storageAccountsLoadingValue) {
+      <div class="flex items-center gap-2 text-sm text-on-surface-variant">
+        <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        {{ 'settings.resourcePicker.loadingStorageAccounts' | translate }}
+      </div>
+    } @else if (storageAccountsErrorValue) {
+      <p class="text-sm text-error">{{ storageAccountsErrorValue }}</p>
+    } @else {
+      <p-select
+        [options]="storageAccountsValue"
+        optionLabel="name"
+        [ngModel]="selectedStorageAccountValue"
+        (ngModelChange)="storageAccountSelected.emit($event)"
+        [filter]="true"
+        filterBy="name,location"
+        [placeholder]="'settings.resourcePicker.storageAccountPlaceholder' | translate"
+        [showClear]="true"
+        [disabled]="!canSelectStorageAccount"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    }
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+      {{ 'settings.resourcePicker.blobContainer' | translate }}
+    </span>
+    @if (containersLoadingValue) {
+      <div class="flex items-center gap-2 text-sm text-on-surface-variant">
+        <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        {{ 'settings.resourcePicker.loadingContainers' | translate }}
+      </div>
+    } @else if (containersErrorValue) {
+      <p class="text-sm text-error">{{ containersErrorValue }}</p>
+    } @else {
+      <p-select
+        [options]="containersValue"
+        optionLabel="name"
+        [ngModel]="selectedContainerValue"
+        (ngModelChange)="containerSelected.emit($event)"
+        [filter]="true"
+        filterBy="name"
+        [placeholder]="'settings.resourcePicker.containerPlaceholder' | translate"
+        [showClear]="true"
+        [disabled]="!canSelectContainer"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    }
+  </div>
+</div>
