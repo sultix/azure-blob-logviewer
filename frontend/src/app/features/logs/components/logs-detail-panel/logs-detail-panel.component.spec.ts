@@ -64,7 +64,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
     const footer: LogFooterVm = {
       typeLabel: 'Type text/plain',
@@ -83,7 +83,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('alpha.log');
     expect(fixture.nativeElement.textContent).toContain('storage-a/logs/alpha.log');
     expect(fixture.nativeElement.textContent).toContain('Size 1.5 KB');
-    expect(fixture.nativeElement.textContent).toContain('Modified 1 hr ago');
+    expect(fixture.nativeElement.textContent).toContain('Created 1 hr ago');
     expect(fixture.nativeElement.textContent).toContain('line 1');
     expect(fixture.nativeElement.textContent).toContain('Lines 2');
     expect(fixture.nativeElement.textContent).toContain('Type text/plain');
@@ -130,7 +130,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
     const refreshRequested = vi.fn<() => void>();
     component.refreshRequested.subscribe(refreshRequested);
@@ -156,7 +156,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
     const footer: LogFooterVm = {
       typeLabel: 'Type application/json',
@@ -181,7 +181,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
 
     fixture.componentRef.setInput('status', 'success');
@@ -198,7 +198,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
     const downloadRequested = vi.fn<() => void>();
     component.downloadRequested.subscribe(downloadRequested);
@@ -221,7 +221,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '100.0 MB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
       progressLabel: '4.0 MB / 100.0 MB loaded',
@@ -279,13 +279,12 @@ describe('LogsDetailPanelComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Earlier lines are still loading');
     expect(fixture.nativeElement.textContent).toContain('Later lines are still loading');
     expect(fixture.nativeElement.textContent).toContain('error on current line');
-    const renderedLine = fixture.nativeElement.querySelector(
-      '.border-b.border-surface-container-highest\\/40 span',
-    ) as HTMLSpanElement;
+    const highlights = fixture.nativeElement.querySelectorAll('mark.log-search-match');
+    const renderedLine = highlights[0]?.closest('span') as HTMLSpanElement | null;
+    expect(renderedLine).not.toBeNull();
     expect(renderedLine.className).toContain('block');
     expect(renderedLine.className).toContain('min-w-0');
     expect(renderedLine.className).toContain('w-full');
-    const highlights = fixture.nativeElement.querySelectorAll('mark.log-search-match');
     expect(highlights).toHaveLength(2);
     expect(highlights[0]?.className).toContain('active-search-match');
     expect(highlights[1]?.className).not.toContain('active-search-match');
@@ -326,7 +325,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '100.0 MB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
       progressLabel: '100.0 MB / 100.0 MB loaded',
@@ -362,7 +361,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '100.0 MB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
       progressLabel: '4.0 MB / 100.0 MB loaded',
@@ -403,7 +402,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '100.0 MB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
       progressLabel: '100.0 MB / 100.0 MB loaded',
@@ -438,7 +437,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
 
     fixture.componentRef.setInput('status', 'success');
@@ -494,7 +493,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
 
     fixture.componentRef.setInput('status', 'success');
@@ -513,7 +512,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
 
     fixture.componentRef.setInput('status', 'success');
@@ -542,7 +541,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
 
     fixture.componentRef.setInput('status', 'success');
@@ -575,7 +574,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
     const content = 'prefix  ERROR\tvalue\n  next line';
 
@@ -599,7 +598,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
 
     fixture.componentRef.setInput('status', 'success');
@@ -656,7 +655,7 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     };
 
     fixture.componentRef.setInput('status', 'success');

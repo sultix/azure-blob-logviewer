@@ -39,6 +39,7 @@ export interface AzureBlobItem {
   name: string;
   size: number;
   contentType: string;
+  createdAt: string;
   lastModified: string;
   blobType: string;
 }

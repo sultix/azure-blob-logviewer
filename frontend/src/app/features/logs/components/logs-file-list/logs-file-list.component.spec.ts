@@ -44,14 +44,14 @@ describe('LogsFileListComponent', () => {
       {
         id: 'entry-1',
         blobName: 'alpha.log',
-        timestamp: 'Today, 10:30',
+        createdLabel: 'Today, 10:30',
         sizeLabel: '1.0 KB',
         isLive: true,
       },
       {
         id: 'entry-2',
         blobName: 'beta.log',
-        timestamp: 'Today, 10:00',
+        createdLabel: 'Today, 10:00',
         sizeLabel: '2.0 KB',
         isLive: false,
       },

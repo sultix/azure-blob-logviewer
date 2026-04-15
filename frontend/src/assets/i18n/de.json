@@ -116,7 +116,7 @@
       "loading": "Logs werden geladen…",
       "empty": "Wählen Sie eine Logdatei aus, um ihren Inhalt anzuzeigen",
       "size": "Größe {{value}}",
-      "modified": "Geändert {{value}}",
+      "created": "Erstellt {{value}}",
       "wordWrap": "Zeilenumbruch",
       "wordWrapToggleAriaLabel": "Zeilenumbruch für Loginhalt umschalten",
       "searchContentPlaceholder": "Inhalt durchsuchen...",

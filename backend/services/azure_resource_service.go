@@ -183,6 +183,7 @@ func (s *AzureResourceService) ListBlobs(ctx context.Context, accountName, conta
 				if blob.Properties.ContentType != nil {
 					item.ContentType = *blob.Properties.ContentType
 				}
+				item.CreatedAt = formatTimePtr(blob.Properties.CreationTime)
 				if blob.Properties.LastModified != nil {
 					item.LastModified = blob.Properties.LastModified.UTC().Format("2006-01-02T15:04:05Z")
 				}

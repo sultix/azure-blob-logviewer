@@ -30,7 +30,7 @@ type SortDir = "asc" | "desc";
 
 interface PreparedLogFileRowVm extends LogFileRowVm {
   readonly blobNameLower: string;
-  readonly lastModifiedTs: number;
+  readonly createdAtTs: number;
 }
 
 interface ContentFooterStatsVm {
@@ -81,10 +81,10 @@ export class LogsPage implements OnInit {
       id: entry.id,
       blobName: entry.blobName,
       blobNameLower: entry.blobName.toLowerCase(),
-      timestamp: entry.timestamp,
+      createdLabel: entry.createdLabel,
       sizeLabel: this.formatSize(entry.size),
       isLive: entry.isLive === true,
-      lastModifiedTs: toTimestamp(entry.lastModified),
+      createdAtTs: toTimestamp(entry.createdAt),
     })),
   );
 
@@ -99,12 +99,12 @@ export class LogsPage implements OnInit {
         return false;
       }
 
-      return row.lastModifiedTs >= start && row.lastModifiedTs < end;
+      return row.createdAtTs >= start && row.createdAtTs < end;
     });
 
     const mult = dir === "asc" ? 1 : -1;
     return [...filteredRows].sort((a, b) => {
-      const dateCmp = a.lastModifiedTs - b.lastModifiedTs;
+      const dateCmp = a.createdAtTs - b.createdAtTs;
       if (dateCmp !== 0) {
         return dateCmp * mult;
       }
@@ -120,7 +120,7 @@ export class LogsPage implements OnInit {
       blobName: entry.blobName,
       path: entry.path ?? `/${entry.container}/${entry.blobName}`,
       sizeLabel: this.formatSize(entry.size),
-      modified: entry.modifiedRelative ?? entry.timestamp,
+      created: entry.createdRelative || entry.createdLabel,
     };
   });
 

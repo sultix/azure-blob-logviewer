@@ -116,7 +116,7 @@
       "loading": "Loading logs…",
       "empty": "Select a log file to view its contents",
       "size": "Size {{value}}",
-      "modified": "Modified {{value}}",
+      "created": "Created {{value}}",
       "wordWrap": "Word Wrap",
       "wordWrapToggleAriaLabel": "Toggle word wrap for log content",
       "searchContentPlaceholder": "Search content...",

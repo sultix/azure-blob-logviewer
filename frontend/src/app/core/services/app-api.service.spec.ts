@@ -166,8 +166,8 @@ describe('AppApiService', () => {
       id: 'log-1',
       container: 'logs',
       blobName: 'app.log',
-      timestamp: 'Today, 10:30',
-      lastModified: '2026-04-13T10:30:00Z',
+      createdAt: '2026-04-13T10:30:00Z',
+      createdLabel: 'Today, 10:30',
       size: 42,
     };
     const subscriptions: AzureSubscription[] = [
@@ -191,6 +191,7 @@ describe('AppApiService', () => {
         name: '2026/04/13/app.log',
         size: 1024,
         contentType: 'text/plain',
+        createdAt: '2026-04-13T10:00:00Z',
         lastModified: '2026-04-13T10:30:00Z',
         blobType: 'BlockBlob',
       },

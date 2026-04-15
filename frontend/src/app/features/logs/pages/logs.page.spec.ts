@@ -225,12 +225,12 @@ describe('LogsPage', () => {
       createLogEntry({
         id: 'entry-older',
         blobName: 'application.log',
-        lastModified: '2026-04-13T10:00:00Z',
+        createdAt: '2026-04-13T10:00:00Z',
       }),
       createLogEntry({
         id: 'entry-newer',
         blobName: 'worker.log',
-        lastModified: '2026-04-13T11:00:00Z',
+        createdAt: '2026-04-13T11:00:00Z',
       }),
     ];
     setRouteConnectionId('conn-1', routeParamMap$);
@@ -296,7 +296,7 @@ describe('LogsPage', () => {
           createLogEntry({
             id: 'entry-old',
             blobName: 'alpha.log',
-            lastModified: '2026-04-13T11:00:00Z',
+            createdAt: '2026-04-13T11:00:00Z',
           }),
         ]);
         return;
@@ -311,7 +311,7 @@ describe('LogsPage', () => {
           id: 'entry-new',
           container: 'archive',
           blobName: 'beta.log',
-          lastModified: '2026-04-14T09:30:00Z',
+          createdAt: '2026-04-14T09:30:00Z',
           path: 'storage-a/archive/beta.log',
           containerName: 'archive',
         }),
@@ -377,25 +377,25 @@ describe('LogsPage', () => {
         id: 'entry-1',
         blobName: 'beta.log',
         size: 1024,
-        lastModified: '2026-04-12T10:00:00Z',
-        timestamp: 'Yesterday, 10:00',
+        createdAt: '2026-04-12T10:00:00Z',
+        createdLabel: 'Yesterday, 10:00',
       }),
       createLogEntry({
         id: 'entry-2',
         blobName: 'alpha.log',
         size: 1536,
         contentType: 'text/plain',
-        lastModified: '2026-04-13T09:00:00Z',
-        timestamp: 'Today, 09:00',
-        modifiedRelative: '1 hr ago',
+        createdAt: '2026-04-13T09:00:00Z',
+        createdLabel: 'Today, 09:00',
+        createdRelative: '1 hr ago',
         path: 'storage-a/logs/alpha.log',
       }),
       createLogEntry({
         id: 'entry-3',
         blobName: 'archive.log',
         size: 2_048,
-        lastModified: '2026-04-11T08:00:00Z',
-        timestamp: 'Apr 11, 2026',
+        createdAt: '2026-04-11T08:00:00Z',
+        createdLabel: 'Apr 11, 2026',
       }),
     ]);
     logs.selectEntry('entry-2');
@@ -416,7 +416,7 @@ describe('LogsPage', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      modified: '1 hr ago',
+      created: '1 hr ago',
     });
     expect(component.footer()).toEqual({
       typeLabel: 'text/plain',
@@ -588,12 +588,12 @@ function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
     id: 'log-1',
     container: 'logs',
     blobName: 'application.log',
-    timestamp: 'Today, 10:30',
-    lastModified: '2026-04-13T10:30:00Z',
+    createdAt: '2026-04-13T10:30:00Z',
+    createdLabel: 'Today, 10:30',
     size: 512,
     contentType: 'text/plain',
     path: 'storage-a/logs/application.log',
-    modifiedRelative: 'just now',
+    createdRelative: 'just now',
     storageAccountName: 'storage-a',
     containerName: 'logs',
     ...overrides,

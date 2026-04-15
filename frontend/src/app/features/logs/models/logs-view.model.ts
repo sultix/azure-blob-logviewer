@@ -3,7 +3,7 @@ export type LogsStatus = 'idle' | 'loading' | 'success' | 'error';
 export interface LogFileRowVm {
   id: string;
   blobName: string;
-  timestamp: string;
+  createdLabel: string;
   sizeLabel: string;
   isLive: boolean;
 }
@@ -12,7 +12,7 @@ export interface LogToolbarVm {
   blobName: string;
   path: string;
   sizeLabel: string;
-  modified: string;
+  created: string;
 }
 
 export interface LogContentWindowVm {

@@ -647,22 +647,28 @@ export class LogsService implements OnDestroy {
   }
 
   private mapBlobToEntry(blob: AzureBlobItem, accountName: string, containerName: string): LogEntry {
+    const createdAt = this.resolveCreatedAt(blob);
+
     return {
       id: blob.name,
       container: containerName,
       blobName: blob.name,
-      timestamp: this.formatTimestamp(blob.lastModified),
-      lastModified: blob.lastModified,
+      createdAt,
+      createdLabel: this.formatCreatedAtLabel(createdAt),
       size: blob.size,
       contentType: blob.contentType,
       path: `${accountName}/${containerName}/${blob.name}`,
-      modifiedRelative: this.relativeTime(blob.lastModified),
+      createdRelative: createdAt ? this.relativeTime(createdAt) : undefined,
       storageAccountName: accountName,
       containerName,
     };
   }
 
-  private formatTimestamp(iso: string): string {
+  private resolveCreatedAt(blob: AzureBlobItem): string {
+    return blob.createdAt || blob.lastModified;
+  }
+
+  private formatCreatedAtLabel(iso: string): string {
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) {
       return iso;
@@ -687,6 +693,9 @@ export class LogsService implements OnDestroy {
   }
 
   private relativeTime(iso: string): string {
+    if (!iso) {
+      return '';
+    }
     return this.i18n.formatRelativeFromNow(iso);
   }
 }

@@ -45,6 +45,7 @@ type AzureBlobItem struct {
 	Name         string `json:"name"`
 	Size         int64  `json:"size"`
 	ContentType  string `json:"contentType"`
+	CreatedAt    string `json:"createdAt"`
 	LastModified string `json:"lastModified"`
 	BlobType     string `json:"blobType"`
 }

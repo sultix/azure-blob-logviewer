@@ -2,13 +2,13 @@ export interface LogEntry {
   id: string;
   container: string;
   blobName: string;
-  timestamp: string;
-  lastModified: string;
+  createdAt: string;
+  createdLabel: string;
   size: number;
   contentType?: string;
   isLive?: boolean;
   path?: string;
-  modifiedRelative?: string;
+  createdRelative?: string;
   storageAccountName?: string;
   containerName?: string;
 }

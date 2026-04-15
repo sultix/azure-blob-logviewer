@@ -368,6 +368,7 @@ function createBlob(overrides: Partial<AzureBlobItem> = {}): AzureBlobItem {
     name: '2026/04/13/app.log',
     size: 42,
     contentType: 'text/plain',
+    createdAt: '2026-04-13T10:00:00Z',
     lastModified: '2026-04-13T10:30:00Z',
     blobType: 'BlockBlob',
     ...overrides,
