@@ -2,6 +2,7 @@
   data-testid="connections-page"
   class="flex h-full min-h-0 flex-col overflow-hidden"
 >
+  @if (pageVm(); as vm) {
   <p-confirmdialog appendTo="body" />
 
   <div
@@ -24,6 +25,11 @@
           {{ 'connections.page.description' | translate }}
         </p>
       </header>
+      <div class="flex items-center justify-between">
+        <h2 class="font-display text-lg font-semibold text-on-surface">
+          {{ 'connections.page.overview' | translate }}
+        </h2>
+      </div>
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-4">
         <div
           class="flex items-start justify-between rounded-xl bg-surface-container p-5"
@@ -35,7 +41,7 @@
               {{ 'connections.page.totalContainers' | translate }}
             </span>
             <span class="font-display text-2xl font-bold text-on-surface">
-              {{ totalContainers() }}
+              {{ vm.totalContainers }}
             </span>
           </div>
           <span
@@ -47,19 +53,19 @@
 
         <article
           class="flex flex-col gap-3 rounded-xl border p-4 xl:col-span-3"
-          [class]="azureCliCardStyle().containerClass"
+          [class]="vm.azureCliCardStyle.containerClass"
         >
           <div class="flex items-start justify-between gap-4">
             <div class="flex min-w-0 flex-col gap-2">
               <span
                 class="text-[11px] font-medium uppercase tracking-wider"
-                [class]="azureCliCardStyle().eyebrowClass"
+                [class]="vm.azureCliCardStyle.eyebrowClass"
               >
                 {{ 'connections.page.azureCliRequired' | translate }}
               </span>
               <p
                 class="max-w-3xl text-sm leading-relaxed"
-                [class]="azureCliCardStyle().descriptionClass"
+                [class]="vm.azureCliCardStyle.descriptionClass"
               >
                 {{ 'connections.page.azureCliDescription' | translate: {
                 command: 'az login' } }}
@@ -67,7 +73,7 @@
             </div>
             <span
               class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-              [class]="azureCliCardStyle().iconClass"
+              [class]="vm.azureCliCardStyle.iconClass"
             >
               <i class="pi pi-microsoft text-base"></i>
             </span>
@@ -97,16 +103,16 @@
         <button
           type="button"
           (click)="openDialog()"
-          [disabled]="!isAuthenticated()"
+          [disabled]="!vm.isAuthenticated"
           class="flex items-center gap-2 rounded-lg bg-primary-gradient px-5 py-2.5 text-sm font-semibold text-on-primary shadow-ambient transition-transform hover:-translate-y-[1px] disabled:opacity-40 disabled:hover:translate-y-0"
-          [title]="isAuthenticated() ? ('connections.page.addButtonTitleEnabled' | translate) : ('connections.page.addButtonTitleDisabled' | translate)"
+          [title]="vm.isAuthenticated ? ('connections.page.addButtonTitleEnabled' | translate) : ('connections.page.addButtonTitleDisabled' | translate)"
         >
           <i class="pi pi-plus text-xs"></i>
           {{ 'connections.page.addButton' | translate }}
         </button>
       </div>
 
-      @if (!isAuthenticated()) {
+      @if (!vm.isAuthenticated) {
       <div class="flex items-start gap-3 rounded-xl bg-surface-container p-5">
         <i class="pi pi-info-circle mt-0.5 text-sm text-tertiary"></i>
         <p class="text-xs leading-relaxed text-on-surface-variant">
@@ -124,13 +130,13 @@
       data-testid="connections-list-scroll"
       class="min-h-0 flex-1 overflow-y-auto"
     >
-      @if (status() === 'loading') {
+      @if (vm.status === 'loading') {
       <p class="text-sm text-on-surface-variant">
         {{ 'connections.page.loading' | translate }}
       </p>
-      } @else if (status() === 'error') {
-      <p class="text-sm text-error">{{ errorMessage() }}</p>
-      } @else if (isEmpty()) {
+      } @else if (vm.status === 'error') {
+      <p class="text-sm text-error">{{ vm.errorMessage }}</p>
+      } @else if (vm.isEmpty) {
       <div
         class="flex flex-col items-center gap-3 rounded-xl bg-surface-container p-12 text-center"
       >
@@ -180,8 +186,8 @@
               <button
                 type="button"
                 (click)="openEditDialog(card)"
-                [disabled]="!isAuthenticated()"
-                [title]="isAuthenticated() ? ('connections.page.editButtonTitleEnabled' | translate) : ('connections.page.editButtonTitleDisabled' | translate)"
+                [disabled]="!vm.isAuthenticated"
+                [title]="vm.isAuthenticated ? ('connections.page.editButtonTitleEnabled' | translate) : ('connections.page.editButtonTitleDisabled' | translate)"
                 [attr.aria-label]="'connections.page.editConnectionAriaLabel' | translate"
                 class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:opacity-40"
               >
@@ -215,9 +221,9 @@
         </ul>
       </ng-template>
 
-      @if (showCategoryGroups()) {
+      @if (vm.showCategoryGroups) {
       <div class="flex flex-col gap-6">
-        @for (group of cardGroups(); track group.key) {
+        @for (group of vm.cardGroups; track group.key) {
         <section class="flex flex-col gap-2">
           <h3
             class="text-xs font-semibold uppercase tracking-[0.16em] text-on-surface-variant"
@@ -234,9 +240,10 @@
       } @else {
       <ng-container
         [ngTemplateOutlet]="cardList"
-        [ngTemplateOutletContext]="{ $implicit: cards() }"
+        [ngTemplateOutletContext]="{ $implicit: vm.cards }"
       />
       } }
     </div>
   </div>
+  }
 </section>

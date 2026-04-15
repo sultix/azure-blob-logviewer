@@ -5,11 +5,11 @@
     class="flex h-full min-h-0 flex-col overflow-hidden bg-surface-container"
   >
     <app-logs-filters
-      [searchTerm]="searchTermValue"
-      [dateFrom]="dateFromValue"
-      [dateUntil]="dateUntilValue"
-      [sortLabel]="sortLabelValue"
-      [isSortDescending]="isSortDescending"
+      [searchTerm]="searchTerm()"
+      [dateFrom]="dateFrom()"
+      [dateUntil]="dateUntil()"
+      [sortLabel]="sortLabel()"
+      [isSortDescending]="sortDir() === 'desc'"
       (searchChanged)="onSearch($event)"
       (dateFromChanged)="onDateFromChange($event)"
       (dateUntilChanged)="onDateUntilChange($event)"
@@ -18,22 +18,22 @@
     />
 
     <app-logs-file-list
-      [rows]="rowsValue"
-      [loading]="sidebarLoading"
-      [selectedEntryId]="selectedEntryIdValue"
+      [rows]="rows()"
+      [loading]="sidebarLoading()"
+      [selectedEntryId]="selectedEntryId()"
       (entrySelected)="select($event)"
     />
   </aside>
 
   <app-logs-detail-panel
-    [status]="statusValue"
-    [errorMessage]="errorMessageValue"
-    [hasSelection]="hasSelectedEntry"
-    [toolbar]="toolbarValue"
-    [content]="selectedContentValue"
-    [contentErrorMessage]="selectedContentErrorValue"
-    [contentLoading]="contentLoadingValue"
-    [footer]="footerValue"
+    [status]="status()"
+    [errorMessage]="errorMessage()"
+    [hasSelection]="hasSelectedEntry()"
+    [toolbar]="toolbar()"
+    [content]="selectedContent()"
+    [contentErrorMessage]="selectedContentError()"
+    [contentLoading]="contentLoading()"
+    [footer]="footer()"
     (downloadRequested)="download()"
     (refreshRequested)="refresh()"
   />

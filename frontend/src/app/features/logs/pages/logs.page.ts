@@ -18,12 +18,21 @@ import { LogsFiltersComponent } from "../components/logs-filters.component";
 import type {
   LogFileRowVm,
   LogFooterVm,
-  LogsStatus,
   LogToolbarVm,
 } from "../models/logs-view.model";
 import { LogsService } from "../services/logs.service";
 
 type SortDir = "asc" | "desc";
+
+interface PreparedLogFileRowVm extends LogFileRowVm {
+  readonly blobNameLower: string;
+  readonly lastModifiedTs: number;
+}
+
+interface ContentFooterStatsVm {
+  readonly lineCountLabel: string;
+  readonly lineEndingsLabel: string;
+}
 
 @Component({
   selector: "app-logs-page",
@@ -56,52 +65,41 @@ export class LogsPage implements OnInit {
   readonly dateFrom = signal<Date | null>(null);
   readonly dateUntil = signal<Date | null>(null);
 
+  readonly preparedRows = computed<PreparedLogFileRowVm[]>(() =>
+    this.logs.entries().map((entry) => ({
+      id: entry.id,
+      blobName: entry.blobName,
+      blobNameLower: entry.blobName.toLowerCase(),
+      timestamp: entry.timestamp,
+      sizeLabel: this.formatSize(entry.size),
+      isLive: entry.isLive === true,
+      lastModifiedTs: toTimestamp(entry.lastModified),
+    })),
+  );
+
   readonly rows = computed<LogFileRowVm[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
     const dir = this.sortDir();
-    const from = this.dateFrom();
-    const until = this.dateUntil();
-    const list = this.logs.entries();
+    const start = startOfDayTimestamp(this.dateFrom());
+    const end = endOfDayExclusiveTimestamp(this.dateUntil());
 
-    let filtered = term
-      ? list.filter((e) => e.blobName.toLowerCase().includes(term))
-      : [...list];
+    const filteredRows = this.preparedRows().filter((row) => {
+      if (term && !row.blobNameLower.includes(term)) {
+        return false;
+      }
 
-    if (from || until) {
-      const start = from
-        ? new Date(
-            from.getFullYear(),
-            from.getMonth(),
-            from.getDate(),
-          ).getTime()
-        : 0;
-      const end = until
-        ? new Date(
-            until.getFullYear(),
-            until.getMonth(),
-            until.getDate(),
-          ).getTime() +
-          24 * 60 * 60 * 1000
-        : Infinity;
-      filtered = filtered.filter((e) => {
-        const t = new Date(e.lastModified).getTime();
-        return t >= start && t < end;
-      });
-    }
+      return row.lastModifiedTs >= start && row.lastModifiedTs < end;
+    });
 
     const mult = dir === "asc" ? 1 : -1;
-    filtered.sort((a, b) => {
-      const dateCmp = a.lastModified.localeCompare(b.lastModified);
-      if (dateCmp !== 0) return dateCmp * mult;
-      return a.blobName.localeCompare(b.blobName) * mult;
+    return [...filteredRows].sort((a, b) => {
+      const dateCmp = a.lastModifiedTs - b.lastModifiedTs;
+      if (dateCmp !== 0) {
+        return dateCmp * mult;
+      }
+
+      return a.blobNameLower.localeCompare(b.blobNameLower) * mult;
     });
-    return filtered.map((e) => ({
-      id: e.id,
-      blobName: e.blobName,
-      timestamp: e.timestamp,
-      sizeLabel: this.formatSize(e.size),
-      isLive: e.isLive === true,
-    }));
   });
 
   readonly toolbar = computed<LogToolbarVm | null>(() => {
@@ -120,6 +118,24 @@ export class LogsPage implements OnInit {
       ? this.i18n.translate('logs.filters.newestFirst')
       : this.i18n.translate('logs.filters.oldestFirst'),
   );
+  readonly selectedEntryId = computed(() => this.selectedEntry()?.id ?? null);
+  readonly hasSelectedEntry = computed(() => this.selectedEntry() !== null);
+  readonly sidebarLoading = computed(() => this.status() === "loading");
+  readonly contentFooterStats = computed<ContentFooterStatsVm | null>(() => {
+    if (this.contentLoading() || this.selectedContentError() !== null) {
+      return null;
+    }
+
+    const content = this.selectedContent();
+    return {
+      lineCountLabel: this.i18n.translate('logs.detail.footer.lines', {
+        count: countLogicalLines(content),
+      }),
+      lineEndingsLabel: this.i18n.translate(
+        `logs.detail.footer.lineEndings.${detectLineEndings(content)}`,
+      ),
+    };
+  });
   readonly footer = computed<LogFooterVm | null>(() => {
     const entry = this.selectedEntry();
     if (!entry) {
@@ -131,84 +147,16 @@ export class LogsPage implements OnInit {
       footer.typeLabel = `${entry.contentType}`;
     }
 
-    if (this.contentLoading() || this.selectedContentError() !== null) {
+    const contentFooterStats = this.contentFooterStats();
+    if (!contentFooterStats) {
       return hasFooterContent(footer) ? footer : null;
     }
 
-    const content = this.selectedContent();
-    footer.lineCountLabel = this.i18n.translate('logs.detail.footer.lines', {
-      count: countLogicalLines(content),
-    });
-    footer.lineEndingsLabel = this.i18n.translate(
-      `logs.detail.footer.lineEndings.${detectLineEndings(content)}`,
-    );
+    footer.lineCountLabel = contentFooterStats.lineCountLabel;
+    footer.lineEndingsLabel = contentFooterStats.lineEndingsLabel;
 
     return footer;
   });
-
-  get statusValue(): LogsStatus {
-    return this.status();
-  }
-
-  get errorMessageValue(): string | null {
-    return this.errorMessage();
-  }
-
-  get selectedContentValue(): string {
-    return this.selectedContent();
-  }
-
-  get contentLoadingValue(): boolean {
-    return this.contentLoading();
-  }
-
-  get selectedContentErrorValue(): string | null {
-    return this.selectedContentError();
-  }
-
-  get searchTermValue(): string {
-    return this.searchTerm();
-  }
-
-  get sortLabelValue(): string {
-    return this.sortLabel();
-  }
-
-  get isSortDescending(): boolean {
-    return this.sortDir() === "desc";
-  }
-
-  get dateFromValue(): Date | null {
-    return this.dateFrom();
-  }
-
-  get dateUntilValue(): Date | null {
-    return this.dateUntil();
-  }
-
-  get rowsValue(): LogFileRowVm[] {
-    return this.rows();
-  }
-
-  get selectedEntryIdValue(): string | null {
-    return this.selectedEntry()?.id ?? null;
-  }
-
-  get hasSelectedEntry(): boolean {
-    return this.selectedEntry() !== null;
-  }
-
-  get toolbarValue(): LogToolbarVm | null {
-    return this.toolbar();
-  }
-
-  get footerValue(): LogFooterVm | null {
-    return this.footer();
-  }
-
-  get sidebarLoading(): boolean {
-    return this.statusValue === "loading";
-  }
 
   ngOnInit(): void {
     void this.initialize();
@@ -312,6 +260,33 @@ function hasFooterContent(footer: LogFooterVm): boolean {
   );
 }
 
+function startOfDayTimestamp(value: Date | null): number {
+  if (!value) {
+    return 0;
+  }
+
+  return new Date(
+    value.getFullYear(),
+    value.getMonth(),
+    value.getDate(),
+  ).getTime();
+}
+
+function endOfDayExclusiveTimestamp(value: Date | null): number {
+  if (!value) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return (
+    new Date(
+      value.getFullYear(),
+      value.getMonth(),
+      value.getDate(),
+    ).getTime() +
+    24 * 60 * 60 * 1000
+  );
+}
+
 function countLogicalLines(content: string): number {
   if (content.length === 0) {
     return 0;
@@ -343,4 +318,9 @@ function detectLineEndings(
     return "lf";
   }
   return "cr";
+}
+
+function toTimestamp(value: string): number {
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
 }

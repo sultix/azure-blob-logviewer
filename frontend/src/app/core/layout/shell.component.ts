@@ -26,14 +26,6 @@ export class ShellComponent {
       : 'shell.window.maximize',
   );
 
-  protected get isMaximizedValue(): boolean {
-    return this.isMaximized();
-  }
-
-  protected get maximizeButtonLabelValue(): string {
-    return this.maximizeButtonLabel();
-  }
-
   protected onToggleMaximize(): void {
     void this.controls.toggleMaximize();
   }

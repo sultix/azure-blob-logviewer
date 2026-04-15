@@ -1,22 +1,22 @@
 <div class="flex h-full flex-col overflow-hidden bg-surface-container">
-  @if (statusValue === "loading") {
+  @if (status() === "loading") {
     <div
       class="flex flex-1 items-center justify-center text-sm text-on-surface-variant"
     >
       {{ "logs.detail.loading" | translate }}
     </div>
-  } @else if (statusValue === "error") {
+  } @else if (status() === "error") {
     <div class="flex flex-1 items-center justify-center text-sm text-error">
-      {{ errorText }}
+      {{ errorMessage() }}
     </div>
-  } @else if (!hasSelectionValue) {
+  } @else if (!hasSelection()) {
     <div
       class="flex flex-1 flex-col items-center justify-center gap-3 text-on-surface-variant"
     >
       <i class="pi pi-file text-3xl"></i>
       <p class="text-sm">{{ "logs.detail.empty" | translate }}</p>
     </div>
-  } @else if (toolbarValue; as tb) {
+  } @else if (toolbar(); as tb) {
     <header
       class="flex flex-wrap items-start justify-between gap-4 bg-surface-container-high px-6 py-4"
     >
@@ -50,7 +50,7 @@
             <span>{{ "logs.detail.wordWrap" | translate }}</span>
             <p-toggleswitch
               inputId="logs-word-wrap"
-              [ngModel]="wordWrapEnabledValue"
+              [ngModel]="wordWrapEnabled()"
               (ngModelChange)="onWordWrapChange($event)"
               [ariaLabel]="'logs.detail.wordWrapToggleAriaLabel' | translate"
             />
@@ -62,14 +62,14 @@
             <input
               type="text"
               [placeholder]="'logs.detail.searchContentPlaceholder' | translate"
-              [ngModel]="contentSearchQueryValue"
+              [ngModel]="contentSearchInput()"
               (ngModelChange)="onContentSearchChange($event)"
               class="min-w-0 flex-1 bg-transparent text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none"
               [attr.aria-label]="
                 'logs.detail.searchContentAriaLabel' | translate
               "
             />
-            @if (hasActiveContentSearchValue) {
+            @if (hasActiveContentSearch()) {
               <button
                 type="button"
                 (click)="clearContentSearch()"
@@ -85,12 +85,12 @@
               <span
                 class="shrink-0 rounded-full bg-primary-container/20 px-2 py-0.5 text-[10px] font-semibold text-on-surface"
               >
-                {{ contentSearchMatchLabel }}
+                {{ contentSearchMatchText() }}
               </span>
               <button
                 type="button"
                 (click)="scrollToPreviousMatch()"
-                [disabled]="!hasContentSearchMatchesValue"
+                [disabled]="!hasContentSearchMatches()"
                 [pTooltip]="'logs.detail.previousMatch' | translate"
                 tooltipPosition="top"
                 [attr.aria-label]="
@@ -103,7 +103,7 @@
               <button
                 type="button"
                 (click)="scrollToNextMatch()"
-                [disabled]="!hasContentSearchMatchesValue"
+                [disabled]="!hasContentSearchMatches()"
                 [pTooltip]="'logs.detail.nextMatch' | translate"
                 tooltipPosition="top"
                 [attr.aria-label]="'logs.detail.nextMatchAriaLabel' | translate"
@@ -146,7 +146,7 @@
             </button>
             <p-menu
               #moreActionsMenu
-              [model]="mobileActionItemsValue"
+              [model]="mobileActionItems()"
               [popup]="true"
               appendTo="body"
             />
@@ -159,26 +159,26 @@
       #contentScrollContainer
       class="min-h-0 flex-1 overflow-auto bg-surface-container-lowest p-6 font-mono text-[12px] leading-relaxed text-on-surface"
     >
-      @if (contentLoadingValue) {
+      @if (contentLoading()) {
         <div
           class="flex h-full items-center justify-center text-on-surface-variant"
         >
           {{ "logs.detail.loadingContent" | translate }}
         </div>
-      } @else if (contentErrorText) {
+      } @else if (contentErrorMessage()) {
         <div class="flex h-full items-center justify-center text-sm text-error">
-          {{ contentErrorText }}
+          {{ contentErrorMessage() }}
         </div>
       } @else {
         <pre
           #contentElement
-          [class]="contentClassName"
-          [innerHTML]="contentHtmlValue"
+          [class]="contentClass()"
+          [innerHTML]="contentSearch().html"
         ></pre>
       }
     </div>
 
-    @if (footerValue; as footerVm) {
+    @if (footer(); as footerVm) {
       <footer
         class="flex items-center justify-between gap-4 bg-surface-container-high px-6 py-2 text-[10px] font-medium uppercase tracking-wider text-on-surface-variant"
       >

@@ -127,7 +127,7 @@ describe('AddConnectionDialogComponent', () => {
     const { component } = await createComponent();
 
     expect(component.form.valid).toBe(false);
-    expect(component.canSaveValue).toBe(false);
+    expect(component.form.valid).toBe(false);
 
     component.form.controls.name.setValue('prod');
     component.form.controls.subscription.setValue(createSubscription());
@@ -135,7 +135,7 @@ describe('AddConnectionDialogComponent', () => {
     component.form.controls.container.setValue(createContainer());
 
     expect(component.form.valid).toBe(true);
-    expect(component.canSaveValue).toBe(true);
+    expect(component.form.valid).toBe(true);
   });
 
   it('saves a trimmed category when one is provided', async () => {
@@ -222,7 +222,7 @@ describe('AddConnectionDialogComponent', () => {
     expect(component.form.controls.subscription.value).toBeNull();
     expect(component.form.controls.storageAccount.value).toBeNull();
     expect(component.form.controls.container.value).toBeNull();
-    expect(component.canSaveValue).toBe(false);
+    expect(component.form.valid).toBe(false);
   });
 
   it('renders the save button disabled until the form is valid', async () => {

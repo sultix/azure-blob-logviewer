@@ -120,69 +120,15 @@ export class AddConnectionDialogComponent {
   readonly containersLoading = computed(() => this.azure.containersStatus() === 'loading');
   readonly containersError = this.azure.containersError;
 
+  readonly nameControl = this.form.controls.name;
+  readonly categoryControl = this.form.controls.category;
+  readonly subscriptionControl = this.form.controls.subscription;
+  readonly storageAccountControl = this.form.controls.storageAccount;
+  readonly containerControl = this.form.controls.container;
+
   constructor() {
     this.watchSelectionChanges();
     void this.initializeForm();
-  }
-
-  get nameControl(): FormControl<string> {
-    return this.form.controls.name;
-  }
-
-  get categoryControl(): FormControl<string> {
-    return this.form.controls.category;
-  }
-
-  get subscriptionControl(): FormControl<AzureSubscription | null> {
-    return this.form.controls.subscription;
-  }
-
-  get storageAccountControl(): FormControl<AzureStorageAccount | null> {
-    return this.form.controls.storageAccount;
-  }
-
-  get containerControl(): FormControl<AzureContainer | null> {
-    return this.form.controls.container;
-  }
-
-  get subscriptionsValue(): AzureSubscription[] {
-    return this.subscriptions();
-  }
-
-  get subscriptionsLoadingValue(): boolean {
-    return this.subscriptionsLoading();
-  }
-
-  get subscriptionsErrorValue(): string | null {
-    return this.subscriptionsError();
-  }
-
-  get storageAccountsValue(): AzureStorageAccount[] {
-    return this.storageAccounts();
-  }
-
-  get storageAccountsLoadingValue(): boolean {
-    return this.storageAccountsLoading();
-  }
-
-  get storageAccountsErrorValue(): string | null {
-    return this.storageAccountsError();
-  }
-
-  get containersValue(): AzureContainer[] {
-    return this.containers();
-  }
-
-  get containersLoadingValue(): boolean {
-    return this.containersLoading();
-  }
-
-  get containersErrorValue(): string | null {
-    return this.containersError();
-  }
-
-  get canSaveValue(): boolean {
-    return this.form.valid;
   }
 
   save(): void {

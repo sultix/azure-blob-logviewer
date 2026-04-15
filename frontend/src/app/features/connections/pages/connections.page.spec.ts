@@ -183,7 +183,7 @@ describe('ConnectionsPage', () => {
 
     fixture.detectChanges();
 
-    expect(component.totalContainers()).toBe('03');
+    expect(component.pageVm().totalContainers).toBe('03');
     expect(fixture.nativeElement.textContent).toContain('Azure CLI is required');
     expect(fixture.nativeElement.textContent).toContain(
       'The app uses your Azure CLI session, does not persist Azure tokens',
@@ -197,8 +197,8 @@ describe('ConnectionsPage', () => {
     component.onSearch('staging');
     fixture.detectChanges();
 
-    expect(component.cards()).toHaveLength(1);
-    expect(component.cards()[0]?.name).toBe('staging-archive');
+    expect(component.pageVm().cards).toHaveLength(1);
+    expect(component.pageVm().cards[0]?.name).toBe('staging-archive');
     expect(fixture.nativeElement.textContent).not.toContain('prod-logs');
   });
 
@@ -237,8 +237,8 @@ describe('ConnectionsPage', () => {
 
     fixture.detectChanges();
 
-    expect(component.showCategoryGroups()).toBe(false);
-    expect(component.cardGroups()).toEqual([]);
+    expect(component.pageVm().showCategoryGroups).toBe(false);
+    expect(component.pageVm().cardGroups).toEqual([]);
     expect(fixture.nativeElement.textContent).not.toContain('Uncategorized');
   });
 
@@ -268,17 +268,17 @@ describe('ConnectionsPage', () => {
 
     fixture.detectChanges();
 
-    expect(component.showCategoryGroups()).toBe(true);
-    expect(component.cardGroups().map((group) => group.label)).toEqual([
+    expect(component.pageVm().showCategoryGroups).toBe(true);
+    expect(component.pageVm().cardGroups.map((group) => group.label)).toEqual([
       'Operations',
       'Security',
       'Uncategorized',
     ]);
-    expect(component.cardGroups()[0]?.cards.map((card) => card.name)).toEqual([
+    expect(component.pageVm().cardGroups[0]?.cards.map((card) => card.name)).toEqual([
       'prod-logs',
       'ops-archive',
     ]);
-    expect(component.cardGroups()[2]?.cards.map((card) => card.name)).toEqual(['misc-logs']);
+    expect(component.pageVm().cardGroups[2]?.cards.map((card) => card.name)).toEqual(['misc-logs']);
     expect(fixture.nativeElement.textContent).toContain('Operations');
     expect(fixture.nativeElement.textContent).toContain('Security');
     expect(fixture.nativeElement.textContent).toContain('Uncategorized');
@@ -295,9 +295,9 @@ describe('ConnectionsPage', () => {
     component.onSearch('security');
     fixture.detectChanges();
 
-    expect(component.cards().map((card) => card.name)).toEqual(['audit-logs']);
-    expect(component.showCategoryGroups()).toBe(true);
-    expect(component.cardGroups().map((group) => group.label)).toEqual(['Security']);
+    expect(component.pageVm().cards.map((card) => card.name)).toEqual(['audit-logs']);
+    expect(component.pageVm().showCategoryGroups).toBe(true);
+    expect(component.pageVm().cardGroups.map((group) => group.label)).toEqual(['Security']);
     expect(fixture.nativeElement.textContent).toContain('audit-logs');
     expect(fixture.nativeElement.textContent).not.toContain('prod-logs');
     expect(fixture.nativeElement.textContent).not.toContain('misc-logs');
@@ -415,7 +415,7 @@ describe('ConnectionsPage', () => {
   });
 
   it('selects the connection and navigates to its logs page', async () => {
-    const card = component.cards()[0] ?? createCardInput();
+    const card = component.pageVm().cards[0] ?? createCardInput();
 
     component.openLogs(card);
     await flushAsync();

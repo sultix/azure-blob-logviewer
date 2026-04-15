@@ -6,7 +6,7 @@
     <input
       type="text"
       [placeholder]="'logs.filters.searchPlaceholder' | translate"
-      [ngModel]="searchTermValue"
+      [ngModel]="searchTerm()"
       (ngModelChange)="onSearchInput($event)"
       class="flex-1 bg-transparent text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none"
       [attr.aria-label]="'logs.filters.searchAriaLabel' | translate"
@@ -15,7 +15,7 @@
 
   <div class="flex flex-col gap-2">
     <p-datepicker
-      [ngModel]="dateFromValue"
+      [ngModel]="dateFrom()"
       (ngModelChange)="onDateFromInput($event)"
       [placeholder]="'logs.filters.from' | translate"
       dateFormat="dd.mm.yy"
@@ -28,7 +28,7 @@
       appendTo="body"
     />
     <p-datepicker
-      [ngModel]="dateUntilValue"
+      [ngModel]="dateUntil()"
       (ngModelChange)="onDateUntilInput($event)"
       [placeholder]="'logs.filters.until' | translate"
       dateFormat="dd.mm.yy"
@@ -66,10 +66,10 @@
     >
       <i
         class="pi text-xs"
-        [class.pi-sort-amount-down]="isSortDescendingValue"
-        [class.pi-sort-amount-up-alt]="!isSortDescendingValue"
+        [class.pi-sort-amount-down]="isSortDescending()"
+        [class.pi-sort-amount-up-alt]="!isSortDescending()"
       ></i>
-      {{ sortLabelText }}
+      {{ sortLabel() }}
     </button>
   </div>
 </div>

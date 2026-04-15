@@ -110,7 +110,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(tooltips).toHaveLength(2);
     expect(tooltips[0].injector.get(Tooltip).content).toBe('Refresh');
     expect(tooltips[1].injector.get(Tooltip).content).toBe('Download');
-    expect(component.mobileActionItemsValue.map((item) => item.label)).toEqual([
+    expect(component.mobileActionItems().map((item) => item.label)).toEqual([
       'Refresh',
       'Download',
       'Word Wrap: Off',

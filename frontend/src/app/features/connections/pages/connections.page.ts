@@ -49,11 +49,48 @@ interface ConnectionCardVm {
   raw: StorageConnection;
 }
 
+interface PreparedConnectionCardVm extends ConnectionCardVm {
+  readonly searchText: string;
+}
+
 interface ConnectionCardGroupVm {
   key: string;
   label: string;
   cards: ConnectionCardVm[];
 }
+
+interface AzureCliCardStyleVm {
+  readonly containerClass: string;
+  readonly eyebrowClass: string;
+  readonly descriptionClass: string;
+  readonly iconClass: string;
+}
+
+interface ConnectionsPageVm {
+  readonly status: 'idle' | 'loading' | 'success' | 'error';
+  readonly errorMessage: string | null;
+  readonly isEmpty: boolean;
+  readonly isAuthenticated: boolean;
+  readonly totalContainers: string;
+  readonly azureCliCardStyle: AzureCliCardStyleVm;
+  readonly cards: ConnectionCardVm[];
+  readonly showCategoryGroups: boolean;
+  readonly cardGroups: ConnectionCardGroupVm[];
+}
+
+const DEFAULT_AZURE_CLI_CARD_STYLE: AzureCliCardStyleVm = {
+  containerClass: 'border-primary/15 bg-surface-container',
+  eyebrowClass: 'text-on-surface-variant',
+  descriptionClass: 'text-on-surface',
+  iconClass: 'bg-white/10 text-on-surface-variant',
+};
+
+const MISSING_AZURE_CLI_CARD_STYLE: AzureCliCardStyleVm = {
+  containerClass: 'border-error/40 bg-error-container/70',
+  eyebrowClass: 'text-error',
+  descriptionClass: 'text-on-surface',
+  iconClass: 'bg-error text-white',
+};
 
 @Component({
   selector: 'app-connections-page',
@@ -90,82 +127,37 @@ export class ConnectionsPage implements OnInit {
     this.i18n.translate('connections.page.uncategorizedGroup')
   );
 
-  readonly totalContainers = computed(() => {
-    const total = this.connectionsService
-      .connections()
-      .reduce((sum, connection) => sum + (connection.containerCount ?? 0), 0);
-    return total.toString().padStart(2, '0');
-  });
-
-  readonly azureCliCardStyle = computed(() =>
-    this.azureCliMissing()
-      ? {
-          containerClass: 'border-error/40 bg-error-container/70',
-          eyebrowClass: 'text-error',
-          descriptionClass: 'text-on-surface',
-          iconClass: 'bg-error text-white',
-        }
-      : {
-          containerClass: 'border-primary/15 bg-surface-container',
-          eyebrowClass: 'text-on-surface-variant',
-          descriptionClass: 'text-on-surface',
-          iconClass: 'bg-white/10 text-on-surface-variant',
-        },
+  readonly preparedCards = computed<PreparedConnectionCardVm[]>(() =>
+    this.connectionsService.connections().map((connection) => this.toCardVm(connection)),
   );
 
-  readonly cards = computed<ConnectionCardVm[]>(() => {
+  readonly pageVm = computed<ConnectionsPageVm>(() => {
+    const preparedCards = this.preparedCards();
     const term = this.searchTerm().trim().toLowerCase();
-    const list = this.connectionsService.connections();
-    const filtered = term
-      ? list.filter(
-          (c) =>
-            c.name.toLowerCase().includes(term) ||
-            c.displayName.toLowerCase().includes(term) ||
-            c.environment.toLowerCase().includes(term) ||
-            c.category?.toLowerCase().includes(term)
-        )
-      : list;
-    return filtered.map((c) => this.toCardVm(c));
-  });
+    const cards = term
+      ? preparedCards.filter((card) => card.searchText.includes(term))
+      : preparedCards;
+    const showCategoryGroups = cards.some((card) => Boolean(card.category));
+    const cardGroups = showCategoryGroups
+      ? buildCardGroups(cards, this.uncategorizedGroupLabel())
+      : [];
 
-  readonly showCategoryGroups = computed(() => this.cards().some((card) => !!card.category));
-
-  readonly cardGroups = computed<ConnectionCardGroupVm[]>(() => {
-    if (!this.showCategoryGroups()) return [];
-
-    const groups: ConnectionCardGroupVm[] = [];
-    const groupsByKey = new Map<string, ConnectionCardGroupVm>();
-    const uncategorizedCards: ConnectionCardVm[] = [];
-
-    for (const card of this.cards()) {
-      if (!card.category) {
-        uncategorizedCards.push(card);
-        continue;
-      }
-
-      const groupKey = card.category.toLowerCase();
-      let group = groupsByKey.get(groupKey);
-      if (!group) {
-        group = {
-          key: groupKey,
-          label: card.category,
-          cards: [],
-        };
-        groupsByKey.set(groupKey, group);
-        groups.push(group);
-      }
-      group.cards.push(card);
-    }
-
-    if (uncategorizedCards.length > 0) {
-      groups.push({
-        key: '__uncategorized__',
-        label: this.uncategorizedGroupLabel(),
-        cards: uncategorizedCards,
-      });
-    }
-
-    return groups;
+    return {
+      status: this.status(),
+      errorMessage: this.errorMessage(),
+      isEmpty: this.isEmpty(),
+      isAuthenticated: this.isAuthenticated(),
+      totalContainers: preparedCards
+        .reduce((sum, connection) => sum + (connection.raw.containerCount ?? 0), 0)
+        .toString()
+        .padStart(2, '0'),
+      azureCliCardStyle: this.azureCliMissing()
+        ? MISSING_AZURE_CLI_CARD_STYLE
+        : DEFAULT_AZURE_CLI_CARD_STYLE,
+      cards,
+      showCategoryGroups,
+      cardGroups,
+    };
   });
 
   ngOnInit(): void {
@@ -237,7 +229,7 @@ export class ConnectionsPage implements OnInit {
     );
   }
 
-  private toCardVm(c: StorageConnection): ConnectionCardVm {
+  private toCardVm(c: StorageConnection): PreparedConnectionCardVm {
     const category = c.category?.trim();
     return {
       id: c.id,
@@ -251,6 +243,10 @@ export class ConnectionsPage implements OnInit {
       statusColorClass: this.mapStatusColor(c.status),
       lastUsedRelative: this.formatRelative(c.lastUsed),
       isOffline: c.status === 'offline' || c.status === 'error',
+      searchText: [c.name, c.displayName, c.environment, category]
+        .filter((value): value is string => Boolean(value))
+        .join('\n')
+        .toLowerCase(),
       raw: c,
     };
   }
@@ -323,4 +319,44 @@ export class ConnectionsPage implements OnInit {
       containerName: container.name,
     };
   }
+}
+
+function buildCardGroups(
+  cards: readonly ConnectionCardVm[],
+  uncategorizedGroupLabel: string,
+): ConnectionCardGroupVm[] {
+  const groups: ConnectionCardGroupVm[] = [];
+  const groupsByKey = new Map<string, ConnectionCardGroupVm>();
+  const uncategorizedCards: ConnectionCardVm[] = [];
+
+  for (const card of cards) {
+    if (!card.category) {
+      uncategorizedCards.push(card);
+      continue;
+    }
+
+    const groupKey = card.category.toLowerCase();
+    let group = groupsByKey.get(groupKey);
+    if (!group) {
+      group = {
+        key: groupKey,
+        label: card.category,
+        cards: [],
+      };
+      groupsByKey.set(groupKey, group);
+      groups.push(group);
+    }
+
+    group.cards.push(card);
+  }
+
+  if (uncategorizedCards.length > 0) {
+    groups.push({
+      key: '__uncategorized__',
+      label: uncategorizedGroupLabel,
+      cards: uncategorizedCards,
+    });
+  }
+
+  return groups;
 }

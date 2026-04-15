@@ -59,10 +59,10 @@
       <button
         type="button"
         (click)="onToggleMaximize()"
-        [attr.aria-label]="maximizeButtonLabelValue | translate"
+        [attr.aria-label]="maximizeButtonLabel() | translate"
         class="flex h-full w-12 items-center justify-center text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-on-surface"
       >
-        @if (isMaximizedValue) {
+        @if (isMaximized()) {
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"

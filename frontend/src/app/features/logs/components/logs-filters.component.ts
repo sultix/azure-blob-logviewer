@@ -24,26 +24,6 @@ export class LogsFiltersComponent {
   readonly clearFiltersRequested = output<void>();
   readonly sortToggled = output<void>();
 
-  get searchTermValue(): string {
-    return this.searchTerm();
-  }
-
-  get dateFromValue(): Date | null {
-    return this.dateFrom();
-  }
-
-  get dateUntilValue(): Date | null {
-    return this.dateUntil();
-  }
-
-  get sortLabelText(): string {
-    return this.sortLabel();
-  }
-
-  get isSortDescendingValue(): boolean {
-    return this.isSortDescending();
-  }
-
   onSearchInput(value: string): void {
     this.searchChanged.emit(value);
   }

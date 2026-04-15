@@ -16,16 +16,4 @@ export class AzureLoginComponent {
 
   readonly loginRequested = output<void>();
   readonly logoutRequested = output<void>();
-
-  get authStepValue(): AzureAuthStep {
-    return this.authStep();
-  }
-
-  get authErrorValue(): string | null {
-    return this.authError();
-  }
-
-  get azureCliMissingValue(): boolean {
-    return this.azureCliMissing();
-  }
 }

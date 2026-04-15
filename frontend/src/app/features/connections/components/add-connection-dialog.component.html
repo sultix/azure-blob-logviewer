@@ -37,15 +37,15 @@
     [subscriptionControl]="subscriptionControl"
     [storageAccountControl]="storageAccountControl"
     [containerControl]="containerControl"
-    [subscriptions]="subscriptionsValue"
-    [subscriptionsLoading]="subscriptionsLoadingValue"
-    [subscriptionsError]="subscriptionsErrorValue"
-    [storageAccounts]="storageAccountsValue"
-    [storageAccountsLoading]="storageAccountsLoadingValue"
-    [storageAccountsError]="storageAccountsErrorValue"
-    [containers]="containersValue"
-    [containersLoading]="containersLoadingValue"
-    [containersError]="containersErrorValue"
+    [subscriptions]="subscriptions()"
+    [subscriptionsLoading]="subscriptionsLoading()"
+    [subscriptionsError]="subscriptionsError()"
+    [storageAccounts]="storageAccounts()"
+    [storageAccountsLoading]="storageAccountsLoading()"
+    [storageAccountsError]="storageAccountsError()"
+    [containers]="containers()"
+    [containersLoading]="containersLoading()"
+    [containersError]="containersError()"
   />
 
   <div class="flex justify-end gap-2 pt-2">
@@ -58,7 +58,7 @@
     </button>
     <button
       type="submit"
-      [disabled]="!canSaveValue"
+      [disabled]="!form.valid"
       class="rounded-lg bg-primary-gradient px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-40"
     >
       {{ submitLabelKey | translate }}

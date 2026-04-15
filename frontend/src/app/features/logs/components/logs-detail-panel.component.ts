@@ -71,13 +71,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
       read: ElementRef<HTMLDivElement>,
     },
   );
-  private readonly contentSearchInput = signal("");
+  readonly contentSearchInput = signal("");
   private readonly contentSearchQuery = signal("");
   private readonly requestedMatchIndex = signal(0);
-  private readonly wordWrapEnabled = computed(
+  readonly wordWrapEnabled = computed(
     () => this.settings.logs().wordWrapEnabled,
   );
-  private readonly contentClass = computed(() =>
+  readonly contentClass = computed(() =>
     this.wordWrapEnabled() ? "whitespace-pre-wrap break-all" : "whitespace-pre",
   );
   private readonly contentSearchBase = computed(() =>
@@ -89,19 +89,19 @@ export class LogsDetailPanelComponent implements OnDestroy {
       ? -1
       : Math.min(this.requestedMatchIndex(), matchCount - 1);
   });
-  private readonly contentSearch = computed<ContentSearchVm>(() =>
+  readonly contentSearch = computed<ContentSearchVm>(() =>
     buildContentSearch(this.contentSearchBase(), 0),
   );
-  private readonly hasContentSearchMatches = computed(
+  readonly hasContentSearchMatches = computed(
     () => !this.isContentSearchPending() && this.contentSearch().matchCount > 0,
   );
-  private readonly hasActiveContentSearch = computed(
+  readonly hasActiveContentSearch = computed(
     () => this.contentSearchInput().trim().length > 0,
   );
   private readonly isContentSearchPending = computed(
     () => this.contentSearchInput().trim() !== this.contentSearchQuery().trim(),
   );
-  private readonly mobileActionItems = computed<MenuItem[]>(() => [
+  readonly mobileActionItems = computed<MenuItem[]>(() => [
     {
       label: this.i18n.translate('logs.detail.mobileActions.refresh'),
       icon: "pi pi-refresh",
@@ -120,7 +120,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
       command: () => this.toggleWordWrap(),
     },
   ]);
-  private readonly contentSearchMatchText = computed(() => {
+  readonly contentSearchMatchText = computed(() => {
     if (this.isContentSearchPending()) {
       return this.i18n.translate('logs.detail.searching');
     }
@@ -175,70 +175,6 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
       this.lastScrolledMatchKey = scrollKey;
     });
-  }
-
-  get statusValue(): LogsStatus {
-    return this.status();
-  }
-
-  get errorText(): string | null {
-    return this.errorMessage();
-  }
-
-  get hasSelectionValue(): boolean {
-    return this.hasSelection();
-  }
-
-  get toolbarValue(): LogToolbarVm | null {
-    return this.toolbar();
-  }
-
-  get contentText(): string {
-    return this.content();
-  }
-
-  get contentLoadingValue(): boolean {
-    return this.contentLoading();
-  }
-
-  get contentErrorText(): string | null {
-    return this.contentErrorMessage();
-  }
-
-  get contentSearchQueryValue(): string {
-    return this.contentSearchInput();
-  }
-
-  get hasActiveContentSearchValue(): boolean {
-    return this.hasActiveContentSearch();
-  }
-
-  get hasContentSearchMatchesValue(): boolean {
-    return this.hasContentSearchMatches();
-  }
-
-  get contentSearchMatchLabel(): string {
-    return this.contentSearchMatchText();
-  }
-
-  get mobileActionItemsValue(): MenuItem[] {
-    return this.mobileActionItems();
-  }
-
-  get contentHtmlValue(): string {
-    return this.contentSearch().html;
-  }
-
-  get wordWrapEnabledValue(): boolean {
-    return this.wordWrapEnabled();
-  }
-
-  get contentClassName(): string {
-    return this.contentClass();
-  }
-
-  get footerValue(): LogFooterVm | null {
-    return this.footer();
   }
 
   onWordWrapChange(value: boolean): void {

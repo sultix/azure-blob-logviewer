@@ -19,16 +19,4 @@ export class LogsFileListComponent {
   readonly selectedEntryId = input<string | null>(null);
 
   readonly entrySelected = output<string>();
-
-  get rowsValue(): LogFileRowVm[] {
-    return this.rows();
-  }
-
-  get loadingValue(): boolean {
-    return this.loading();
-  }
-
-  get selectedEntryIdValue(): string | null {
-    return this.selectedEntryId();
-  }
 }
