@@ -64,6 +64,11 @@ npm run lint     # ESLint (Angular + TypeScript + templates)
 - Keep `frontend/dist/` under version control only via the `.gitkeep` stubs so
   the `go:embed` directive in `main.go` compiles before the first frontend
   build.
+- `icons/icon.png` is the primary Wails app icon source. A pre-build hook
+  copies it to `build/appicon.png` before `wails build` and `wails dev`.
+- `icons/windows/icon.ico` and `icons/macos/icon.icns` are reference or
+  distribution assets only. Wails does not use them as the primary input for
+  the app binary or `.app` bundle icon.
 
 ## Build a Windows client
 
@@ -82,6 +87,9 @@ CLI:
 ```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
+
+The Windows EXE icon is regenerated from `icons/icon.png` during the build, so
+no manual icon copy step is required.
 
 Optional:
 
