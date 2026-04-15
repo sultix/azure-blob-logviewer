@@ -77,6 +77,44 @@ describe('LogsService', () => {
     expect(service.errorMessage()).toBe('boom');
   });
 
+  it('ignores a stale blob list response from a previous connection load', async () => {
+    const firstLoad = createDeferred<AzureBlobItem[]>();
+    const secondLoad = createDeferred<AzureBlobItem[]>();
+    api.listBlobs
+      .mockImplementationOnce(() => firstLoad.promise)
+      .mockImplementationOnce(() => secondLoad.promise);
+
+    const firstPromise = service.loadForConnection('myaccount', 'logs');
+    const secondPromise = service.loadForConnection('myaccount', 'archive');
+
+    secondLoad.resolve([
+      {
+        name: 'archive.log',
+        size: 12,
+        contentType: 'text/plain',
+        lastModified: '2026-04-12T00:00:00Z',
+        blobType: 'BlockBlob',
+      },
+    ]);
+    await secondPromise;
+
+    firstLoad.resolve([
+      {
+        name: 'stale.log',
+        size: 7,
+        contentType: 'text/plain',
+        lastModified: '2026-04-11T00:00:00Z',
+        blobType: 'BlockBlob',
+      },
+    ]);
+    await firstPromise;
+
+    expect(service.status()).toBe('success');
+    expect(service.entries()).toHaveLength(1);
+    expect(service.entries()[0].blobName).toBe('archive.log');
+    expect(service.entries()[0].containerName).toBe('archive');
+  });
+
   it('selects an entry and loads its content', async () => {
     const blobs: AzureBlobItem[] = [
       {
@@ -122,4 +160,67 @@ describe('LogsService', () => {
     expect(service.selectedContentLoaded()).toBe(false);
     expect(service.selectedContentError()).toBe('Error loading content: network failed');
   });
+
+  it('ignores stale content responses from the previous connection and keeps loading active for the current selection', async () => {
+    const sharedBlob: AzureBlobItem = {
+      name: 'shared.log',
+      size: 1,
+      contentType: 'text/plain',
+      lastModified: '2026-04-11T00:00:00Z',
+      blobType: 'BlockBlob',
+    };
+    const previousContent = createDeferred<string>();
+    const currentContent = createDeferred<string>();
+
+    api.listBlobs
+      .mockResolvedValueOnce([sharedBlob])
+      .mockResolvedValueOnce([sharedBlob]);
+    api.downloadBlobContent
+      .mockImplementationOnce(() => previousContent.promise)
+      .mockImplementationOnce(() => currentContent.promise);
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('shared.log');
+    await flushAsync();
+
+    await service.loadForConnection('myaccount', 'archive');
+    service.selectEntry('shared.log');
+    await flushAsync();
+
+    previousContent.resolve('stale content');
+    await flushAsync();
+
+    expect(service.selectedContent()).toBe('');
+    expect(service.selectedContentLoaded()).toBe(false);
+    expect(service.contentLoading()).toBe(true);
+
+    currentContent.resolve('fresh content');
+    await flushAsync();
+
+    expect(service.selectedEntry()?.containerName).toBe('archive');
+    expect(service.selectedContent()).toBe('fresh content');
+    expect(service.selectedContentLoaded()).toBe(true);
+    expect(service.contentLoading()).toBe(false);
+  });
 });
+
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+}
+
+async function flushAsync(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}

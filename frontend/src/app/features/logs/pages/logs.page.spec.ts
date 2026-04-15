@@ -1,9 +1,10 @@
 import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, type ParamMap } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
+import { BehaviorSubject } from 'rxjs';
 
 import type { StorageConnection } from '@app/features/connections/models/storage-connection.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
@@ -49,10 +50,34 @@ class LogsServiceStub implements Partial<LogsService> {
     this.selectedEntryId.set(id);
   });
   readonly refreshContent = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly reset = vi.fn<() => void>(() => {
+    this.statusState.set('idle');
+    this.entriesState.set([]);
+    this.errorState.set(null);
+    this.selectedEntryId.set(null);
+    this.selectedContentState.set('');
+    this.selectedContentLoadedState.set(false);
+    this.selectedContentErrorState.set(null);
+    this.contentLoading.set(false);
+  });
+  readonly setError = vi.fn<(message: string) => void>((message) => {
+    this.statusState.set('error');
+    this.entriesState.set([]);
+    this.errorState.set(message);
+    this.selectedEntryId.set(null);
+    this.selectedContentState.set('');
+    this.selectedContentLoadedState.set(false);
+    this.selectedContentErrorState.set(null);
+    this.contentLoading.set(false);
+  });
 }
 
 class ConnectionsServiceStub implements Partial<ConnectionsService> {
-  readonly load = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly statusState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');
+  readonly status = computed(() => this.statusState());
+  readonly load = vi.fn<() => Promise<void>>(async () => {
+    this.statusState.set('success');
+  });
   readonly getById = vi.fn<(id: string) => StorageConnection | null>(() => null);
 }
 
@@ -66,6 +91,7 @@ describe('LogsPage', () => {
   let logs: LogsServiceStub;
   let connections: ConnectionsServiceStub;
   let route: ActivatedRoute;
+  let routeParamMap$: BehaviorSubject<ParamMap>;
   let messageService: MessageServiceStub;
   let createObjectUrlSpy: ReturnType<typeof vi.fn>;
   let revokeObjectUrlSpy: ReturnType<typeof vi.fn>;
@@ -89,22 +115,26 @@ describe('LogsPage', () => {
     anchorClickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(() => undefined);
+    routeParamMap$ = new BehaviorSubject<ParamMap>(convertToParamMap({}));
     route = {
-      snapshot: {
-        paramMap: convertToParamMap({}),
-      },
+      paramMap: routeParamMap$.asObservable(),
     } as ActivatedRoute;
 
     await TestBed.configureTestingModule({
       imports: [LogsPage],
       providers: [
         provideTranslateTesting(),
-        { provide: LogsService, useValue: logs },
         { provide: ConnectionsService, useValue: connections },
         { provide: ActivatedRoute, useValue: route },
         { provide: MessageService, useValue: messageService },
       ],
-    }).compileComponents();
+    })
+      .overrideComponent(LogsPage, {
+        set: {
+          providers: [{ provide: LogsService, useValue: logs }],
+        },
+      })
+      .compileComponents();
 
     await initializeI18nForTests();
     fixture = TestBed.createComponent(LogsPage);
@@ -130,7 +160,7 @@ describe('LogsPage', () => {
         lastModified: '2026-04-13T11:00:00Z',
       }),
     ];
-    route.snapshot.paramMap = convertToParamMap({ connectionId: 'conn-1' });
+    setRouteConnectionId('conn-1', routeParamMap$);
     connections.getById.mockReturnValue(connection);
     logs.loadForConnection.mockImplementation(async () => {
       logs.statusState.set('success');
@@ -156,7 +186,7 @@ describe('LogsPage', () => {
   });
 
   it('does not load logs when the connection is incomplete', async () => {
-    route.snapshot.paramMap = convertToParamMap({ connectionId: 'conn-1' });
+    setRouteConnectionId('conn-1', routeParamMap$);
     connections.getById.mockReturnValue({
       ...createConnection(),
       storageAccountName: undefined,
@@ -167,9 +197,107 @@ describe('LogsPage', () => {
 
     expect(connections.load).toHaveBeenCalledOnce();
     expect(logs.loadForConnection).not.toHaveBeenCalled();
+    expect(logs.setError).toHaveBeenCalledWith('The selected storage connection is incomplete.');
   });
 
-  it('filters, sorts, and maps toolbar data for the visible list', () => {
+  it('reloads when the route connection changes and resets filters and stale content immediately', async () => {
+    const secondLoad = createDeferred<void>();
+    const connectionsById = new Map<string, StorageConnection>([
+      ['conn-1', createConnection({ id: 'conn-1' })],
+      [
+        'conn-2',
+        createConnection({
+          id: 'conn-2',
+          displayName: 'storage-a / archive',
+          containerCount: 2,
+          containerName: 'archive',
+        }),
+      ],
+    ]);
+    connections.statusState.set('success');
+    connections.getById.mockImplementation((id) => connectionsById.get(id) ?? null);
+    logs.loadForConnection.mockImplementation(async (_accountName, containerName) => {
+      if (containerName === 'logs') {
+        logs.statusState.set('success');
+        logs.entriesState.set([
+          createLogEntry({
+            id: 'entry-old',
+            blobName: 'alpha.log',
+            lastModified: '2026-04-13T11:00:00Z',
+          }),
+        ]);
+        return;
+      }
+
+      logs.statusState.set('loading');
+      logs.entriesState.set([]);
+      await secondLoad.promise;
+      logs.statusState.set('success');
+      logs.entriesState.set([
+        createLogEntry({
+          id: 'entry-new',
+          container: 'archive',
+          blobName: 'beta.log',
+          lastModified: '2026-04-14T09:30:00Z',
+          path: 'storage-a/archive/beta.log',
+          containerName: 'archive',
+        }),
+      ]);
+    });
+
+    setRouteConnectionId('conn-1', routeParamMap$);
+    fixture.detectChanges();
+    await flushAsync();
+    fixture.detectChanges();
+
+    logs.selectEntry('entry-old');
+    logs.selectedContentState.set('old line');
+    logs.selectedContentLoadedState.set(true);
+    component.onSearch('alpha');
+    component.onDateFromChange(new Date('2026-04-13T00:00:00Z'));
+    component.onDateUntilChange(new Date('2026-04-13T00:00:00Z'));
+    component.toggleSort();
+    fixture.detectChanges();
+
+    setRouteConnectionId('conn-2', routeParamMap$);
+    await flushAsync();
+    fixture.detectChanges();
+
+    expect(logs.reset).toHaveBeenCalledTimes(2);
+    expect(component.searchTerm()).toBe('');
+    expect(component.dateFrom()).toBeNull();
+    expect(component.dateUntil()).toBeNull();
+    expect(component.sortDir()).toBe('desc');
+    expect(logs.selectedEntry()).toBeNull();
+    expect(logs.selectedContent()).toBe('');
+    expect(fixture.nativeElement.textContent).not.toContain('old line');
+
+    secondLoad.resolve();
+    await flushAsync();
+    fixture.detectChanges();
+
+    expect(logs.loadForConnection).toHaveBeenNthCalledWith(2, 'storage-a', 'archive');
+    expect(logs.selectEntry).toHaveBeenLastCalledWith('entry-new');
+  });
+
+  it('shows an error when the route points to a missing connection', async () => {
+    connections.statusState.set('success');
+    connections.getById.mockReturnValue(null);
+    setRouteConnectionId('missing', routeParamMap$);
+
+    fixture.detectChanges();
+    await flushAsync();
+
+    expect(logs.loadForConnection).not.toHaveBeenCalled();
+    expect(logs.setError).toHaveBeenCalledWith(
+      'The selected storage connection could not be found.',
+    );
+  });
+
+  it('filters, sorts, and maps toolbar data for the visible list', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
     logs.statusState.set('success');
     logs.entriesState.set([
       createLogEntry({
@@ -269,7 +397,10 @@ describe('LogsPage', () => {
     });
   });
 
-  it('keeps only blob metadata in the footer when content failed to load', () => {
+  it('keeps only blob metadata in the footer when content failed to load', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
     logs.statusState.set('success');
     logs.entriesState.set([
       createLogEntry({
@@ -288,7 +419,10 @@ describe('LogsPage', () => {
     });
   });
 
-  it('derives footer stats for empty, CRLF, mixed, and newline-free content', () => {
+  it('derives footer stats for empty, CRLF, mixed, and newline-free content', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
     logs.statusState.set('success');
     logs.entriesState.set([createLogEntry({ id: 'entry-1', contentType: 'text/plain' })]);
     logs.selectEntry('entry-1');
@@ -327,7 +461,10 @@ describe('LogsPage', () => {
     });
   });
 
-  it('renders loading, error, empty, and selected-entry states', () => {
+  it('renders loading, error, empty, and selected-entry states', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
     logs.statusState.set('loading');
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Loading logs…');
@@ -388,6 +525,30 @@ function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
     containerName: 'logs',
     ...overrides,
   };
+}
+
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+}
+
+function setRouteConnectionId(
+  connectionId: string | null,
+  routeParamMap$: BehaviorSubject<ParamMap>,
+): void {
+  routeParamMap$.next(
+    connectionId ? convertToParamMap({ connectionId }) : convertToParamMap({}),
+  );
 }
 
 async function flushAsync(): Promise<void> {

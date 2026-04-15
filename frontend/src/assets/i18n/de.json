@@ -92,6 +92,10 @@
     }
   },
   "logs": {
+    "page": {
+      "connectionNotFound": "Die ausgewählte Storage-Verbindung wurde nicht gefunden.",
+      "connectionIncomplete": "Die ausgewählte Storage-Verbindung ist unvollständig."
+    },
     "filters": {
       "searchPlaceholder": "Logs durchsuchen...",
       "searchAriaLabel": "Logdateien durchsuchen",

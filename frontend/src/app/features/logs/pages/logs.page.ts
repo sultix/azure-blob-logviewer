@@ -2,12 +2,15 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   inject,
   signal,
 } from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import type { OnInit } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { MessageService } from "primeng/api";
+import { distinctUntilChanged, map } from "rxjs";
 
 import { AppI18nService } from "@app/core/i18n/app-i18n.service";
 import { ConnectionsService } from "@app/features/connections/services/connections.service";
@@ -41,15 +44,18 @@ interface ContentFooterStatsVm {
     LogsFileListComponent,
     LogsDetailPanelComponent,
   ],
+  providers: [LogsService],
   templateUrl: "./logs.page.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LogsPage implements OnInit {
   private readonly logs = inject(LogsService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   private readonly connectionsService = inject(ConnectionsService);
   private readonly messageService = inject(MessageService);
   private readonly i18n = inject(AppI18nService);
+  private routeLoadToken = 0;
 
   readonly status = this.logs.status;
   readonly errorMessage = this.logs.errorMessage;
@@ -159,7 +165,16 @@ export class LogsPage implements OnInit {
   });
 
   ngOnInit(): void {
-    void this.initialize();
+    this.route.paramMap
+      .pipe(
+        map((paramMap) => paramMap.get("connectionId")),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((connectionId) => {
+        const routeLoadToken = ++this.routeLoadToken;
+        void this.handleConnectionChange(connectionId, routeLoadToken);
+      });
   }
 
   onSearch(value: string): void {
@@ -224,13 +239,28 @@ export class LogsPage implements OnInit {
     });
   }
 
-  private async initialize(): Promise<void> {
-    const connectionId = this.route.snapshot.paramMap.get("connectionId");
-    if (!connectionId) return;
+  private async handleConnectionChange(
+    connectionId: string | null,
+    routeLoadToken: number,
+  ): Promise<void> {
+    this.resetPageState();
+    if (!connectionId) {
+      return;
+    }
 
-    await this.connectionsService.load();
+    await this.ensureConnectionsLoaded();
+    if (!this.isActiveRouteLoad(routeLoadToken)) {
+      return;
+    }
+
     const connection = this.connectionsService.getById(connectionId);
-    if (!connection?.storageAccountName || !connection?.containerName) {
+    if (!connection) {
+      this.logs.setError(this.i18n.translate("logs.page.connectionNotFound"));
+      return;
+    }
+
+    if (!connection.storageAccountName || !connection.containerName) {
+      this.logs.setError(this.i18n.translate("logs.page.connectionIncomplete"));
       return;
     }
 
@@ -238,11 +268,34 @@ export class LogsPage implements OnInit {
       connection.storageAccountName,
       connection.containerName,
     );
+    if (!this.isActiveRouteLoad(routeLoadToken) || this.logs.status() !== "success") {
+      return;
+    }
 
     const firstVisibleRow = this.rows()[0];
     if (firstVisibleRow) {
       this.logs.selectEntry(firstVisibleRow.id);
     }
+  }
+
+  private resetPageState(): void {
+    this.logs.reset();
+    this.searchTerm.set("");
+    this.sortDir.set("desc");
+    this.dateFrom.set(null);
+    this.dateUntil.set(null);
+  }
+
+  private async ensureConnectionsLoaded(): Promise<void> {
+    if (this.connectionsService.status() === "success") {
+      return;
+    }
+
+    await this.connectionsService.load();
+  }
+
+  private isActiveRouteLoad(routeLoadToken: number): boolean {
+    return routeLoadToken === this.routeLoadToken;
   }
 
   private formatSize(bytes: number): string {

@@ -92,6 +92,10 @@
     }
   },
   "logs": {
+    "page": {
+      "connectionNotFound": "The selected storage connection could not be found.",
+      "connectionIncomplete": "The selected storage connection is incomplete."
+    },
     "filters": {
       "searchPlaceholder": "Search logs...",
       "searchAriaLabel": "Search log files",

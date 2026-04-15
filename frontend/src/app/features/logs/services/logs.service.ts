@@ -12,7 +12,7 @@ type LogsState =
   | { status: 'success'; entries: LogEntry[] }
   | { status: 'error'; message: string };
 
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class LogsService {
   private readonly api = inject(AppApiService);
   private readonly i18n = inject(AppI18nService);
@@ -22,6 +22,8 @@ export class LogsService {
   private readonly contentMap = signal<Record<string, string>>({});
   private readonly contentErrorMap = signal<Record<string, string>>({});
   private readonly _contentLoading = signal(false);
+  private connectionLoadToken = 0;
+  private contentLoadToken = 0;
 
   readonly status = computed(() => this.state().status);
 
@@ -65,17 +67,48 @@ export class LogsService {
 
   readonly contentLoading = this._contentLoading.asReadonly();
 
+  reset(): void {
+    this.connectionLoadToken += 1;
+    this.contentLoadToken += 1;
+    this.state.set({ status: 'idle' });
+    this.selectedEntryId.set(null);
+    this.contentMap.set({});
+    this.contentErrorMap.set({});
+    this._contentLoading.set(false);
+  }
+
+  setError(message: string): void {
+    this.connectionLoadToken += 1;
+    this.contentLoadToken += 1;
+    this.selectedEntryId.set(null);
+    this.contentMap.set({});
+    this.contentErrorMap.set({});
+    this._contentLoading.set(false);
+    this.state.set({ status: 'error', message });
+  }
+
   async loadForConnection(accountName: string, containerName: string): Promise<void> {
+    const token = ++this.connectionLoadToken;
+    this.contentLoadToken += 1;
     this.state.set({ status: 'loading' });
     this.selectedEntryId.set(null);
     this.contentMap.set({});
     this.contentErrorMap.set({});
+    this._contentLoading.set(false);
 
     try {
       const blobs = await this.api.listBlobs(accountName, containerName, '');
+      if (token !== this.connectionLoadToken) {
+        return;
+      }
+
       const entries = blobs.map((b) => this.mapBlobToEntry(b, accountName, containerName));
       this.state.set({ status: 'success', entries });
     } catch (error) {
+      if (token !== this.connectionLoadToken) {
+        return;
+      }
+
       this.state.set({
         status: 'error',
         message:
@@ -101,6 +134,8 @@ export class LogsService {
     const entry = this.entries().find((e) => e.id === id);
     if (!entry?.storageAccountName || !entry?.containerName) return;
 
+    const connectionLoadToken = this.connectionLoadToken;
+    const contentLoadToken = ++this.contentLoadToken;
     this._contentLoading.set(true);
     this.contentErrorMap.update((map) => {
       const next = { ...map };
@@ -113,8 +148,22 @@ export class LogsService {
         entry.containerName,
         entry.blobName,
       );
+      if (
+        connectionLoadToken !== this.connectionLoadToken ||
+        contentLoadToken !== this.contentLoadToken
+      ) {
+        return;
+      }
+
       this.contentMap.update((map) => ({ ...map, [id]: content }));
     } catch (error) {
+      if (
+        connectionLoadToken !== this.connectionLoadToken ||
+        contentLoadToken !== this.contentLoadToken
+      ) {
+        return;
+      }
+
       const message =
         error instanceof Error
           ? error.message
@@ -124,7 +173,12 @@ export class LogsService {
         [id]: this.i18n.translate('logs.service.loadContentFailed', { message }),
       }));
     } finally {
-      this._contentLoading.set(false);
+      if (
+        connectionLoadToken === this.connectionLoadToken &&
+        contentLoadToken === this.contentLoadToken
+      ) {
+        this._contentLoading.set(false);
+      }
     }
   }
 
