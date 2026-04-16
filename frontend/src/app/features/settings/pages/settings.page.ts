@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  signal,
 } from '@angular/core';
 import type { OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -78,6 +79,7 @@ export class SettingsPage implements OnInit {
   ]);
   readonly savedConnectionsCount = computed(() => this.connections.connections().length);
   readonly hasSavedConnections = computed(() => this.savedConnectionsCount() > 0);
+  readonly appVersion = signal<string | null>(null);
 
   // Auth status badge
   readonly statusBadge = computed(() => {
@@ -108,6 +110,7 @@ export class SettingsPage implements OnInit {
 
   ngOnInit(): void {
     void this.connections.load();
+    void this.loadVersion();
   }
 
   onLogin(): void {
@@ -203,5 +206,13 @@ export class SettingsPage implements OnInit {
       summary: this.i18n.translate('settings.page.savedConnections.toasts.importFileErrorTitle'),
       detail: this.i18n.translate('settings.page.savedConnections.toasts.importFileErrorDetail'),
     });
+  }
+
+  private async loadVersion(): Promise<void> {
+    try {
+      this.appVersion.set(await this.api.getVersion());
+    } catch {
+      this.appVersion.set(null);
+    }
   }
 }

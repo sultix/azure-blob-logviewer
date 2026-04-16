@@ -224,6 +224,8 @@
       "azureStatus": "Azure-Status",
       "azureAuth": "Azure-Authentifizierung",
       "general": "Allgemeine Einstellungen",
+      "appInfo": "Anwendungsinformationen",
+      "appInfoDescription": "Azure Blob Log Viewer verbindet sich mit Azure Blob Storage, zeigt gespeicherte Logs übersichtlich an und öffnet auch große Logdateien performant auf dem Desktop.",
       "language": {
         "title": "Sprache",
         "description": "Wählen Sie die Frontend-Sprache für Beschriftungen, Meldungen und Datumsformate."

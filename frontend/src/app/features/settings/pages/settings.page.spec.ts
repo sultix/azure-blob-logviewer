@@ -65,6 +65,7 @@ class ConnectionsServiceStub implements Partial<ConnectionsService> {
 }
 
 class AppApiServiceStub implements Partial<AppApiService> {
+  getVersion = vi.fn<() => Promise<string>>(async () => '0.1.1');
   importConnectionsFile = vi.fn<
     () => Promise<{ cancelled: boolean; content: string }>
   >(async () => ({
@@ -116,6 +117,15 @@ describe('SettingsPage', () => {
     fixture.detectChanges();
 
     expect(connections.load).toHaveBeenCalledOnce();
+  });
+
+  it('loads and renders the app version in the app info section', async () => {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.getVersion).toHaveBeenCalledOnce();
+    expect(fixture.nativeElement.textContent).toContain('v0.1.1');
   });
 
   it('updates TS-derived auth badge labels when the language changes', async () => {

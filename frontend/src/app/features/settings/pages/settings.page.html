@@ -2,9 +2,7 @@
   <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-10">
     <header class="flex items-start justify-between gap-4">
       <div class="flex flex-col gap-2">
-        <span
-          class="text-xs font-semibold uppercase tracking-[0.2em] text-primary"
-        >
+        <span class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
           {{ 'settings.page.eyebrow' | translate }}
         </span>
         <h1 class="font-display text-3xl font-bold text-on-surface">
@@ -65,9 +63,7 @@
             </span>
           </div>
         </div>
-        <div
-          class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1"
-        >
+        <div class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1">
           @for (opt of languageOptions(); track opt.value) {
           <button
             type="button"
@@ -99,9 +95,7 @@
             </span>
           </div>
         </div>
-        <div
-          class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1"
-        >
+        <div class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1">
           @for (opt of largeFileFocusOptions(); track opt.value) {
           <button
             type="button"
@@ -204,7 +198,8 @@
           <span
             class="rounded-full bg-surface-container-high px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-on-surface"
           >
-            {{ 'settings.page.savedConnections.count' | translate: { count: savedConnectionsCount() } }}
+            {{ 'settings.page.savedConnections.count' | translate: { count:
+            savedConnectionsCount() } }}
           </span>
         </div>
         <p class="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
@@ -260,6 +255,27 @@
       <p class="text-[11px] leading-relaxed text-on-surface-variant">
         {{ 'settings.page.securityNote' | translate: { command: 'az login' } }}
       </p>
+    </div>
+
+    <div class="flex flex-col gap-5 rounded-xl bg-surface-container p-7">
+      <h2 class="font-display text-base font-semibold text-on-surface">
+        {{ 'settings.page.appInfo' | translate }}
+      </h2>
+      <p class="text-[11px] leading-relaxed text-on-surface-variant">
+        {{ 'settings.page.appInfoDescription' | translate }}
+      </p>
+      <img
+        src="/assets/branding/app-icon.png"
+        alt="{{ 'settings.page.appIconAlt' | translate }}"
+        class="h-16 w-16 mx-auto"
+      />
+      @if (appVersion(); as version) {
+      <p
+        class="text-center text-xs font-semibold tracking-[0.18em] text-on-surface-variant"
+      >
+        v{{ version }}
+      </p>
+      }
     </div>
   </div>
 </section>

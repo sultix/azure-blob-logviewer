@@ -224,6 +224,8 @@
       "azureStatus": "Azure Status",
       "azureAuth": "Azure Authentication",
       "general": "General Settings",
+      "appInfo": "Application Information",
+      "appInfoDescription": "Azure Blob Log Viewer connects to Azure Blob Storage, helps you browse saved logs, and opens large log files efficiently on desktop.",
       "language": {
         "title": "Language",
         "description": "Choose the frontend language for labels, messages, and date formatting."
