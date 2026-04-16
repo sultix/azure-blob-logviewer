@@ -24,6 +24,7 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly entriesState = signal<LogEntry[]>([]);
   readonly errorState = signal<string | null>(null);
   readonly selectedEntryIdsState = signal<string[]>([]);
+  readonly selectedEntriesSnapshotState = signal<LogEntry[]>([]);
   readonly selectedContentState = signal('');
   readonly selectedContentLoadedState = signal(false);
   readonly selectedContentErrorState = signal<string | null>(null);
@@ -57,9 +58,7 @@ class LogsServiceStub implements Partial<LogsService> {
   );
   readonly selectedEntryIds = computed(() => this.selectedEntryIdsState());
   readonly selectedEntries = computed(() =>
-    this.selectedEntryIdsState()
-      .map((id) => this.entriesState().find((entry) => entry.id === id) ?? null)
-      .filter((entry): entry is LogEntry => entry !== null),
+    this.resolveSelectedEntries(this.selectedEntryIdsState()),
   );
   readonly contentMode = computed<'none' | 'single' | 'merged'>(() => {
     const selectionCount = this.selectedEntryIdsState().length;
@@ -98,20 +97,26 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly loadForConnection = vi.fn<(accountName: string, containerName: string) => Promise<void>>(
     async () => undefined,
   );
+  readonly refreshEntriesForConnection = vi.fn<
+    (accountName: string, containerName: string) => Promise<boolean>
+  >(async () => true);
   readonly loadContent = vi.fn<(id: string) => Promise<void>>(async () => undefined);
   readonly selectEntry = vi.fn<(id: string | null) => void>((id) => {
     this.selectedEntryIdsState.set(id ? [id] : []);
+    this.syncSelectionSnapshot();
   });
   readonly updateSelection = vi.fn<
     (id: string | null, additive: boolean) => Promise<{ kind: 'updated' }>
   >(async (id, additive) => {
     if (!id) {
       this.selectedEntryIdsState.set([]);
+      this.syncSelectionSnapshot();
       return { kind: 'updated' };
     }
 
     if (!additive) {
       this.selectedEntryIdsState.set([id]);
+      this.syncSelectionSnapshot();
       return { kind: 'updated' };
     }
 
@@ -121,6 +126,7 @@ class LogsServiceStub implements Partial<LogsService> {
         ? currentSelection.filter((currentId) => currentId !== id)
         : [...currentSelection, id],
     );
+    this.syncSelectionSnapshot();
     return { kind: 'updated' };
   });
   readonly refreshContent = vi.fn<() => Promise<void>>(async () => undefined);
@@ -139,6 +145,7 @@ class LogsServiceStub implements Partial<LogsService> {
     this.entriesState.set([]);
     this.errorState.set(null);
     this.selectedEntryIdsState.set([]);
+    this.selectedEntriesSnapshotState.set([]);
     this.selectedContentState.set('');
     this.selectedContentLoadedState.set(false);
     this.selectedContentErrorState.set(null);
@@ -163,6 +170,7 @@ class LogsServiceStub implements Partial<LogsService> {
     this.entriesState.set([]);
     this.errorState.set(message);
     this.selectedEntryIdsState.set([]);
+    this.selectedEntriesSnapshotState.set([]);
     this.selectedContentState.set('');
     this.selectedContentLoadedState.set(false);
     this.selectedContentErrorState.set(null);
@@ -182,6 +190,27 @@ class LogsServiceStub implements Partial<LogsService> {
     this.largeViewerTailPreviewLinesState.set([]);
     this.largeViewerCanEnableWordWrapState.set(true);
   });
+
+  private resolveSelectedEntries(ids: string[]): LogEntry[] {
+    const entriesById = new Map(this.entriesState().map((entry) => [entry.id, entry]));
+    const snapshotById = new Map(
+      this.selectedEntriesSnapshotState().map((entry) => [entry.id, entry]),
+    );
+
+    return ids
+      .map((id) => entriesById.get(id) ?? snapshotById.get(id))
+      .filter((entry): entry is LogEntry => entry !== undefined);
+  }
+
+  private syncSelectionSnapshot(): void {
+    const selectedIds = this.selectedEntryIdsState();
+    if (selectedIds.length === 0) {
+      this.selectedEntriesSnapshotState.set([]);
+      return;
+    }
+
+    this.selectedEntriesSnapshotState.set(this.resolveSelectedEntries(selectedIds));
+  }
 }
 
 class ConnectionsServiceStub implements Partial<ConnectionsService> {
@@ -290,7 +319,7 @@ describe('LogsPage', () => {
     anchorClickSpy.mockRestore();
   });
 
-  it('loads the selected connection on init and auto-selects the first visible entry', async () => {
+  it('loads the selected connection on init without auto-selecting an entry', async () => {
     const connection = createConnection();
     const entries = [
       createLogEntry({
@@ -318,7 +347,8 @@ describe('LogsPage', () => {
     expect(connections.load).toHaveBeenCalledOnce();
     expect(connections.getById).toHaveBeenCalledWith('conn-1');
     expect(logs.loadForConnection).toHaveBeenCalledWith('storage-a', 'logs');
-    expect(logs.updateSelection).toHaveBeenCalledWith('entry-newer', false);
+    expect(logs.updateSelection).not.toHaveBeenCalled();
+    expect(component.hasSelectedEntry()).toBe(false);
     expect(component.sidebarConnectionFooter()).toEqual(
       expect.objectContaining({
         label: 'Connection',
@@ -449,7 +479,8 @@ describe('LogsPage', () => {
     fixture.detectChanges();
 
     expect(logs.loadForConnection).toHaveBeenNthCalledWith(2, 'storage-a', 'archive');
-    expect(logs.updateSelection).toHaveBeenLastCalledWith('entry-new', false);
+    expect(logs.updateSelection).not.toHaveBeenCalled();
+    expect(component.hasSelectedEntry()).toBe(false);
     expect(component.sidebarConnectionFooter()).toEqual(
       expect.objectContaining({
         label: 'Connection',
@@ -795,7 +826,7 @@ describe('LogsPage', () => {
     expect(logs.refreshContent).toHaveBeenCalledOnce();
   });
 
-  it('refreshes the log list for the active connection and keeps matching selection', async () => {
+  it('refreshes the log list for the active connection without reloading the selected content', async () => {
     setRouteConnectionId('conn-1', routeParamMap$);
     connections.getById.mockReturnValue(createConnection());
     logs.loadForConnection
@@ -805,23 +836,119 @@ describe('LogsPage', () => {
           createLogEntry({ id: 'entry-1', blobName: 'alpha.log' }),
           createLogEntry({ id: 'entry-2', blobName: 'beta.log' }),
         ]);
-      })
-      .mockImplementationOnce(async () => {
-        logs.statusState.set('success');
-        logs.entriesState.set([
-          createLogEntry({ id: 'entry-2', blobName: 'beta.log' }),
-          createLogEntry({ id: 'entry-3', blobName: 'gamma.log' }),
-        ]);
       });
+    logs.refreshEntriesForConnection.mockImplementationOnce(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([
+        createLogEntry({ id: 'entry-2', blobName: 'beta.log' }),
+        createLogEntry({ id: 'entry-3', blobName: 'gamma.log' }),
+      ]);
+      return true;
+    });
 
     fixture.detectChanges();
     await flushAsync();
     logs.selectedEntryIdsState.set(['entry-2']);
+    logs.selectedEntriesSnapshotState.set([
+      createLogEntry({ id: 'entry-2', blobName: 'beta.log' }),
+    ]);
+    logs.selectedContentState.set('preserved content');
+    logs.selectedContentLoadedState.set(true);
 
     await component.refreshList();
 
-    expect(logs.loadForConnection).toHaveBeenNthCalledWith(2, 'storage-a', 'logs');
-    expect(logs.updateSelection).toHaveBeenLastCalledWith('entry-2', false);
+    expect(logs.refreshEntriesForConnection).toHaveBeenCalledWith('storage-a', 'logs');
+    expect(logs.updateSelection).not.toHaveBeenCalled();
+    expect(logs.selectedContent()).toBe('preserved content');
+    expect(component.selectedEntry()?.id).toBe('entry-2');
+  });
+
+  it('keeps the page without selection when the user refreshes the list without an active file', async () => {
+    setRouteConnectionId('conn-1', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection());
+    logs.loadForConnection.mockImplementationOnce(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([createLogEntry({ id: 'entry-1', blobName: 'alpha.log' })]);
+    });
+    logs.refreshEntriesForConnection.mockImplementationOnce(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([createLogEntry({ id: 'entry-2', blobName: 'beta.log' })]);
+      return true;
+    });
+
+    fixture.detectChanges();
+    await flushAsync();
+
+    await component.refreshList();
+
+    expect(component.hasSelectedEntry()).toBe(false);
+    expect(logs.updateSelection).not.toHaveBeenCalled();
+  });
+
+  it('keeps the current detail content when the selected file disappears from the refreshed list', async () => {
+    setRouteConnectionId('conn-1', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection());
+    logs.loadForConnection.mockImplementationOnce(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([createLogEntry({ id: 'entry-1', blobName: 'alpha.log' })]);
+    });
+    logs.refreshEntriesForConnection.mockImplementationOnce(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([createLogEntry({ id: 'entry-2', blobName: 'beta.log' })]);
+      return true;
+    });
+
+    fixture.detectChanges();
+    await flushAsync();
+    logs.selectedEntryIdsState.set(['entry-1']);
+    logs.selectedEntriesSnapshotState.set([
+      createLogEntry({ id: 'entry-1', blobName: 'alpha.log' }),
+    ]);
+    logs.selectedContentState.set('old line');
+    logs.selectedContentLoadedState.set(true);
+
+    await component.refreshList();
+    fixture.detectChanges();
+
+    expect(component.selectedEntry()?.id).toBe('entry-1');
+    expect(component.selectedContent()).toBe('old line');
+    expect(fixture.nativeElement.textContent).toContain('alpha.log');
+    expect(fixture.nativeElement.textContent).toContain('old line');
+    expect(component.rows().map((row) => row.blobName)).toEqual(['beta.log']);
+  });
+
+  it('shows sidebar loading during manual list refresh without replacing the detail panel with the global loading state', async () => {
+    const refreshDeferred = createDeferred<boolean>();
+
+    setRouteConnectionId('conn-1', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection());
+    logs.loadForConnection.mockImplementationOnce(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([createLogEntry({ id: 'entry-1', blobName: 'alpha.log' })]);
+    });
+    logs.refreshEntriesForConnection.mockImplementationOnce(() => refreshDeferred.promise);
+
+    fixture.detectChanges();
+    await flushAsync();
+    logs.selectEntry('entry-1');
+    logs.selectedContentState.set('line 1');
+    logs.selectedContentLoadedState.set(true);
+    fixture.detectChanges();
+
+    const refreshPromise = component.refreshList();
+    fixture.detectChanges();
+
+    expect(component.sidebarLoading()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Loading blobs…');
+    expect(fixture.nativeElement.textContent).toContain('alpha.log');
+    expect(fixture.nativeElement.textContent).toContain('line 1');
+    expect(fixture.nativeElement.textContent).not.toContain('Loading logs…');
+
+    refreshDeferred.resolve(true);
+    await refreshPromise;
+    fixture.detectChanges();
+
+    expect(component.sidebarLoading()).toBe(false);
   });
 
   it('downloads the selected log content and shows success feedback', async () => {
@@ -862,6 +989,7 @@ describe('LogsPage', () => {
 
     fixture.detectChanges();
     await flushAsync();
+    logs.selectEntry('entry-1');
     fixture.detectChanges();
 
     expect(component.toolbar()).toEqual({
@@ -935,6 +1063,10 @@ describe('LogsPage', () => {
     fixture.detectChanges();
     await flushAsync();
     logs.selectedEntryIdsState.set(['entry-1', 'entry-2']);
+    logs.selectedEntriesSnapshotState.set([
+      createLogEntry({ id: 'entry-1', blobName: 'alpha.log', size: 1024 }),
+      createLogEntry({ id: 'entry-2', blobName: 'beta.log', size: 2048 }),
+    ]);
     fixture.detectChanges();
 
     expect(component.toolbar()).toEqual({

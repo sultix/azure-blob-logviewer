@@ -72,12 +72,14 @@ export class LogsService implements OnDestroy {
 
   private readonly state = signal<LogsState>({ status: 'idle' });
   private readonly selectedEntryIdsState = signal<string[]>([]);
+  private readonly selectedEntriesSnapshotState = signal<LogEntry[]>([]);
   private readonly selectedContentState = signal<SelectedBlobContentState | null>(null);
   private readonly selectedContentErrorState = signal<string | null>(null);
   private readonly largeViewerState = signal<LargeViewerState | null>(null);
   private readonly _contentLoading = signal(false);
   private connectionLoadToken = 0;
   private contentLoadToken = 0;
+  private entriesRefreshToken = 0;
   private statusPollTimer: ReturnType<typeof setInterval> | null = null;
 
   readonly status = computed(() => this.state().status);
@@ -97,12 +99,9 @@ export class LogsService implements OnDestroy {
   );
 
   readonly selectedEntryIds = this.selectedEntryIdsState.asReadonly();
-  readonly selectedEntries = computed<LogEntry[]>(() => {
-    const entriesById = new Map(this.entries().map((entry) => [entry.id, entry]));
-    return this.selectedEntryIdsState()
-      .map((id) => entriesById.get(id))
-      .filter((entry): entry is LogEntry => entry !== undefined);
-  });
+  readonly selectedEntries = computed<LogEntry[]>(() =>
+    this.resolveEntriesForIds(this.selectedEntryIdsState()),
+  );
   readonly selectionCount = computed(() => this.selectedEntryIdsState().length);
   readonly contentMode = computed<LogContentMode>(() => {
     const selectionCount = this.selectionCount();
@@ -220,8 +219,10 @@ export class LogsService implements OnDestroy {
   reset(): void {
     this.connectionLoadToken += 1;
     this.contentLoadToken += 1;
+    this.entriesRefreshToken += 1;
     this.state.set({ status: 'idle' });
     this.selectedEntryIdsState.set([]);
+    this.selectedEntriesSnapshotState.set([]);
     this.selectedContentState.set(null);
     this.selectedContentErrorState.set(null);
     this._contentLoading.set(false);
@@ -231,7 +232,9 @@ export class LogsService implements OnDestroy {
   setError(message: string): void {
     this.connectionLoadToken += 1;
     this.contentLoadToken += 1;
+    this.entriesRefreshToken += 1;
     this.selectedEntryIdsState.set([]);
+    this.selectedEntriesSnapshotState.set([]);
     this.selectedContentState.set(null);
     this.selectedContentErrorState.set(null);
     this._contentLoading.set(false);
@@ -241,9 +244,11 @@ export class LogsService implements OnDestroy {
 
   async loadForConnection(accountName: string, containerName: string): Promise<void> {
     const token = ++this.connectionLoadToken;
+    const refreshToken = ++this.entriesRefreshToken;
     this.contentLoadToken += 1;
     this.state.set({ status: 'loading' });
     this.selectedEntryIdsState.set([]);
+    this.selectedEntriesSnapshotState.set([]);
     this.selectedContentState.set(null);
     this.selectedContentErrorState.set(null);
     this._contentLoading.set(false);
@@ -251,14 +256,14 @@ export class LogsService implements OnDestroy {
 
     try {
       const blobs = await this.api.listBlobs(accountName, containerName, '');
-      if (token !== this.connectionLoadToken) {
+      if (token !== this.connectionLoadToken || refreshToken !== this.entriesRefreshToken) {
         return;
       }
 
       const entries = blobs.map((blob) => this.mapBlobToEntry(blob, accountName, containerName));
       this.state.set({ status: 'success', entries });
     } catch {
-      if (token !== this.connectionLoadToken) {
+      if (token !== this.connectionLoadToken || refreshToken !== this.entriesRefreshToken) {
         return;
       }
 
@@ -266,6 +271,38 @@ export class LogsService implements OnDestroy {
         status: 'error',
         message: this.i18n.translate('settings.service.loadBlobsFailed'),
       });
+    }
+  }
+
+  async refreshEntriesForConnection(
+    accountName: string,
+    containerName: string,
+  ): Promise<boolean> {
+    const connectionLoadToken = this.connectionLoadToken;
+    const refreshToken = ++this.entriesRefreshToken;
+
+    try {
+      const blobs = await this.api.listBlobs(accountName, containerName, '');
+      if (
+        connectionLoadToken !== this.connectionLoadToken ||
+        refreshToken !== this.entriesRefreshToken
+      ) {
+        return false;
+      }
+
+      const entries = blobs.map((blob) => this.mapBlobToEntry(blob, accountName, containerName));
+      this.state.set({ status: 'success', entries });
+      this.syncSelectedEntriesSnapshot(entries);
+      return true;
+    } catch {
+      if (
+        connectionLoadToken !== this.connectionLoadToken ||
+        refreshToken !== this.entriesRefreshToken
+      ) {
+        return false;
+      }
+
+      return false;
     }
   }
 
@@ -441,9 +478,8 @@ export class LogsService implements OnDestroy {
       return { kind: 'updated' };
     }
 
-    const oversizedEntry = this.entries().find(
-      (entry) =>
-        nextSelection.includes(entry.id) && entry.size > MAX_MERGED_BLOB_SIZE_BYTES,
+    const oversizedEntry = this.resolveEntriesForIds(nextSelection).find(
+      (entry) => entry.size > MAX_MERGED_BLOB_SIZE_BYTES,
     );
     if (oversizedEntry) {
       return {
@@ -459,6 +495,7 @@ export class LogsService implements OnDestroy {
   private async applySelection(nextSelection: string[]): Promise<void> {
     this.contentLoadToken += 1;
     this.selectedEntryIdsState.set(nextSelection);
+    this.syncSelectedEntriesSnapshot();
     this.selectedContentState.set(null);
     this.selectedContentErrorState.set(null);
     this._contentLoading.set(false);
@@ -469,7 +506,7 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    const selectedEntries = this.selectedEntries();
+    const selectedEntries = this.resolveEntriesForIds(nextSelection);
     if (selectedEntries.length !== nextSelection.length) {
       return;
     }
@@ -859,7 +896,7 @@ export class LogsService implements OnDestroy {
   }
 
   private async loadContentChunk(id: string): Promise<void> {
-    const entry = this.entries().find((item) => item.id === id);
+    const entry = this.resolveEntriesForIds([id])[0];
     if (!entry?.storageAccountName || !entry.containerName) {
       return;
     }
@@ -985,6 +1022,36 @@ export class LogsService implements OnDestroy {
     }
 
     return selectedContentState.chunk;
+  }
+
+  private resolveEntriesForIds(ids: string[]): LogEntry[] {
+    const entriesById = new Map(this.entries().map((entry) => [entry.id, entry]));
+    const snapshotById = new Map(
+      this.selectedEntriesSnapshotState().map((entry) => [entry.id, entry]),
+    );
+
+    return ids
+      .map((id) => entriesById.get(id) ?? snapshotById.get(id))
+      .filter((entry): entry is LogEntry => entry !== undefined);
+  }
+
+  private syncSelectedEntriesSnapshot(entries = this.entries()): void {
+    const selectedIds = this.selectedEntryIdsState();
+    if (selectedIds.length === 0) {
+      this.selectedEntriesSnapshotState.set([]);
+      return;
+    }
+
+    const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+    const snapshotById = new Map(
+      this.selectedEntriesSnapshotState().map((entry) => [entry.id, entry]),
+    );
+
+    this.selectedEntriesSnapshotState.set(
+      selectedIds
+        .map((id) => entriesById.get(id) ?? snapshotById.get(id))
+        .filter((entry): entry is LogEntry => entry !== undefined),
+    );
   }
 
   private mapBlobToEntry(blob: AzureBlobItem, accountName: string, containerName: string): LogEntry {

@@ -148,6 +148,80 @@ describe('LogsService', () => {
     expect(service.entries()[0].containerName).toBe('archive');
   });
 
+  it('refreshes the entries list without reloading the selected content', async () => {
+    api.listBlobs
+      .mockResolvedValueOnce([createBlob({ name: 'alpha.log', size: 1024 })])
+      .mockResolvedValueOnce([createBlob({ name: 'beta.log', size: 1024 })]);
+    api.readBlobTextChunk.mockResolvedValue(
+      createChunk({
+        content: 'alpha content',
+        blobSize: 1024,
+        endOffsetExclusive: 1024,
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    await service.updateSelection('alpha.log', false);
+    await flushAsync();
+
+    api.readBlobTextChunk.mockClear();
+
+    const refreshed = await service.refreshEntriesForConnection('myaccount', 'logs');
+
+    expect(refreshed).toBe(true);
+    expect(service.entries().map((entry) => entry.id)).toEqual(['beta.log']);
+    expect(service.selectedEntryIds()).toEqual(['alpha.log']);
+    expect(service.selectedEntry()?.id).toBe('alpha.log');
+    expect(service.selectedContent()).toBe('alpha content');
+    expect(service.selectedContentLoaded()).toBe(true);
+    expect(api.readBlobTextChunk).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the selection snapshot when refreshed entries no longer contain the selected file', async () => {
+    api.listBlobs
+      .mockResolvedValueOnce([createBlob({ name: 'alpha.log', size: 1024 })])
+      .mockResolvedValueOnce([createBlob({ name: 'beta.log', size: 1024 })]);
+    api.readBlobTextChunk.mockResolvedValue(createChunk({ content: 'alpha content' }));
+
+    await service.loadForConnection('myaccount', 'logs');
+    await service.updateSelection('alpha.log', false);
+    await flushAsync();
+
+    await service.refreshEntriesForConnection('myaccount', 'logs');
+
+    expect(service.entries().map((entry) => entry.id)).toEqual(['beta.log']);
+    expect(service.selectedEntries().map((entry) => entry.id)).toEqual(['alpha.log']);
+    expect(service.selectedEntry()).toMatchObject({
+      id: 'alpha.log',
+      blobName: 'alpha.log',
+      containerName: 'logs',
+      storageAccountName: 'myaccount',
+    });
+  });
+
+  it('clears the preserved selection snapshot on the next full connection load', async () => {
+    api.listBlobs
+      .mockResolvedValueOnce([createBlob({ name: 'alpha.log', size: 1024 })])
+      .mockResolvedValueOnce([createBlob({ name: 'beta.log', size: 1024 })])
+      .mockResolvedValueOnce([createBlob({ name: 'gamma.log', size: 1024 })]);
+    api.readBlobTextChunk.mockResolvedValue(createChunk({ content: 'alpha content' }));
+
+    await service.loadForConnection('myaccount', 'logs');
+    await service.updateSelection('alpha.log', false);
+    await flushAsync();
+
+    await service.refreshEntriesForConnection('myaccount', 'logs');
+    expect(service.selectedEntry()?.id).toBe('alpha.log');
+
+    await service.loadForConnection('myaccount', 'archive');
+
+    expect(service.entries().map((entry) => entry.id)).toEqual(['gamma.log']);
+    expect(service.selectedEntry()).toBeNull();
+    expect(service.selectedEntries()).toEqual([]);
+    expect(service.selectedContent()).toBe('');
+    expect(service.selectedContentLoaded()).toBe(false);
+  });
+
   it('loads a small blob fully for the selected entry', async () => {
     api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 1024, contentType: 'text/plain' })]);
     api.readBlobTextChunk.mockResolvedValue(

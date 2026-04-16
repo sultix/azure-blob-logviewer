@@ -72,6 +72,7 @@ export class LogsPage implements OnInit {
   private routeLoadToken = 0;
   private readonly currentConnection = signal<StorageConnection | null>(null);
   private readonly sidebarLastUpdatedAt = signal<Date | null>(null);
+  private readonly sidebarRefreshing = signal(false);
 
   readonly status = this.logs.status;
   readonly errorMessage = this.logs.errorMessage;
@@ -224,7 +225,9 @@ export class LogsPage implements OnInit {
   });
   readonly hasSelectedEntry = computed(() => this.selectedEntryIds().length > 0);
   readonly detailSelectionKey = computed(() => this.selectedEntryIds().join('|'));
-  readonly sidebarLoading = computed(() => this.status() === 'loading');
+  readonly sidebarLoading = computed(
+    () => this.status() === 'loading' || this.sidebarRefreshing(),
+  );
   readonly largeViewer = computed<LogLargeViewerVm | null>(() => {
     const status = this.largeViewerStatus();
     if (!status) {
@@ -393,34 +396,27 @@ export class LogsPage implements OnInit {
 
   async refreshList(): Promise<void> {
     const connection = this.currentConnection();
-    if (!connection?.storageAccountName || !connection.containerName) {
+    if (
+      !connection?.storageAccountName ||
+      !connection.containerName ||
+      this.sidebarRefreshing()
+    ) {
       return;
     }
 
-    const previouslySelectedIds = this.selectedEntryIds();
-    await this.logs.loadForConnection(
-      connection.storageAccountName,
-      connection.containerName,
-    );
-    if (this.logs.status() !== 'success') {
-      return;
-    }
-
-    this.sidebarLastUpdatedAt.set(new Date());
-
-    const nextSelectedIds = previouslySelectedIds.filter((id) =>
-      this.logs.entries().some((entry) => entry.id === id),
-    );
-    if (nextSelectedIds.length === 0) {
-      const firstVisibleRow = this.rows()[0];
-      if (firstVisibleRow) {
-        await this.logs.updateSelection(firstVisibleRow.id, false);
+    this.sidebarRefreshing.set(true);
+    try {
+      const refreshed = await this.logs.refreshEntriesForConnection(
+        connection.storageAccountName,
+        connection.containerName,
+      );
+      if (!refreshed || this.currentConnection()?.id !== connection.id) {
+        return;
       }
-      return;
-    }
 
-    for (const [index, id] of nextSelectedIds.entries()) {
-      await this.logs.updateSelection(id, index > 0);
+      this.sidebarLastUpdatedAt.set(new Date());
+    } finally {
+      this.sidebarRefreshing.set(false);
     }
   }
 
@@ -553,11 +549,6 @@ export class LogsPage implements OnInit {
     }
 
     this.sidebarLastUpdatedAt.set(new Date());
-
-    const firstVisibleRow = this.rows()[0];
-    if (firstVisibleRow) {
-      await this.logs.updateSelection(firstVisibleRow.id, false);
-    }
   }
 
   private async updateSelection(id: string, additive: boolean): Promise<void> {
@@ -569,6 +560,7 @@ export class LogsPage implements OnInit {
     this.logs.reset();
     this.currentConnection.set(null);
     this.sidebarLastUpdatedAt.set(null);
+    this.sidebarRefreshing.set(false);
     this.searchTerm.set('');
     this.sortDir.set('desc');
     this.sortBasis.set(this.settings.logs().sortBasis);
