@@ -682,6 +682,28 @@ describe('LogsPage', () => {
     ]);
   });
 
+  it('shows the active large-file match position as current over total in the search badge', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
+    logs.largeViewerStatusState.set(
+      createLargeViewerStatus({
+        isComplete: true,
+      }),
+    );
+    logs.largeViewerSearchQueryState.set('error');
+    logs.largeViewerSearchMatchesState.set([
+      { lineNumber: 12, preview: 'first error line' },
+      { lineNumber: 42, preview: 'second error line' },
+      { lineNumber: 77, preview: 'third error line' },
+    ]);
+    logs.largeViewerActiveMatchLineState.set(42);
+
+    fixture.detectChanges();
+
+    expect(component.largeViewer()?.searchStatusLabel).toBe('2 / 3');
+  });
+
   it('falls back to blob name when last-modified timestamps tie', async () => {
     fixture.detectChanges();
     await flushAsync();
@@ -1132,6 +1154,27 @@ function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
     createdRelative: 'just now',
     storageAccountName: 'storage-a',
     containerName: 'logs',
+    ...overrides,
+  };
+}
+
+function createLargeViewerStatus(
+  overrides: Partial<BlobViewSessionStatus> = {},
+): BlobViewSessionStatus {
+  return {
+    sessionId: 'session-1',
+    blobName: 'file.log',
+    blobSize: 20_000_000,
+    contentType: 'text/plain',
+    bytesDownloaded: 20_000_000,
+    indexedLineCount: 100,
+    indexedThrough: 20_000_000,
+    isComplete: true,
+    canEnableWordWrap: true,
+    hasPendingBefore: false,
+    hasPendingAfter: false,
+    focus: 'start',
+    tailPreviewLines: [],
     ...overrides,
   };
 }

@@ -227,7 +227,7 @@ describe('LogsDetailPanelComponent', () => {
     const largeViewer: LogLargeViewerVm = {
       progressLabel: '4.0 MB / 100.0 MB loaded',
       statusLabel: 'File is loading in the background',
-      searchStatusLabel: '2 matches so far',
+      searchStatusLabel: '1 / 2',
       searchQuery: 'error',
       matchCount: 2,
       activeMatchLineNumber: 18,
@@ -376,7 +376,7 @@ describe('LogsDetailPanelComponent', () => {
     const largeViewer: LogLargeViewerVm = {
       progressLabel: '4.0 MB / 100.0 MB loaded',
       statusLabel: 'File is loading in the background',
-      searchStatusLabel: '1 match so far',
+      searchStatusLabel: '1 / 1',
       searchQuery: 'error',
       matchCount: 1,
       activeMatchLineNumber: 0,
@@ -582,6 +582,38 @@ describe('LogsDetailPanelComponent', () => {
     expect(highlights[1]?.textContent).toBe('ERROR');
     expect(highlights[0]?.className).toContain('active-search-match');
     expect(highlights[1]?.className).not.toContain('active-search-match');
+  });
+
+  it('does not start inline content search before three characters', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '1.5 KB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('content', 'Error line\nSecond ERROR line');
+    fixture.detectChanges();
+
+    const searchInput = fixture.nativeElement.querySelector(
+      'input[aria-label="Search within log content"]',
+    ) as HTMLInputElement;
+    await runContentSearch(fixture, searchInput, 'er');
+
+    expect(fixture.nativeElement.querySelectorAll('mark')).toHaveLength(0);
+    expect(fixture.nativeElement.textContent).not.toContain('0 matches');
+    expect(
+      fixture.nativeElement.querySelector('button[aria-label="Previous match"]'),
+    ).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('button[aria-label="Next match"]'),
+    ).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('button[aria-label="Clear content search"]'),
+    ).not.toBeNull();
   });
 
   it('clears the content search from the inline clear button', async () => {

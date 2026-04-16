@@ -216,6 +216,231 @@ describe('LogsService', () => {
     expect(api.readBlobTextChunk).not.toHaveBeenCalled();
   });
 
+  it('searches within tail preview lines locally without calling the backend search', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.openBlobViewSession.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        tailPreviewLines: ['info line', 'first error line', 'second ERROR line'],
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    await service.updateLargeSearchQuery('error');
+
+    expect(api.searchBlobView).not.toHaveBeenCalled();
+    expect(service.largeViewerSearchQuery()).toBe('error');
+    expect(service.largeViewerSearchMatches()).toEqual([
+      { lineNumber: 1, preview: 'first error line' },
+      { lineNumber: 2, preview: 'second ERROR line' },
+    ]);
+    expect(service.largeViewerSearchIsComplete()).toBe(false);
+    expect(service.largeViewerRequestedScrollLine()).toBe(1);
+    expect(service.largeViewerActiveMatchLine()).toBe(1);
+  });
+
+  it('does not start large-file search before three characters', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.openBlobViewSession.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 20_000_000,
+        indexedLineCount: 5_000,
+        isComplete: true,
+        hasPendingBefore: false,
+        hasPendingAfter: false,
+        tailPreviewLines: [],
+      }),
+    );
+    api.getBlobViewLines.mockResolvedValue({
+      startLine: 0,
+      totalLines: 5_000,
+      isComplete: true,
+      lines: [{ lineNumber: 0, content: 'line 1' }],
+    });
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    await service.updateLargeSearchQuery('er');
+
+    expect(api.searchBlobView).not.toHaveBeenCalled();
+    expect(service.largeViewerSearchQuery()).toBe('er');
+    expect(service.largeViewerSearchMatches()).toEqual([]);
+    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+    expect(service.largeViewerActiveMatchLine()).toBeNull();
+  });
+
+  it('navigates tail preview search matches locally', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.openBlobViewSession.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        tailPreviewLines: ['first error line', 'info line', 'second error line'],
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+    await service.updateLargeSearchQuery('error');
+
+    await service.selectNextSearchMatch();
+
+    expect(api.searchBlobView).not.toHaveBeenCalled();
+    expect(service.largeViewerRequestedScrollLine()).toBe(2);
+    expect(service.largeViewerActiveMatchLine()).toBe(2);
+
+    await service.selectPreviousSearchMatch();
+
+    expect(service.largeViewerRequestedScrollLine()).toBe(0);
+    expect(service.largeViewerActiveMatchLine()).toBe(0);
+  });
+
+  it('searches through all loaded large-file search pages and jumps to the first later match', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.openBlobViewSession.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 20_000_000,
+        indexedLineCount: 5_000,
+        isComplete: true,
+        hasPendingBefore: false,
+        hasPendingAfter: false,
+        tailPreviewLines: [],
+      }),
+    );
+    api.getBlobViewLines.mockResolvedValue({
+      startLine: 0,
+      totalLines: 5_000,
+      isComplete: true,
+      lines: [{ lineNumber: 0, content: 'line 1' }],
+    });
+    api.searchBlobView
+      .mockResolvedValueOnce({
+        query: 'error',
+        matches: [],
+        nextCursor: 2_000,
+        isComplete: false,
+      })
+      .mockResolvedValueOnce({
+        query: 'error',
+        matches: [{ lineNumber: 2_500, preview: 'later error line' }],
+        nextCursor: -1,
+        isComplete: true,
+      });
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    await service.updateLargeSearchQuery('error');
+
+    expect(api.searchBlobView).toHaveBeenNthCalledWith(1, {
+      sessionId: 'session-1',
+      query: 'error',
+      cursor: 0,
+    });
+    expect(api.searchBlobView).toHaveBeenNthCalledWith(2, {
+      sessionId: 'session-1',
+      query: 'error',
+      cursor: 2_000,
+    });
+    expect(service.largeViewerSearchMatches()).toEqual([
+      { lineNumber: 2_500, preview: 'later error line' },
+    ]);
+    expect(service.largeViewerSearchIsComplete()).toBe(true);
+    expect(service.largeViewerRequestedScrollLine()).toBe(2_500);
+    expect(service.largeViewerActiveMatchLine()).toBe(2_500);
+  });
+
+  it('searches all currently loaded indexed lines for incomplete large files', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.openBlobViewSession.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 10_000_000,
+        indexedLineCount: 3_500,
+        isComplete: false,
+        hasPendingBefore: false,
+        hasPendingAfter: true,
+        tailPreviewLines: [],
+      }),
+    );
+    api.getBlobViewLines.mockResolvedValue({
+      startLine: 0,
+      totalLines: 3_500,
+      isComplete: false,
+      lines: [{ lineNumber: 0, content: 'line 1' }],
+    });
+    api.searchBlobView
+      .mockResolvedValueOnce({
+        query: 'error',
+        matches: [],
+        nextCursor: 2_000,
+        isComplete: false,
+      })
+      .mockResolvedValueOnce({
+        query: 'error',
+        matches: [{ lineNumber: 3_100, preview: 'late indexed error line' }],
+        nextCursor: 3_500,
+        isComplete: false,
+      })
+      .mockResolvedValueOnce({
+        query: 'error',
+        matches: [],
+        nextCursor: 3_500,
+        isComplete: false,
+      });
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    await service.updateLargeSearchQuery('error');
+
+    expect(api.searchBlobView).toHaveBeenNthCalledWith(1, {
+      sessionId: 'session-1',
+      query: 'error',
+      cursor: 0,
+    });
+    expect(api.searchBlobView).toHaveBeenNthCalledWith(2, {
+      sessionId: 'session-1',
+      query: 'error',
+      cursor: 2_000,
+    });
+    expect(service.largeViewerSearchMatches()).toEqual([
+      { lineNumber: 3_100, preview: 'late indexed error line' },
+    ]);
+    expect(service.largeViewerSearchIsComplete()).toBe(false);
+    expect(service.largeViewerRequestedScrollLine()).toBe(3_100);
+    expect(service.largeViewerActiveMatchLine()).toBe(3_100);
+  });
+
   it('loads a virtual line window for large blobs', async () => {
     api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
     api.openBlobViewSession.mockResolvedValue(
@@ -292,6 +517,122 @@ describe('LogsService', () => {
 
     expect(api.getBlobViewLines).toHaveBeenCalledTimes(2);
     expect(service.largeViewerLines()).toEqual([{ lineNumber: 0, content: 'line 1' }]);
+  });
+
+  it('recomputes tail preview matches locally during status refresh', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.openBlobViewSession.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        tailPreviewLines: ['first error line', 'info line'],
+      }),
+    );
+    api.getBlobViewStatus.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 1_048_576,
+        indexedLineCount: 24,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        tailPreviewLines: ['first error line', 'another ERROR line'],
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+    await service.updateLargeSearchQuery('error');
+
+    await service['refreshLargeViewerStatus']('session-1');
+
+    expect(api.searchBlobView).not.toHaveBeenCalled();
+    expect(service.largeViewerTailPreviewLines()).toEqual([
+      'first error line',
+      'another ERROR line',
+    ]);
+    expect(service.largeViewerSearchMatches()).toEqual([
+      { lineNumber: 0, preview: 'first error line' },
+      { lineNumber: 1, preview: 'another ERROR line' },
+    ]);
+    expect(service.largeViewerRequestedScrollLine()).toBe(0);
+  });
+
+  it('switches from local tail preview search to backend search after the preview phase ends', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.openBlobViewSession.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        tailPreviewLines: ['tail error line'],
+      }),
+    );
+    api.getBlobViewStatus.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-1',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        bytesDownloaded: 2_097_152,
+        indexedLineCount: 120,
+        isComplete: false,
+        hasPendingBefore: false,
+        hasPendingAfter: true,
+        tailPreviewLines: [],
+      }),
+    );
+    api.getBlobViewLines.mockResolvedValue({
+      startLine: 0,
+      totalLines: 120,
+      isComplete: false,
+      lines: [{ lineNumber: 0, content: 'first indexed line' }],
+    });
+    api.searchBlobView.mockResolvedValue({
+      query: 'error',
+      matches: [{ lineNumber: 42, preview: 'indexed error line' }],
+      nextCursor: 120,
+      isComplete: false,
+    })
+    .mockResolvedValueOnce({
+      query: 'error',
+      matches: [],
+      nextCursor: 120,
+      isComplete: false,
+    });
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+    await service.updateLargeSearchQuery('error');
+
+    api.searchBlobView.mockClear();
+
+    await service['refreshLargeViewerStatus']('session-1');
+
+    expect(api.getBlobViewLines).toHaveBeenCalledWith('session-1', 0, 120);
+    expect(api.searchBlobView).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      query: 'error',
+      cursor: 0,
+    });
+    expect(service.largeViewerSearchMatches()).toEqual([
+      { lineNumber: 42, preview: 'indexed error line' },
+    ]);
+    expect(service.largeViewerRequestedScrollLine()).toBe(42);
   });
 
   it('refreshes large blobs by reopening the viewer session', async () => {

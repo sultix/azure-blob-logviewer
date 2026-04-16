@@ -52,6 +52,7 @@ interface SidebarConnectionFooterVm {
 }
 
 const LOG_VIRTUAL_LINE_HEIGHT_PX = 20;
+const MIN_CONTENT_SEARCH_QUERY_LENGTH = 3;
 
 @Component({
   selector: 'app-logs-page',
@@ -637,7 +638,8 @@ export class LogsPage implements OnInit {
     const matches = this.logs.largeViewerSearchMatches();
     const query = this.logs.largeViewerSearchQuery().trim();
     const isComplete = this.logs.largeViewerSearchIsComplete();
-    if (query.length === 0) {
+    const activeMatchLine = this.logs.largeViewerActiveMatchLine();
+    if (query.length < MIN_CONTENT_SEARCH_QUERY_LENGTH) {
       return '';
     }
     if (matches.length === 0) {
@@ -645,11 +647,15 @@ export class LogsPage implements OnInit {
         ? this.i18n.translate('logs.detail.zeroMatches')
         : this.i18n.translate('logs.detail.viewer.searchPartialZero');
     }
-    return isComplete
-      ? this.i18n.translate('logs.detail.viewer.matches', { count: matches.length })
-      : this.i18n.translate('logs.detail.viewer.matchesPartial', {
-          count: matches.length,
-        });
+
+    const activeMatchIndex = activeMatchLine === null
+      ? 0
+      : Math.max(
+          matches.findIndex((match) => match.lineNumber === activeMatchLine),
+          0,
+        );
+
+    return `${activeMatchIndex + 1} / ${matches.length}`;
   }
 }
 

@@ -57,6 +57,7 @@ const MAX_MERGED_BLOB_SIZE_BYTES = 20 * 1024 * 1024;
 const MAX_MERGED_SELECTION_COUNT = 5;
 const LARGE_VIEW_POLL_INTERVAL_MS = 700;
 const DEFAULT_LINE_WINDOW_SIZE = 120;
+const MIN_SEARCH_QUERY_LENGTH = 3;
 
 export type LogSelectionUpdateResult =
   | { kind: 'updated' }
@@ -375,11 +376,16 @@ export class LogsService implements OnDestroy {
       };
     });
 
-    if (normalizedQuery.length === 0) {
+    if (normalizedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
       return;
     }
 
-    await this.loadSearchPage(viewer.sessionId, normalizedQuery, 0, true);
+    if (viewer.status.tailPreviewLines.length > 0) {
+      this.applyTailPreviewSearch(viewer.sessionId, normalizedQuery, false);
+      return;
+    }
+
+    await this.loadSearchResults(viewer.sessionId, normalizedQuery);
   }
 
   async selectNextSearchMatch(): Promise<void> {
@@ -492,9 +498,19 @@ export class LogsService implements OnDestroy {
       return;
     }
 
+    if (viewer.status.tailPreviewLines.length > 0) {
+      this.moveTailPreviewSearchMatch(viewer, direction);
+      return;
+    }
+
     let nextIndex = viewer.activeMatchIndex + direction;
     if (direction > 0 && nextIndex >= viewer.searchMatches.length && !viewer.searchIsComplete) {
-      await this.loadSearchPage(viewer.sessionId, viewer.searchQuery.trim(), viewer.searchNextCursor, false);
+      await this.loadSearchResults(
+        viewer.sessionId,
+        viewer.searchQuery.trim(),
+        viewer.searchNextCursor,
+        false,
+      );
     }
 
     const updatedViewer = this.largeViewerState();
@@ -607,6 +623,8 @@ export class LogsService implements OnDestroy {
 
   private async refreshLargeViewerStatus(sessionId: string): Promise<void> {
     const status = await this.api.getBlobViewStatus(sessionId);
+    const activeQuery = this.largeViewerSearchQuery().trim();
+    const previousTailPreviewLength = this.largeViewerState()?.status.tailPreviewLines.length ?? 0;
 
     let needsViewportRefresh = false;
     let nextViewportStartLine = 0;
@@ -655,9 +673,23 @@ export class LogsService implements OnDestroy {
       await this.updateLargeViewport(nextViewportStartLine, nextViewportLineCount);
     }
 
-    if (this.largeViewerSearchQuery().trim().length > 0) {
-      await this.loadSearchPage(sessionId, this.largeViewerSearchQuery().trim(), 0, true);
+    if (activeQuery.length === 0) {
+      return;
     }
+
+    if (status.tailPreviewLines.length > 0) {
+      this.applyTailPreviewSearch(sessionId, activeQuery, true);
+      return;
+    }
+
+    const searchNeedsRefresh =
+      this.largeViewerState()?.sessionId === sessionId &&
+      (needsViewportRefresh || previousTailPreviewLength !== status.tailPreviewLines.length);
+    if (!searchNeedsRefresh) {
+      return;
+    }
+
+    await this.loadSearchResults(sessionId, activeQuery);
   }
 
   private startStatusPolling(sessionId: string): void {
@@ -674,19 +706,35 @@ export class LogsService implements OnDestroy {
     }
   }
 
-  private async loadSearchPage(
+  private async loadSearchResults(
     sessionId: string,
     query: string,
-    cursor: number,
-    replace: boolean,
+    cursor = 0,
+    replace = true,
   ): Promise<void> {
-    const response = await this.api.searchBlobView({
-      sessionId,
-      query,
-      cursor,
-    });
+    let nextCursor = cursor;
+    let shouldReplace = replace;
 
-    this.applySearchResponse(sessionId, response, replace);
+    while (true) {
+      const response = await this.api.searchBlobView({
+        sessionId,
+        query,
+        cursor: nextCursor,
+      });
+
+      this.applySearchResponse(sessionId, response, shouldReplace);
+
+      if (!this.isSearchStillCurrent(sessionId, query)) {
+        return;
+      }
+
+      if (response.isComplete || response.nextCursor < 0 || response.nextCursor <= nextCursor) {
+        return;
+      }
+
+      nextCursor = response.nextCursor;
+      shouldReplace = false;
+    }
   }
 
   private applySearchResponse(
@@ -702,19 +750,102 @@ export class LogsService implements OnDestroy {
       const matches = replace
         ? response.matches
         : [...current.searchMatches, ...response.matches];
+      const nextActiveMatchIndex =
+        matches.length > 0 ? Math.max(Math.min(current.activeMatchIndex, matches.length - 1), 0) : -1;
+      const hadActiveMatch =
+        current.activeMatchIndex >= 0 && current.activeMatchIndex < current.searchMatches.length;
+      const shouldScrollToFirstMatch = nextActiveMatchIndex >= 0 && (replace || !hadActiveMatch);
 
       return {
         ...current,
         searchMatches: matches,
         searchNextCursor: response.nextCursor,
         searchIsComplete: response.isComplete,
-        activeMatchIndex: matches.length > 0 ? Math.max(current.activeMatchIndex, 0) : -1,
+        activeMatchIndex: nextActiveMatchIndex,
         requestedScrollLine:
-          replace && matches.length > 0
-            ? matches[0]?.lineNumber ?? null
+          shouldScrollToFirstMatch
+            ? matches[nextActiveMatchIndex]?.lineNumber ?? null
             : current.requestedScrollLine,
       };
     });
+  }
+
+  private isSearchStillCurrent(sessionId: string, query: string): boolean {
+    const viewer = this.largeViewerState();
+    return viewer?.sessionId === sessionId && viewer.searchQuery.trim() === query.trim();
+  }
+
+  private applyTailPreviewSearch(
+    sessionId: string,
+    query: string,
+    preserveActiveMatch: boolean,
+  ): void {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    this.largeViewerState.update((current) => {
+      if (!current || current.sessionId !== sessionId) {
+        return current;
+      }
+
+      const matches =
+        normalizedQuery.length === 0
+          ? []
+          : current.status.tailPreviewLines.flatMap((line, index) =>
+              line.toLowerCase().includes(normalizedQuery)
+                ? [{ lineNumber: index, preview: line }]
+                : [],
+            );
+
+      const activeMatchIndex =
+        matches.length === 0
+          ? -1
+          : preserveActiveMatch
+            ? Math.min(Math.max(current.activeMatchIndex, 0), matches.length - 1)
+            : 0;
+
+      return {
+        ...current,
+        searchMatches: matches,
+        searchNextCursor: 0,
+        searchIsComplete: current.status.isComplete,
+        activeMatchIndex,
+        requestedScrollLine:
+          activeMatchIndex >= 0
+            ? matches[activeMatchIndex]?.lineNumber ?? null
+            : null,
+      };
+    });
+  }
+
+  private moveTailPreviewSearchMatch(
+    viewer: LargeViewerState,
+    direction: -1 | 1,
+  ): void {
+    if (viewer.searchMatches.length === 0) {
+      return;
+    }
+
+    let nextIndex = viewer.activeMatchIndex + direction;
+    if (direction < 0 && nextIndex < 0) {
+      nextIndex = viewer.searchMatches.length - 1;
+    } else if (direction > 0 && nextIndex >= viewer.searchMatches.length) {
+      nextIndex = 0;
+    }
+
+    const activeMatch = viewer.searchMatches[nextIndex];
+    if (!activeMatch) {
+      return;
+    }
+
+    this.largeViewerState.update((current) =>
+      current && current.sessionId === viewer.sessionId
+        ? {
+            ...current,
+            activeMatchIndex: nextIndex,
+            requestedScrollLine: activeMatch.lineNumber,
+          }
+        : current,
+    );
   }
 
   private async closeLargeViewer(): Promise<void> {

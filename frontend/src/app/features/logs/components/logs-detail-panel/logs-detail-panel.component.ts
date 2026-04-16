@@ -52,6 +52,7 @@ interface NormalizedToolbarVm {
 const CONTENT_SEARCH_DELAY_MS = 120;
 const LARGE_VIEW_LINE_HEIGHT_PX = 20;
 const LARGE_VIEW_OVERSCAN_LINES = 16;
+const MIN_CONTENT_SEARCH_QUERY_LENGTH = 3;
 
 @Component({
   selector: 'app-logs-detail-panel',
@@ -187,13 +188,22 @@ export class LogsDetailPanelComponent implements OnDestroy {
     if (largeViewer) {
       return largeViewer.matchCount > 0;
     }
-    return !this.isContentSearchPending() && this.contentSearch().matchCount > 0;
+    return (
+      this.isContentSearchReady() &&
+      !this.isContentSearchPending() &&
+      this.contentSearch().matchCount > 0
+    );
   });
   readonly hasActiveContentSearch = computed(
     () => this.contentSearchInput().trim().length > 0,
   );
+  readonly isContentSearchReady = computed(
+    () => this.contentSearchInput().trim().length >= MIN_CONTENT_SEARCH_QUERY_LENGTH,
+  );
   private readonly isContentSearchPending = computed(
-    () => this.contentSearchInput().trim() !== this.contentSearchQuery().trim(),
+    () =>
+      this.isContentSearchReady() &&
+      this.contentSearchInput().trim() !== this.contentSearchQuery().trim(),
   );
   readonly mobileActionItems = computed<MenuItem[]>(() => [
     {
@@ -220,6 +230,10 @@ export class LogsDetailPanelComponent implements OnDestroy {
     const largeViewer = this.largeViewer();
     if (largeViewer) {
       return largeViewer.searchStatusLabel;
+    }
+
+    if (!this.isContentSearchReady()) {
+      return '';
     }
 
     if (this.isContentSearchPending()) {
@@ -321,7 +335,9 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.contentSearchInput.set(value);
 
     if (this.largeViewer()) {
-      this.largeSearchChanged.emit(value);
+      this.largeSearchChanged.emit(
+        value.trim().length >= MIN_CONTENT_SEARCH_QUERY_LENGTH ? value : '',
+      );
       return;
     }
 
@@ -424,7 +440,9 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.clearContentSearchApplyTimer();
 
     this.contentSearchApplyTimer = setTimeout(() => {
-      this.contentSearchQuery.set(value);
+      this.contentSearchQuery.set(
+        value.trim().length >= MIN_CONTENT_SEARCH_QUERY_LENGTH ? value : '',
+      );
       this.requestedMatchIndex.set(0);
       this.lastScrolledMatchKey = null;
       this.contentSearchApplyTimer = null;
@@ -465,7 +483,10 @@ interface ContentSearchBase {
 }
 
 function buildContentSearchBase(content: string, query: string): ContentSearchBase {
-  if (query.length === 0 || content.length === 0) {
+  if (
+    query.length < MIN_CONTENT_SEARCH_QUERY_LENGTH ||
+    content.length === 0
+  ) {
     return {
       content,
       matchCount: 0,
