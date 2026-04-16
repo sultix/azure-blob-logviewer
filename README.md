@@ -49,6 +49,7 @@ Inside `frontend/`:
 
 ```bash
 npm install
+npm run icons    # Regenerate app icons from /icons
 npm run start    # Angular dev server (browser only)
 npm run build    # Production Angular build
 npm run test     # Vitest unit tests
@@ -64,11 +65,14 @@ npm run lint     # ESLint (Angular + TypeScript + templates)
 - Keep `frontend/dist/` under version control only via the `.gitkeep` stubs so
   the `go:embed` directive in `main.go` compiles before the first frontend
   build.
-- `icons/icon.png` is the primary Wails app icon source. A pre-build hook
-  copies it to `build/appicon.png` before `wails build` and `wails dev`.
-- `icons/windows/icon.ico` and `icons/macos/icon.icns` are reference or
-  distribution assets only. Wails does not use them as the primary input for
-  the app binary or `.app` bundle icon.
+- `icons/macos/1024x1024.png` is the single source of truth for app icons.
+  All desktop and frontend branding assets are regenerated from it via
+  `frontend/scripts/generate-icons.mjs`.
+- `npm run icons` refreshes `icons/icon.png`, the platform icon sets,
+  `frontend/src/assets/branding/*`, `frontend/src/favicon.ico`, and
+  `build/appicon.png`.
+- `wails dev` and `wails build` run the same icon generator automatically via
+  `preBuildHooks`, so frontend branding and Wails build inputs stay in sync.
 
 ## Build a Windows client
 
@@ -88,7 +92,7 @@ CLI:
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
 
-The Windows EXE icon is regenerated from `icons/icon.png` during the build, so
+The Windows EXE icon is regenerated from the icon master during the build, so
 no manual icon copy step is required.
 
 Optional:

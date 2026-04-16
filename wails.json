@@ -7,7 +7,7 @@
   "frontend:dev:watcher": "npm run start",
   "frontend:dev:serverUrl": "auto",
   "preBuildHooks": {
-    "*/*": "node ../../scripts/sync-wails-icons.mjs ${platform}"
+    "*/*": "node ../../frontend/scripts/generate-icons.mjs ${platform}"
   },
   "author": {
     "name": "Aleksandr Sultanov"
