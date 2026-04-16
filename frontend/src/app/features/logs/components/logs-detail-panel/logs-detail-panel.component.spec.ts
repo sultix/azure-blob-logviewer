@@ -61,6 +61,7 @@ describe('LogsDetailPanelComponent', () => {
 
   it('renders toolbar metadata and content', () => {
     const toolbar: LogToolbarVm = {
+      connectionName: 'prod-storage',
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
@@ -82,6 +83,7 @@ describe('LogsDetailPanelComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('alpha.log');
     expect(fixture.nativeElement.textContent).toContain('storage-a/logs/alpha.log');
+    expect(fixture.nativeElement.textContent).toContain('prod-storage');
     expect(fixture.nativeElement.textContent).toContain('Size 1.5 KB');
     expect(fixture.nativeElement.textContent).toContain('Created 1 hr ago');
     expect(fixture.nativeElement.textContent).toContain('line 1');

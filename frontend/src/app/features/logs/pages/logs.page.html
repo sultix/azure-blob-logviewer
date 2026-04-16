@@ -1,9 +1,7 @@
 <section
   class="grid h-full min-h-0 grid-cols-[var(--layout-sidebar-width)_1fr] overflow-hidden"
 >
-  <aside
-    class="flex h-full min-h-0 flex-col overflow-hidden bg-surface-container"
-  >
+  <aside class="flex h-full min-h-0 flex-col overflow-hidden bg-surface-container">
     <app-logs-filters
       [searchTerm]="searchTerm()"
       [createdOn]="createdOn()"
@@ -22,7 +20,34 @@
       [loading]="sidebarLoading()"
       [selectedEntryIds]="selectedEntryIds()"
       (entrySelected)="select($event)"
+      (refreshRequested)="refreshList()"
     />
+
+    @if (sidebarConnectionFooter(); as sidebarFooter) {
+    <footer
+      data-testid="logs-sidebar-footer"
+      class="flex flex-col shrink-0 items-start justify-between gap-2 shadow-md bg-surface-container-highest px-5 py-3 tracking-wider text-on-surface-variant h-1/7"
+    >
+      <span
+        class="shrink-0 text-[10px] font-semibold uppercase leading-none text-on-surface-variant"
+      >
+        {{ sidebarFooter.label }}
+      </span>
+      <div class="flex w-full items-center justify-between gap-3">
+        <span
+          class="flex min-w-0 max-w-[65%] items-center gap-2 rounded-full bg-surface-container-low px-2.5 py-1 text-[10px] font-medium leading-none text-on-surface"
+        >
+          <!-- <i class="pi pi-wifi text-[10px]"></i> -->
+          <span class="min-w-0 truncate font-mono"> {{ sidebarFooter.name }} </span>
+        </span>
+        <span
+          class="shrink-0 text-[10px] font-medium leading-none text-on-surface-variant"
+        >
+          {{ sidebarFooter.updatedLabel }} {{ sidebarFooter.updatedText }}
+        </span>
+      </div>
+    </footer>
+    }
   </aside>
 
   <app-logs-detail-panel

@@ -102,6 +102,9 @@
   },
   "logs": {
     "page": {
+      "sidebarConnectionLabel": "Verbindung",
+      "sidebarUpdatedLabel": "Aktualisiert",
+      "sidebarConnectionAriaLabel": "Aktuelle Storage-Verbindung",
       "connectionNotFound": "Die ausgewählte Storage-Verbindung wurde nicht gefunden.",
       "connectionIncomplete": "Die ausgewählte Storage-Verbindung ist unvollständig."
     },
@@ -119,7 +122,8 @@
       "title": "Verfügbare Logs",
       "loading": "Blobs werden geladen…",
       "empty": "Keine Blobs in diesem Container gefunden.",
-      "live": "LIVE"
+      "live": "LIVE",
+      "refreshAriaLabel": "Verfügbare Logs aktualisieren"
     },
     "detail": {
       "loading": "Logs werden geladen…",

@@ -1,15 +1,19 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  output,
+} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import type {
-  LogFileRowVm,
-  LogFileSelectionEvent,
-} from '../../models/logs-view.model';
+import type { LogFileRowVm, LogFileSelectionEvent } from '../../models/logs-view.model';
+import { ButtonModule } from 'primeng/button';
 
 @Component({
   selector: 'app-logs-file-list',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, ButtonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'flex min-h-0 flex-1 flex-col overflow-hidden',
@@ -23,11 +27,16 @@ export class LogsFileListComponent {
   readonly selectedEntryIdSet = computed(() => new Set(this.selectedEntryIds()));
 
   readonly entrySelected = output<LogFileSelectionEvent>();
+  readonly refreshRequested = output<void>();
 
   onEntryClick(event: MouseEvent, id: string): void {
     this.entrySelected.emit({
       id,
       additive: event.ctrlKey || event.metaKey,
     });
+  }
+
+  refresh(): void {
+    this.refreshRequested.emit();
   }
 }

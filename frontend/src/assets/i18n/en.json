@@ -102,6 +102,9 @@
   },
   "logs": {
     "page": {
+      "sidebarConnectionLabel": "Connection",
+      "sidebarUpdatedLabel": "Updated",
+      "sidebarConnectionAriaLabel": "Current storage connection",
       "connectionNotFound": "The selected storage connection could not be found.",
       "connectionIncomplete": "The selected storage connection is incomplete."
     },
@@ -119,7 +122,8 @@
       "title": "Available Logs",
       "loading": "Loading blobs…",
       "empty": "No blobs found in this container.",
-      "live": "LIVE"
+      "live": "LIVE",
+      "refreshAriaLabel": "Refresh available logs"
     },
     "detail": {
       "loading": "Loading logs…",

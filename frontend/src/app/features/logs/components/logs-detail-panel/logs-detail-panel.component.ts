@@ -96,18 +96,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
   private readonly contentElement = viewChild('contentElement', {
     read: ElementRef<HTMLPreElement>,
   });
-  private readonly contentScrollContainer = viewChild(
-    'contentScrollContainer',
-    {
-      read: ElementRef<HTMLDivElement>,
-    },
-  );
+  private readonly contentScrollContainer = viewChild('contentScrollContainer', {
+    read: ElementRef<HTMLDivElement>,
+  });
   readonly contentSearchInput = signal('');
   private readonly contentSearchQuery = signal('');
   private readonly requestedMatchIndex = signal(0);
-  readonly wordWrapEnabled = computed(
-    () => this.settings.logs().wordWrapEnabled,
-  );
+  readonly wordWrapEnabled = computed(() => this.settings.logs().wordWrapEnabled);
   readonly contentClass = computed(() =>
     this.wordWrapEnabled() ? 'whitespace-pre-wrap break-all' : 'whitespace-pre',
   );
@@ -126,7 +121,9 @@ export class LogsDetailPanelComponent implements OnDestroy {
       return {
         title: toolbar.title,
         subtitle: toolbar.subtitle,
-        metaBadges: toolbar.metaBadges,
+        metaBadges: [...toolbar.metaBadges].filter(
+          (badge): badge is string => badge !== null,
+        ),
       };
     }
 
@@ -134,8 +131,12 @@ export class LogsDetailPanelComponent implements OnDestroy {
       title: toolbar.blobName ?? '',
       subtitle: toolbar.path ?? '',
       metaBadges: [
-        toolbar.sizeLabel ? this.i18n.translate('logs.detail.size', { value: toolbar.sizeLabel }) : null,
-        toolbar.created ? this.i18n.translate('logs.detail.created', { value: toolbar.created }) : null,
+        toolbar.sizeLabel
+          ? this.i18n.translate('logs.detail.size', { value: toolbar.sizeLabel })
+          : null,
+        toolbar.created
+          ? this.i18n.translate('logs.detail.created', { value: toolbar.created })
+          : null,
       ].filter((badge): badge is string => badge !== null),
     };
   });
@@ -176,9 +177,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
   );
   private readonly activeContentSearchMatchIndex = computed(() => {
     const matchCount = this.contentSearchBase().matchCount;
-    return matchCount === 0
-      ? -1
-      : Math.min(this.requestedMatchIndex(), matchCount - 1);
+    return matchCount === 0 ? -1 : Math.min(this.requestedMatchIndex(), matchCount - 1);
   });
   readonly contentSearch = computed<ContentSearchVm>(() =>
     buildContentSearch(this.contentSearchBase(), 0),
@@ -293,8 +292,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
       }
 
       const matches = contentElement.querySelectorAll('mark.log-search-match');
-      const activeMatch = (matches.item(activeMatchIndex) ??
-        null) as HTMLElement | null;
+      const activeMatch = (matches.item(activeMatchIndex) ?? null) as HTMLElement | null;
       this.lastActiveMatch?.classList.remove('active-search-match');
       activeMatch?.classList.add('active-search-match');
       this.lastActiveMatch = activeMatch;
@@ -466,10 +464,7 @@ interface ContentSearchBase {
   readonly matchIndices: readonly number[];
 }
 
-function buildContentSearchBase(
-  content: string,
-  query: string,
-): ContentSearchBase {
+function buildContentSearchBase(content: string, query: string): ContentSearchBase {
   if (query.length === 0 || content.length === 0) {
     return {
       content,
@@ -545,11 +540,7 @@ function buildContentSearch(
   };
 }
 
-function highlightContent(
-  content: string,
-  query: string,
-  isActive: boolean,
-): string {
+function highlightContent(content: string, query: string, isActive: boolean): string {
   if (query.length === 0 || content.length === 0) {
     return escapeHtml(content);
   }
@@ -569,11 +560,7 @@ function highlightContent(
   return `${before}<mark class="log-search-match${activeClass} bg-primary-container/20 text-on-surface">${match}</mark>${after}`;
 }
 
-function renderLargeLineHtml(
-  content: string,
-  query: string,
-  isActive: boolean,
-): string {
+function renderLargeLineHtml(content: string, query: string, isActive: boolean): string {
   if (query.length === 0) {
     return escapeHtml(content);
   }
@@ -588,15 +575,11 @@ function scrollMatchIntoView(
   const containerRect = scrollContainer.getBoundingClientRect();
   const matchRect = activeMatch.getBoundingClientRect();
 
-  if (
-    matchRect.top >= containerRect.top &&
-    matchRect.bottom <= containerRect.bottom
-  ) {
+  if (matchRect.top >= containerRect.top && matchRect.bottom <= containerRect.bottom) {
     return;
   }
 
-  const offsetTop =
-    matchRect.top - containerRect.top + scrollContainer.scrollTop - 16;
+  const offsetTop = matchRect.top - containerRect.top + scrollContainer.scrollTop - 16;
   scrollContainer.scrollTo({
     top: Math.max(offsetTop, 0),
     behavior: 'auto',

@@ -208,6 +208,7 @@ describe('LogsPage', () => {
 
   beforeEach(async () => {
     vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-16T12:00:00Z'));
     logs = new LogsServiceStub();
     connections = new ConnectionsServiceStub();
     messageService = new MessageServiceStub();
@@ -284,6 +285,20 @@ describe('LogsPage', () => {
     expect(connections.getById).toHaveBeenCalledWith('conn-1');
     expect(logs.loadForConnection).toHaveBeenCalledWith('storage-a', 'logs');
     expect(logs.updateSelection).toHaveBeenCalledWith('entry-newer', false);
+    expect(component.sidebarConnectionFooter()).toEqual(
+      expect.objectContaining({
+        label: 'Connection',
+        name: 'prod-storage',
+        updatedLabel: 'Updated',
+      }),
+    );
+    expect(component.sidebarConnectionFooter()?.updatedText).toMatch(/\d/);
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+    ).toContain('prod-storage');
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+    ).toContain('Updated');
   });
 
   it('does nothing on init when no connection id is present', async () => {
@@ -292,6 +307,8 @@ describe('LogsPage', () => {
 
     expect(connections.load).not.toHaveBeenCalled();
     expect(logs.loadForConnection).not.toHaveBeenCalled();
+    expect(component.sidebarConnectionFooter()).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')).toBeNull();
   });
 
   it('does not load logs when the connection is incomplete', async () => {
@@ -307,6 +324,8 @@ describe('LogsPage', () => {
     expect(connections.load).toHaveBeenCalledOnce();
     expect(logs.loadForConnection).not.toHaveBeenCalled();
     expect(logs.setError).toHaveBeenCalledWith('The selected storage connection is incomplete.');
+    expect(component.sidebarConnectionFooter()).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')).toBeNull();
   });
 
   it('reloads when the route connection changes and resets filters and stale content immediately', async () => {
@@ -358,6 +377,13 @@ describe('LogsPage', () => {
     fixture.detectChanges();
     await flushAsync();
     fixture.detectChanges();
+    expect(component.sidebarConnectionFooter()).toEqual(
+      expect.objectContaining({
+        label: 'Connection',
+        name: 'prod-storage',
+        updatedLabel: 'Updated',
+      }),
+    );
 
     logs.selectEntry('entry-old');
     logs.selectedContentState.set('old line');
@@ -390,6 +416,16 @@ describe('LogsPage', () => {
 
     expect(logs.loadForConnection).toHaveBeenNthCalledWith(2, 'storage-a', 'archive');
     expect(logs.updateSelection).toHaveBeenLastCalledWith('entry-new', false);
+    expect(component.sidebarConnectionFooter()).toEqual(
+      expect.objectContaining({
+        label: 'Connection',
+        name: 'prod-storage',
+        updatedLabel: 'Updated',
+      }),
+    );
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+    ).toContain('prod-storage');
   });
 
   it('shows an error when the route points to a missing connection', async () => {
@@ -404,6 +440,8 @@ describe('LogsPage', () => {
     expect(logs.setError).toHaveBeenCalledWith(
       'The selected storage connection could not be found.',
     );
+    expect(component.sidebarConnectionFooter()).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')).toBeNull();
   });
 
   it('filters, sorts, and maps toolbar data for the visible list', async () => {
@@ -546,6 +584,35 @@ describe('LogsPage', () => {
     expect(logs.refreshContent).toHaveBeenCalledOnce();
   });
 
+  it('refreshes the log list for the active connection and keeps matching selection', async () => {
+    setRouteConnectionId('conn-1', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection());
+    logs.loadForConnection
+      .mockImplementationOnce(async () => {
+        logs.statusState.set('success');
+        logs.entriesState.set([
+          createLogEntry({ id: 'entry-1', blobName: 'alpha.log' }),
+          createLogEntry({ id: 'entry-2', blobName: 'beta.log' }),
+        ]);
+      })
+      .mockImplementationOnce(async () => {
+        logs.statusState.set('success');
+        logs.entriesState.set([
+          createLogEntry({ id: 'entry-2', blobName: 'beta.log' }),
+          createLogEntry({ id: 'entry-3', blobName: 'gamma.log' }),
+        ]);
+      });
+
+    fixture.detectChanges();
+    await flushAsync();
+    logs.selectedEntryIdsState.set(['entry-2']);
+
+    await component.refreshList();
+
+    expect(logs.loadForConnection).toHaveBeenNthCalledWith(2, 'storage-a', 'logs');
+    expect(logs.updateSelection).toHaveBeenLastCalledWith('entry-2', false);
+  });
+
   it('downloads the selected log content and shows success feedback', async () => {
     logs.statusState.set('success');
     logs.entriesState.set([createLogEntry({ id: 'entry-1', blobName: 'alpha.log' })]);
@@ -564,6 +631,41 @@ describe('LogsPage', () => {
       detail: 'alpha.log downloaded',
       life: 2500,
     });
+  });
+
+  it('includes the routed connection name in the single-file toolbar metadata', async () => {
+    setRouteConnectionId('conn-1', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection());
+    logs.loadForConnection.mockImplementation(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([
+        createLogEntry({
+          id: 'entry-1',
+          blobName: 'alpha.log',
+          size: 1536,
+          createdRelative: '1 hr ago',
+          path: 'storage-a/logs/alpha.log',
+        }),
+      ]);
+    });
+
+    fixture.detectChanges();
+    await flushAsync();
+    fixture.detectChanges();
+
+    expect(component.toolbar()).toEqual({
+      connectionName: 'prod-storage',
+      title: 'alpha.log',
+      subtitle: 'storage-a/logs/alpha.log',
+      metaBadges: ['Size 1.5 KB', 'Created 1 hr ago'],
+    });
+    expect(component.sidebarConnectionFooter()).toEqual(
+      expect.objectContaining({
+        label: 'Connection',
+        name: 'prod-storage',
+        updatedLabel: 'Updated',
+      }),
+    );
   });
 
   it('maps merged toolbar metadata and downloads the merged content', async () => {
@@ -602,6 +704,93 @@ describe('LogsPage', () => {
       life: 2500,
     });
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:logs-download');
+  });
+
+  it('includes the routed connection name in merged toolbar metadata', async () => {
+    setRouteConnectionId('conn-1', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection());
+    logs.loadForConnection.mockImplementation(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([
+        createLogEntry({ id: 'entry-1', blobName: 'alpha.log', size: 1024 }),
+        createLogEntry({ id: 'entry-2', blobName: 'beta.log', size: 2048 }),
+      ]);
+    });
+
+    fixture.detectChanges();
+    await flushAsync();
+    logs.selectedEntryIdsState.set(['entry-1', 'entry-2']);
+    fixture.detectChanges();
+
+    expect(component.toolbar()).toEqual({
+      connectionName: 'prod-storage',
+      title: '2 files selected',
+      subtitle: 'Merged log view',
+      metaBadges: ['Size 3.0 KB', 'Merge order: click order'],
+    });
+  });
+
+  it('updates the sidebar footer when the route switches to another connection', async () => {
+    const secondLoad = createDeferred<void>();
+    const connectionsById = new Map<string, StorageConnection>([
+      ['conn-1', createConnection({ id: 'conn-1', name: 'prod-storage' })],
+      [
+        'conn-2',
+        createConnection({
+          id: 'conn-2',
+          name: 'archive-storage',
+          displayName: 'storage-a / archive',
+          containerName: 'archive',
+        }),
+      ],
+    ]);
+    connections.statusState.set('success');
+    connections.getById.mockImplementation((id) => connectionsById.get(id) ?? null);
+    logs.loadForConnection.mockImplementation(async (_accountName, containerName) => {
+      if (containerName === 'logs') {
+        logs.statusState.set('success');
+        logs.entriesState.set([createLogEntry({ id: 'entry-1', blobName: 'alpha.log' })]);
+        return;
+      }
+
+      await secondLoad.promise;
+      logs.statusState.set('success');
+      logs.entriesState.set([createLogEntry({ id: 'entry-2', blobName: 'beta.log' })]);
+    });
+
+    setRouteConnectionId('conn-1', routeParamMap$);
+    fixture.detectChanges();
+    await flushAsync();
+    fixture.detectChanges();
+
+    expect(component.sidebarConnectionFooter()).toEqual(
+      expect.objectContaining({
+        label: 'Connection',
+        name: 'prod-storage',
+        updatedLabel: 'Updated',
+      }),
+    );
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+    ).toContain('Connection');
+
+    setRouteConnectionId('conn-2', routeParamMap$);
+    fixture.detectChanges();
+
+    secondLoad.resolve();
+    await flushAsync();
+    fixture.detectChanges();
+
+    expect(component.sidebarConnectionFooter()).toEqual(
+      expect.objectContaining({
+        label: 'Connection',
+        name: 'archive-storage',
+        updatedLabel: 'Updated',
+      }),
+    );
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+    ).toContain('archive-storage');
   });
 
   it('shows warning toasts when multi-selection violates merge limits', async () => {

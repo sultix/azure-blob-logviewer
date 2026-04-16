@@ -30,6 +30,9 @@ describe('LogsFileListComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Loading blobs…');
+    expect(
+      fixture.nativeElement.querySelector('button[aria-label="Refresh available logs"]'),
+    ).not.toBeNull();
   });
 
   it('renders the empty state when there are no rows', () => {
@@ -82,5 +85,22 @@ describe('LogsFileListComponent', () => {
       id: 'entry-2',
       additive: true,
     });
+  });
+
+  it('emits refresh requests from the header action', () => {
+    const refreshRequested = vi.fn<() => void>();
+    component.refreshRequested.subscribe(refreshRequested);
+
+    fixture.componentRef.setInput('rows', []);
+    fixture.componentRef.setInput('loading', false);
+    fixture.componentRef.setInput('selectedEntryIds', []);
+    fixture.detectChanges();
+
+    const refreshButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Refresh available logs"]',
+    ) as HTMLButtonElement;
+    refreshButton.click();
+
+    expect(refreshRequested).toHaveBeenCalledOnce();
   });
 });

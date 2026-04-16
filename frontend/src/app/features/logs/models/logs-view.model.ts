@@ -16,6 +16,7 @@ export interface LogFileSelectionEvent {
 }
 
 export interface LogToolbarVm {
+  connectionName?: string;
   title?: string;
   subtitle?: string;
   metaBadges?: string[];

@@ -13,6 +13,7 @@ import { MessageService } from 'primeng/api';
 import { distinctUntilChanged, map } from 'rxjs';
 
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
+import type { StorageConnection } from '@app/features/connections/models/storage-connection.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 
 import { LogsDetailPanelComponent } from '../components/logs-detail-panel/logs-detail-panel.component';
@@ -26,10 +27,7 @@ import type {
   LogLargeViewerVm,
   LogToolbarVm,
 } from '../models/logs-view.model';
-import {
-  LogsService,
-  type LogSelectionUpdateResult,
-} from '../services/logs.service';
+import { LogsService, type LogSelectionUpdateResult } from '../services/logs.service';
 
 type SortDir = 'asc' | 'desc';
 
@@ -41,6 +39,13 @@ interface PreparedLogFileRowVm extends LogFileRowVm {
 interface ContentFooterStatsVm {
   readonly lineCountLabel: string;
   readonly lineEndingsLabel: string;
+}
+
+interface SidebarConnectionFooterVm {
+  readonly label: string;
+  readonly name: string;
+  readonly updatedLabel: string;
+  readonly updatedText: string;
 }
 
 const LOG_VIRTUAL_LINE_HEIGHT_PX = 20;
@@ -64,6 +69,8 @@ export class LogsPage implements OnInit {
   private readonly messageService = inject(MessageService);
   private readonly i18n = inject(AppI18nService);
   private routeLoadToken = 0;
+  private readonly currentConnection = signal<StorageConnection | null>(null);
+  private readonly sidebarLastUpdatedAt = signal<Date | null>(null);
 
   readonly status = this.logs.status;
   readonly errorMessage = this.logs.errorMessage;
@@ -139,6 +146,7 @@ export class LogsPage implements OnInit {
 
   readonly toolbar = computed<LogToolbarVm | null>(() => {
     const contentMode = this.contentMode();
+    const connectionName = this.currentConnection()?.name;
     if (contentMode === 'none') {
       return null;
     }
@@ -146,6 +154,7 @@ export class LogsPage implements OnInit {
     if (contentMode === 'merged') {
       const selectedEntries = this.selectedEntries();
       return {
+        connectionName,
         title: this.i18n.translate('logs.detail.mergedTitle', {
           count: selectedEntries.length,
         }),
@@ -164,6 +173,7 @@ export class LogsPage implements OnInit {
     const entry = this.selectedEntry();
     if (!entry) return null;
     return {
+      connectionName,
       title: entry.blobName,
       subtitle: entry.path ?? `/${entry.container}/${entry.blobName}`,
       metaBadges: [
@@ -182,6 +192,20 @@ export class LogsPage implements OnInit {
       ? this.i18n.translate('logs.filters.newestFirst')
       : this.i18n.translate('logs.filters.oldestFirst'),
   );
+  readonly sidebarConnectionFooter = computed<SidebarConnectionFooterVm | null>(() => {
+    const connection = this.currentConnection();
+    const lastUpdatedAt = this.sidebarLastUpdatedAt();
+    if (!connection || !lastUpdatedAt) {
+      return null;
+    }
+
+    return {
+      label: this.i18n.translate('logs.page.sidebarConnectionLabel'),
+      name: connection.name,
+      updatedLabel: this.i18n.translate('logs.page.sidebarUpdatedLabel'),
+      updatedText: this.formatSidebarUpdatedAt(lastUpdatedAt),
+    };
+  });
   readonly hasSelectedEntry = computed(() => this.selectedEntryIds().length > 0);
   readonly detailSelectionKey = computed(() => this.selectedEntryIds().join('|'));
   readonly sidebarLoading = computed(() => this.status() === 'loading');
@@ -195,10 +219,9 @@ export class LogsPage implements OnInit {
     const viewportStartLine = this.logs.largeViewerViewportStartLine();
     const totalLines = this.logs.largeViewerTotalLines();
     const topSpacerPx = viewportStartLine * LOG_VIRTUAL_LINE_HEIGHT_PX;
-    const bottomSpacerPx = Math.max(
-      totalLines - viewportStartLine - lines.length,
-      0,
-    ) * LOG_VIRTUAL_LINE_HEIGHT_PX;
+    const bottomSpacerPx =
+      Math.max(totalLines - viewportStartLine - lines.length, 0) *
+      LOG_VIRTUAL_LINE_HEIGHT_PX;
 
     return {
       progressLabel: this.i18n.translate('logs.detail.viewer.progress', {
@@ -231,7 +254,9 @@ export class LogsPage implements OnInit {
       downloadDisabled: !status.isComplete,
     };
   });
-  readonly downloadDisabled = computed(() => this.largeViewer()?.downloadDisabled ?? false);
+  readonly downloadDisabled = computed(
+    () => this.largeViewer()?.downloadDisabled ?? false,
+  );
   readonly contentFooterStats = computed<ContentFooterStatsVm | null>(() => {
     const largeViewer = this.largeViewer();
     if (largeViewer) {
@@ -260,7 +285,7 @@ export class LogsPage implements OnInit {
           ? 'logs.detail.footer.linesWindow'
           : 'logs.detail.footer.lines',
         {
-        count: countLogicalLines(content),
+          count: countLogicalLines(content),
         },
       ),
       lineEndingsLabel: this.i18n.translate(
@@ -338,8 +363,44 @@ export class LogsPage implements OnInit {
     await this.updateSelection(event.id, event.additive);
   }
 
-  refresh(): void {
-    void this.logs.refreshContent();
+  async refresh(): Promise<void> {
+    await this.logs.refreshContent();
+    if (this.currentConnection()) {
+      this.sidebarLastUpdatedAt.set(new Date());
+    }
+  }
+
+  async refreshList(): Promise<void> {
+    const connection = this.currentConnection();
+    if (!connection?.storageAccountName || !connection.containerName) {
+      return;
+    }
+
+    const previouslySelectedIds = this.selectedEntryIds();
+    await this.logs.loadForConnection(
+      connection.storageAccountName,
+      connection.containerName,
+    );
+    if (this.logs.status() !== 'success') {
+      return;
+    }
+
+    this.sidebarLastUpdatedAt.set(new Date());
+
+    const nextSelectedIds = previouslySelectedIds.filter((id) =>
+      this.logs.entries().some((entry) => entry.id === id),
+    );
+    if (nextSelectedIds.length === 0) {
+      const firstVisibleRow = this.rows()[0];
+      if (firstVisibleRow) {
+        await this.logs.updateSelection(firstVisibleRow.id, false);
+      }
+      return;
+    }
+
+    for (const [index, id] of nextSelectedIds.entries()) {
+      await this.logs.updateSelection(id, index > 0);
+    }
   }
 
   onLargeViewportChange(event: { startLine: number; lineCount: number }): void {
@@ -449,14 +510,18 @@ export class LogsPage implements OnInit {
 
     const connection = this.connectionsService.getById(connectionId);
     if (!connection) {
+      this.currentConnection.set(null);
       this.logs.setError(this.i18n.translate('logs.page.connectionNotFound'));
       return;
     }
 
     if (!connection.storageAccountName || !connection.containerName) {
+      this.currentConnection.set(null);
       this.logs.setError(this.i18n.translate('logs.page.connectionIncomplete'));
       return;
     }
+
+    this.currentConnection.set(connection);
 
     await this.logs.loadForConnection(
       connection.storageAccountName,
@@ -465,6 +530,8 @@ export class LogsPage implements OnInit {
     if (!this.isActiveRouteLoad(routeLoadToken) || this.logs.status() !== 'success') {
       return;
     }
+
+    this.sidebarLastUpdatedAt.set(new Date());
 
     const firstVisibleRow = this.rows()[0];
     if (firstVisibleRow) {
@@ -479,6 +546,8 @@ export class LogsPage implements OnInit {
 
   private resetPageState(): void {
     this.logs.reset();
+    this.currentConnection.set(null);
+    this.sidebarLastUpdatedAt.set(null);
     this.searchTerm.set('');
     this.sortDir.set('desc');
     this.createdOn.set(null);
@@ -493,6 +562,16 @@ export class LogsPage implements OnInit {
     await this.connectionsService.load();
   }
 
+  private formatSidebarUpdatedAt(value: Date): string {
+    return this.i18n.formatDate(value, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
   private isActiveRouteLoad(routeLoadToken: number): boolean {
     return routeLoadToken === this.routeLoadToken;
   }
@@ -500,8 +579,7 @@ export class LogsPage implements OnInit {
   private formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024)
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
@@ -551,14 +629,14 @@ export class LogsPage implements OnInit {
     }
     return isComplete
       ? this.i18n.translate('logs.detail.viewer.matches', { count: matches.length })
-      : this.i18n.translate('logs.detail.viewer.matchesPartial', { count: matches.length });
+      : this.i18n.translate('logs.detail.viewer.matchesPartial', {
+          count: matches.length,
+        });
   }
 }
 
 function hasFooterContent(footer: LogFooterVm): boolean {
-  return Boolean(
-    footer.typeLabel || footer.lineCountLabel || footer.lineEndingsLabel,
-  );
+  return Boolean(footer.typeLabel || footer.lineCountLabel || footer.lineEndingsLabel);
 }
 
 function buildMergedDownloadFileName(now: Date): string {
@@ -577,11 +655,7 @@ function startOfDayTimestamp(value: Date | null): number {
     return 0;
   }
 
-  return new Date(
-    value.getFullYear(),
-    value.getMonth(),
-    value.getDate(),
-  ).getTime();
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
 }
 
 function endOfDayExclusiveTimestamp(value: Date | null): number {
@@ -590,11 +664,7 @@ function endOfDayExclusiveTimestamp(value: Date | null): number {
   }
 
   return (
-    new Date(
-      value.getFullYear(),
-      value.getMonth(),
-      value.getDate(),
-    ).getTime() +
+    new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime() +
     24 * 60 * 60 * 1000
   );
 }
@@ -611,15 +681,11 @@ function countLogicalLines(content: string): number {
   return content.split(/\r\n|\n|\r/).length;
 }
 
-function detectLineEndings(
-  content: string,
-): 'cr' | 'crlf' | 'lf' | 'mixed' | 'none' {
+function detectLineEndings(content: string): 'cr' | 'crlf' | 'lf' | 'mixed' | 'none' {
   const hasCrLf = /\r\n/.test(content);
   const hasStandaloneLf = /(^|[^\r])\n/.test(content);
   const hasStandaloneCr = /\r(?!\n)/.test(content);
-  const types = [hasCrLf, hasStandaloneLf, hasStandaloneCr].filter(
-    Boolean,
-  ).length;
+  const types = [hasCrLf, hasStandaloneLf, hasStandaloneCr].filter(Boolean).length;
 
   if (types === 0) {
     return 'none';
