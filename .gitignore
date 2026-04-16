@@ -43,6 +43,7 @@ frontend/dist/*
 !frontend/dist/browser/
 frontend/dist/browser/*
 !frontend/dist/browser/.gitkeep
+!frontend/dist/browser/index.html
 frontend/node_modules/
 frontend/out-tsc/
 frontend/.angular/
