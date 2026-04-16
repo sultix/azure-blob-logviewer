@@ -16,20 +16,32 @@ import (
 )
 
 const (
-	blobViewTailPreviewLineLimit = 200
-	blobViewSearchBatchSize      = 100
-	blobViewSessionTTL           = 10 * time.Minute
+	blobViewTailPreviewLineLimit        = 200
+	blobViewSearchBatchSize             = 100
+	blobViewSearchScanLineLimit         = 2_000
+	blobViewSessionTTL                  = 10 * time.Minute
+	blobViewMaxBlobBytes                = 256 * 1024 * 1024
+	blobViewMaxConcurrentSessions       = 3
+	blobViewMaxAggregateTempBytes int64 = 512 * 1024 * 1024
+	blobViewMaxLineWindowSize     int64 = 1_000
 )
 
-type BlobViewService struct {
-	auth           *AzureAuthService
-	saveFileDialog func(context.Context, wruntime.SaveDialogOptions) (string, error)
-	openTempFile   func() (*os.File, error)
-	now            func() time.Time
+type blobViewBlobClient interface {
+	DownloadRange(ctx context.Context, containerName, blobName string, offset, count int64) ([]byte, error)
+}
 
-	mu       sync.RWMutex
-	sessions map[string]*blobViewSession
-	stopCh   chan struct{}
+type BlobViewService struct {
+	auth             *AzureAuthService
+	saveFileDialog   func(context.Context, wruntime.SaveDialogOptions) (string, error)
+	openTempFile     func() (*os.File, error)
+	now              func() time.Time
+	createBlobClient func(context.Context, string, string, string) (blobViewBlobClient, int64, string, error)
+
+	mu                  sync.RWMutex
+	sessions            map[string]*blobViewSession
+	stopCh              chan struct{}
+	pendingSessionCount int
+	reservedTempBytes   int64
 }
 
 type blobViewSession struct {
@@ -41,8 +53,13 @@ type blobViewSession struct {
 	blobName      string
 	focus         models.BlobViewFocus
 	filePath      string
+	file          *os.File
 	blobSize      int64
 	contentType   string
+	reservedBytes int64
+	failureReason string
+	downloadCtx   context.Context
+	cancel        context.CancelFunc
 
 	bytesDownloaded  int64
 	indexedBytes     int64
@@ -62,10 +79,12 @@ func NewBlobViewService(auth *AzureAuthService) *BlobViewService {
 		openTempFile: func() (*os.File, error) {
 			return os.CreateTemp("", "azure-blob-logviewer-blob-view-*.tmp")
 		},
-		now:      time.Now,
-		sessions: make(map[string]*blobViewSession),
-		stopCh:   make(chan struct{}),
+		now:              time.Now,
+		createBlobClient: nil,
+		sessions:         make(map[string]*blobViewSession),
+		stopCh:           make(chan struct{}),
 	}
+	service.createBlobClient = service.newBlobClient
 
 	go service.cleanupLoop()
 
@@ -74,7 +93,10 @@ func NewBlobViewService(auth *AzureAuthService) *BlobViewService {
 
 func (s *BlobViewService) Shutdown() {
 	close(s.stopCh)
+	s.CloseAllSessions()
+}
 
+func (s *BlobViewService) CloseAllSessions() {
 	s.mu.Lock()
 	sessions := make([]*blobViewSession, 0, len(s.sessions))
 	for _, session := range s.sessions {
@@ -94,26 +116,41 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 		focus = models.BlobViewFocusStart
 	}
 
-	blobClient, blobSize, contentType, err := s.newBlobClient(
+	blobClient, blobSize, contentType, err := s.createBlobClient(
 		ctx,
 		request.AccountName,
 		request.ContainerName,
 		request.BlobName,
 	)
 	if err != nil {
-		return nil, err
+		logDetailedError("open blob view session metadata failed", err)
+		return buildBlobViewFailureStatus(request.BlobName, focus, blobFailureReasonFromError(err)), nil
+	}
+
+	if blobSize > blobViewMaxBlobBytes {
+		return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonTooLarge), nil
+	}
+
+	if err := s.reserveSessionCapacity(blobSize); err != nil {
+		return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonLimitExceeded), nil
 	}
 
 	tempFile, err := s.openTempFile()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file: %w", err)
+		s.releasePendingSessionCapacity(blobSize)
+		logDetailedError("create temp file for blob view failed", err)
+		return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonDownloadFailed), nil
 	}
-	defer tempFile.Close()
 
 	if err := tempFile.Truncate(blobSize); err != nil {
+		s.releasePendingSessionCapacity(blobSize)
+		_ = tempFile.Close()
 		_ = os.Remove(tempFile.Name())
-		return nil, fmt.Errorf("failed to prepare temp file: %w", err)
+		logDetailedError("prepare temp file for blob view failed", err)
+		return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonLimitExceeded), nil
 	}
+
+	downloadCtx, cancel := context.WithCancel(context.Background())
 
 	session := &blobViewSession{
 		id:               fmt.Sprintf("blob-view-%d", s.now().UnixNano()),
@@ -122,8 +159,12 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 		blobName:         request.BlobName,
 		focus:            focus,
 		filePath:         tempFile.Name(),
+		file:             tempFile,
 		blobSize:         blobSize,
 		contentType:      contentType,
+		reservedBytes:    blobSize,
+		downloadCtx:      downloadCtx,
+		cancel:           cancel,
 		lineStarts:       makeInitialLineStarts(blobSize),
 		lastAccess:       s.now(),
 		tailPreviewLines: nil,
@@ -134,21 +175,28 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 		session.isComplete = true
 	} else if focus == models.BlobViewFocusEnd && blobSize > largeBlobThresholdBytes {
 		tailStart := maxInt64(blobSize-defaultBlobChunkSizeBytes, 0)
-		tailData, err := downloadBlobRange(
-			ctx,
-			blobClient,
+		tailData, err := blobClient.DownloadRange(
+			downloadCtx,
 			request.ContainerName,
 			request.BlobName,
 			tailStart,
 			blobSize-tailStart,
 		)
 		if err != nil {
+			s.releasePendingSessionCapacity(blobSize)
+			cancel()
+			_ = tempFile.Close()
 			_ = os.Remove(session.filePath)
-			return nil, err
+			logDetailedError("download blob tail preview failed", err)
+			return buildBlobViewFailureStatus(request.BlobName, focus, blobFailureReasonFromError(err)), nil
 		}
-		if err := writeBlobRange(session.filePath, tailStart, tailData); err != nil {
+		if err := writeBlobRange(session.file, tailStart, tailData); err != nil {
+			s.releasePendingSessionCapacity(blobSize)
+			cancel()
+			_ = tempFile.Close()
 			_ = os.Remove(session.filePath)
-			return nil, err
+			logDetailedError("write blob tail preview failed", err)
+			return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonDownloadFailed), nil
 		}
 
 		session.bytesDownloaded = int64(len(tailData))
@@ -157,6 +205,7 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 
 	s.mu.Lock()
 	s.sessions[session.id] = session
+	s.pendingSessionCount--
 	s.mu.Unlock()
 
 	if !session.isComplete {
@@ -187,11 +236,14 @@ func (s *BlobViewService) GetLines(sessionID string, startLine, lineCount int64)
 	indexedBytes := session.indexedBytes
 	lineStarts := append([]int64(nil), session.lineStarts...)
 	isComplete := session.isComplete
-	filePath := session.filePath
+	file := session.file
 	session.mu.Unlock()
 
 	if lineCount <= 0 {
 		lineCount = 1
+	}
+	if lineCount > blobViewMaxLineWindowSize {
+		lineCount = blobViewMaxLineWindowSize
 	}
 	if startLine < 0 {
 		startLine = 0
@@ -206,9 +258,10 @@ func (s *BlobViewService) GetLines(sessionID string, startLine, lineCount int64)
 	}
 
 	endLine := minInt64(startLine+lineCount, totalLines)
-	lines, err := readLinesWindow(filePath, lineStarts, startLine, endLine, indexedBytes, session.blobSize, isComplete)
+	lines, err := readLinesWindow(file, lineStarts, startLine, endLine, indexedBytes, session.blobSize, isComplete)
 	if err != nil {
-		return nil, err
+		logDetailedError("read blob view lines failed", err)
+		return nil, fmt.Errorf("failed to load blob lines")
 	}
 
 	return &models.BlobViewLinesResponse{
@@ -241,7 +294,7 @@ func (s *BlobViewService) Search(request models.BlobViewSearchRequest) (*models.
 	indexedBytes := session.indexedBytes
 	lineStarts := append([]int64(nil), session.lineStarts...)
 	isSessionComplete := session.isComplete
-	filePath := session.filePath
+	file := session.file
 	tailPreviewLines := append([]string(nil), session.tailPreviewLines...)
 	focus := session.focus
 	session.mu.Unlock()
@@ -276,10 +329,17 @@ func (s *BlobViewService) Search(request models.BlobViewSearchRequest) (*models.
 	}
 
 	normalizedQuery := strings.ToLower(query)
+	scannedLines := int64(0)
 	for lineNumber := request.Cursor; lineNumber < totalLines; lineNumber++ {
-		line, err := readSingleLine(filePath, lineStarts, lineNumber, indexedBytes, session.blobSize, isSessionComplete)
+		if scannedLines >= blobViewSearchScanLineLimit {
+			nextCursor = lineNumber
+			break
+		}
+
+		line, err := readSingleLine(file, lineStarts, lineNumber, indexedBytes, session.blobSize, isSessionComplete)
 		if err != nil {
-			return nil, err
+			logDetailedError("search blob view failed", err)
+			return nil, fmt.Errorf("failed to search blob content")
 		}
 
 		if strings.Contains(strings.ToLower(line), normalizedQuery) {
@@ -293,6 +353,8 @@ func (s *BlobViewService) Search(request models.BlobViewSearchRequest) (*models.
 			nextCursor = lineNumber + 1
 			break
 		}
+
+		scannedLines++
 	}
 
 	isComplete := isSessionComplete && nextCursor == -1
@@ -318,7 +380,8 @@ func (s *BlobViewService) Export(ctx context.Context, sessionID string) (*models
 	session.lastAccess = s.now()
 	isComplete := session.isComplete
 	blobName := session.blobName
-	filePath := session.filePath
+	blobSize := session.blobSize
+	file := session.file
 	session.mu.Unlock()
 
 	if !isComplete {
@@ -337,20 +400,20 @@ func (s *BlobViewService) Export(ctx context.Context, sessionID string) (*models
 		return &models.BlobViewExportResult{Cancelled: true}, nil
 	}
 
-	source, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open cached blob: %w", err)
+	if file == nil {
+		return nil, fmt.Errorf("failed to open cached blob")
 	}
-	defer source.Close()
 
-	target, err := os.Create(selectedPath)
+	target, err := openExportFile(selectedPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create export file: %w", err)
+		logDetailedError("create blob export file failed", err)
+		return nil, fmt.Errorf("failed to create export file")
 	}
 	defer target.Close()
 
-	if _, err := io.Copy(target, source); err != nil {
-		return nil, fmt.Errorf("failed to export blob content: %w", err)
+	if _, err := io.Copy(target, io.NewSectionReader(file, 0, blobSize)); err != nil {
+		logDetailedError("export blob content failed", err)
+		return nil, fmt.Errorf("failed to export blob content")
 	}
 
 	return &models.BlobViewExportResult{Cancelled: false}, nil
@@ -373,8 +436,8 @@ func (s *BlobViewService) CloseSession(sessionID string) error {
 }
 
 func (s *BlobViewService) downloadSession(session *blobViewSession) {
-	ctx := context.Background()
-	blobClient, _, _, err := s.newBlobClient(ctx, session.accountName, session.containerName, session.blobName)
+	ctx := session.downloadCtx
+	blobClient, _, _, err := s.createBlobClient(ctx, session.accountName, session.containerName, session.blobName)
 	if err != nil {
 		s.failSession(session, err)
 		return
@@ -392,19 +455,12 @@ func (s *BlobViewService) downloadSession(session *blobViewSession) {
 		}
 
 		count := minInt64(defaultBlobChunkSizeBytes, endOffset-offset)
-		data, err := downloadBlobRange(
-			ctx,
-			blobClient,
-			session.containerName,
-			session.blobName,
-			offset,
-			count,
-		)
+		data, err := blobClient.DownloadRange(ctx, session.containerName, session.blobName, offset, count)
 		if err != nil {
 			s.failSession(session, err)
 			return
 		}
-		if err := writeBlobRange(session.filePath, offset, data); err != nil {
+		if err := writeBlobRange(session.file, offset, data); err != nil {
 			s.failSession(session, err)
 			return
 		}
@@ -446,24 +502,24 @@ func (s *BlobViewService) newBlobClient(
 	accountName string,
 	containerName string,
 	blobName string,
-) (*azblob.Client, int64, string, error) {
+) (blobViewBlobClient, int64, string, error) {
 	cred, err := s.auth.GetCredential()
 	if err != nil {
-		return nil, 0, "", err
+		return nil, 0, "", sanitizeAuthError(err)
 	}
 
 	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
 	client, err := azblob.NewClient(serviceURL, cred, nil)
 	if err != nil {
-		return nil, 0, "", fmt.Errorf("failed to create blob client: %w", err)
+		return nil, 0, "", sanitizeBlobError(err)
 	}
 
 	props, err := client.ServiceClient().NewContainerClient(containerName).NewBlobClient(blobName).GetProperties(ctx, nil)
 	if err != nil {
-		return nil, 0, "", fmt.Errorf("failed to get blob properties: %w", err)
+		return nil, 0, "", sanitizeBlobError(err)
 	}
 
-	return client, derefInt64(props.ContentLength), derefStr(props.ContentType), nil
+	return blobViewAzureClient{client: client}, derefInt64(props.ContentLength), derefStr(props.ContentType), nil
 }
 
 func (s *BlobViewService) getSession(sessionID string) (*blobViewSession, error) {
@@ -505,6 +561,7 @@ func (s *BlobViewService) statusForSession(session *blobViewSession) *models.Blo
 		HasPendingBefore:  hasPendingBefore,
 		HasPendingAfter:   hasPendingAfter,
 		ErrorMessage:      session.errorMessage,
+		FailureReason:     session.failureReason,
 		Focus:             session.focus,
 		TailPreviewLines:  append([]string{}, session.tailPreviewLines...),
 	}
@@ -517,8 +574,11 @@ func (s *BlobViewService) failSession(session *blobViewSession, err error) {
 		return
 	}
 
-	session.errorMessage = err.Error()
+	reason := blobFailureReasonFromError(err)
+	session.failureReason = string(reason)
+	session.errorMessage = blobFailureMessage(reason)
 	session.lastAccess = s.now()
+	logDetailedError("blob view session failed", err)
 }
 
 func (s *BlobViewService) closeSession(session *blobViewSession) {
@@ -528,10 +588,110 @@ func (s *BlobViewService) closeSession(session *blobViewSession) {
 		return
 	}
 	session.closed = true
+	cancel := session.cancel
+	file := session.file
 	filePath := session.filePath
+	reservedBytes := session.reservedBytes
+	session.file = nil
 	session.mu.Unlock()
 
+	if cancel != nil {
+		cancel()
+	}
+	if file != nil {
+		_ = file.Close()
+	}
 	_ = os.Remove(filePath)
+	s.releaseAllocatedTempBytes(reservedBytes)
+}
+
+func (s *BlobViewService) reserveSessionCapacity(blobSize int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(s.sessions)+s.pendingSessionCount >= blobViewMaxConcurrentSessions {
+		return newBlobFailureError(
+			models.BlobFailureReasonLimitExceeded,
+			blobFailureMessage(models.BlobFailureReasonLimitExceeded),
+			fmt.Errorf("blob view session limit exceeded"),
+		)
+	}
+	if s.reservedTempBytes+blobSize > blobViewMaxAggregateTempBytes {
+		return newBlobFailureError(
+			models.BlobFailureReasonLimitExceeded,
+			blobFailureMessage(models.BlobFailureReasonLimitExceeded),
+			fmt.Errorf("blob view temp storage quota exceeded"),
+		)
+	}
+
+	s.pendingSessionCount++
+	s.reservedTempBytes += blobSize
+	return nil
+}
+
+func (s *BlobViewService) releasePendingSessionCapacity(blobSize int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.pendingSessionCount > 0 {
+		s.pendingSessionCount--
+	}
+	s.reservedTempBytes = maxInt64(s.reservedTempBytes-blobSize, 0)
+}
+
+func (s *BlobViewService) releaseAllocatedTempBytes(blobSize int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.reservedTempBytes = maxInt64(s.reservedTempBytes-blobSize, 0)
+}
+
+func buildBlobViewFailureStatus(
+	blobName string,
+	focus models.BlobViewFocus,
+	reason models.BlobFailureReason,
+) *models.BlobViewSessionStatus {
+	return &models.BlobViewSessionStatus{
+		BlobName:         blobName,
+		ErrorMessage:     blobFailureMessage(reason),
+		FailureReason:    string(reason),
+		Focus:            focus,
+		TailPreviewLines: []string{},
+	}
+}
+
+type blobViewAzureClient struct {
+	client *azblob.Client
+}
+
+func (c blobViewAzureClient) DownloadRange(
+	ctx context.Context,
+	containerName string,
+	blobName string,
+	offset int64,
+	count int64,
+) ([]byte, error) {
+	resp, err := c.client.DownloadStream(ctx, containerName, blobName, &azblob.DownloadStreamOptions{
+		Range: azblob.HTTPRange{
+			Offset: offset,
+			Count:  count,
+		},
+	})
+	if err != nil {
+		return nil, sanitizeBlobError(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, newBlobFailureError(
+			models.BlobFailureReasonDownloadFailed,
+			blobFailureMessage(models.BlobFailureReasonDownloadFailed),
+			err,
+		)
+	}
+
+	return data, nil
 }
 
 func (s *BlobViewService) cleanupLoop() {
@@ -618,57 +778,27 @@ func buildTailPreviewLines(content string, droppedPrefix bool) []string {
 	return result
 }
 
-func downloadBlobRange(
-	ctx context.Context,
-	client *azblob.Client,
-	containerName string,
-	blobName string,
-	offset int64,
-	count int64,
-) ([]byte, error) {
-	resp, err := client.DownloadStream(ctx, containerName, blobName, &azblob.DownloadStreamOptions{
-		Range: azblob.HTTPRange{
-			Offset: offset,
-			Count:  count,
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to download blob chunk: %w", err)
+func writeBlobRange(file *os.File, offset int64, data []byte) error {
+	if file == nil {
+		return fmt.Errorf("failed to open temp file")
 	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read blob chunk: %w", err)
-	}
-	return data, nil
-}
-
-func writeBlobRange(filePath string, offset int64, data []byte) error {
-	file, err := os.OpenFile(filePath, os.O_WRONLY, 0)
-	if err != nil {
-		return fmt.Errorf("failed to open temp file: %w", err)
-	}
-	defer file.Close()
 
 	if _, err := file.WriteAt(data, offset); err != nil {
-		return fmt.Errorf("failed to write temp file: %w", err)
+		return fmt.Errorf("failed to write temp file")
 	}
 	return nil
 }
 
 func rebuildFullIndex(session *blobViewSession) error {
-	file, err := os.Open(session.filePath)
-	if err != nil {
-		return fmt.Errorf("failed to open cached blob: %w", err)
+	if session.file == nil {
+		return fmt.Errorf("failed to open cached blob")
 	}
-	defer file.Close()
 
 	lineStarts := makeInitialLineStarts(session.blobSize)
 	buffer := make([]byte, 64*1024)
 	var offset int64
 	for {
-		readCount, readErr := file.Read(buffer)
+		readCount, readErr := session.file.ReadAt(buffer, offset)
 		if readCount > 0 {
 			chunk := buffer[:readCount]
 			for index, value := range chunk {
@@ -686,7 +816,7 @@ func rebuildFullIndex(session *blobViewSession) error {
 			break
 		}
 		if readErr != nil {
-			return fmt.Errorf("failed to rebuild blob index: %w", readErr)
+			return fmt.Errorf("failed to rebuild blob index")
 		}
 	}
 
@@ -699,7 +829,7 @@ func rebuildFullIndex(session *blobViewSession) error {
 }
 
 func readLinesWindow(
-	filePath string,
+	file *os.File,
 	lineStarts []int64,
 	startLine int64,
 	endLine int64,
@@ -709,7 +839,7 @@ func readLinesWindow(
 ) ([]models.BlobViewLine, error) {
 	lines := make([]models.BlobViewLine, 0, endLine-startLine)
 	for lineNumber := startLine; lineNumber < endLine; lineNumber++ {
-		content, err := readSingleLine(filePath, lineStarts, lineNumber, indexedBytes, blobSize, isComplete)
+		content, err := readSingleLine(file, lineStarts, lineNumber, indexedBytes, blobSize, isComplete)
 		if err != nil {
 			return nil, err
 		}
@@ -722,7 +852,7 @@ func readLinesWindow(
 }
 
 func readSingleLine(
-	filePath string,
+	file *os.File,
 	lineStarts []int64,
 	lineNumber int64,
 	indexedBytes int64,
@@ -749,16 +879,13 @@ func readSingleLine(
 	if length == 0 {
 		return "", nil
 	}
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to open cached blob: %w", err)
+	if file == nil {
+		return "", fmt.Errorf("failed to open cached blob")
 	}
-	defer file.Close()
 
 	buffer := make([]byte, length)
 	if _, err := file.ReadAt(buffer, startOffset); err != nil && err != io.EOF {
-		return "", fmt.Errorf("failed to read cached blob: %w", err)
+		return "", fmt.Errorf("failed to read cached blob")
 	}
 
 	content := string(buffer)

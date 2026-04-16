@@ -48,7 +48,6 @@ export interface AppApi {
   searchBlobView(request: BlobViewSearchRequest): Promise<BlobViewSearchResponse>;
   exportBlobViewSession(sessionId: string): Promise<BlobViewExportResult>;
   closeBlobViewSession(sessionId: string): Promise<void>;
-  downloadBlobContent(accountName: string, containerName: string, blobName: string): Promise<string>;
   importConnectionsFile(): Promise<ConnectionsImportResult>;
   exportConnectionsFile(content: string): Promise<ConnectionsExportResult>;
 }
@@ -72,7 +71,6 @@ interface WailsAppBridge {
   SearchBlobView(request: BlobViewSearchRequest): Promise<BlobViewSearchResponse | null>;
   ExportBlobViewSession(sessionId: string): Promise<BlobViewExportResult | null>;
   CloseBlobViewSession(sessionId: string): Promise<void>;
-  DownloadBlobContent(accountName: string, containerName: string, blobName: string): Promise<string>;
   ImportConnectionsFile(): Promise<ConnectionsImportResult | null>;
   ExportConnectionsFile(content: string): Promise<ConnectionsExportResult | null>;
 }
@@ -191,10 +189,6 @@ export class AppApiService implements AppApi {
 
   async closeBlobViewSession(sessionId: string): Promise<void> {
     return this.bridge().CloseBlobViewSession(sessionId);
-  }
-
-  async downloadBlobContent(accountName: string, containerName: string, blobName: string): Promise<string> {
-    return this.bridge().DownloadBlobContent(accountName, containerName, blobName);
   }
 
   async importConnectionsFile(): Promise<ConnectionsImportResult> {

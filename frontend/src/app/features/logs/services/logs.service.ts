@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import type { OnDestroy } from '@angular/core';
 
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
+import { getBlobFailureMessage } from '@app/core/services/app-error-messages';
 import { AppApiService } from '@app/core/services/app-api.service';
 import type {
   BlobViewSearchMatch,
@@ -255,17 +256,14 @@ export class LogsService implements OnDestroy {
 
       const entries = blobs.map((blob) => this.mapBlobToEntry(blob, accountName, containerName));
       this.state.set({ status: 'success', entries });
-    } catch (error) {
+    } catch {
       if (token !== this.connectionLoadToken) {
         return;
       }
 
       this.state.set({
         status: 'error',
-        message:
-          error instanceof Error
-            ? error.message
-            : this.i18n.translate('settings.service.loadBlobsFailed'),
+        message: this.i18n.translate('settings.service.loadBlobsFailed'),
       });
     }
   }
@@ -555,6 +553,10 @@ export class LogsService implements OnDestroy {
         blobName: entry.blobName,
         focus: this.settings.logs().initialLargeFileFocus,
       });
+      if (status.failureReason) {
+        this.selectedContentErrorState.set(getBlobFailureMessage(this.i18n, status.failureReason));
+        return;
+      }
 
       if (
         connectionLoadToken !== this.connectionLoadToken ||
@@ -591,14 +593,8 @@ export class LogsService implements OnDestroy {
       if (status.tailPreviewLines.length === 0 && status.indexedLineCount > 0) {
         await this.updateLargeViewport(initialViewportStartLine, DEFAULT_LINE_WINDOW_SIZE);
       }
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : this.i18n.translate('common.errors.unknownError');
-      this.selectedContentErrorState.set(
-        this.i18n.translate('logs.service.loadContentFailed', { message }),
-      );
+    } catch {
+      this.selectedContentErrorState.set(this.i18n.translate('logs.service.loadContentFailedGeneric'));
     } finally {
       if (
         connectionLoadToken === this.connectionLoadToken &&
@@ -639,6 +635,12 @@ export class LogsService implements OnDestroy {
             : current.requestedScrollLine,
       };
     });
+
+    if (status.failureReason) {
+      this.selectedContentErrorState.set(getBlobFailureMessage(this.i18n, status.failureReason));
+      this.stopStatusPolling();
+      return;
+    }
 
     if (status.errorMessage?.trim()) {
       this.stopStatusPolling()
@@ -738,6 +740,11 @@ export class LogsService implements OnDestroy {
 
     try {
       const chunk = await this.readEntryContent(entry);
+      if (chunk.failureReason) {
+        this.selectedContentState.set(null);
+        this.selectedContentErrorState.set(getBlobFailureMessage(this.i18n, chunk.failureReason));
+        return;
+      }
       if (
         connectionLoadToken !== this.connectionLoadToken ||
         contentLoadToken !== this.contentLoadToken
@@ -750,7 +757,7 @@ export class LogsService implements OnDestroy {
         entryIds: [id],
         chunk,
       });
-    } catch (error) {
+    } catch {
       if (
         connectionLoadToken !== this.connectionLoadToken ||
         contentLoadToken !== this.contentLoadToken
@@ -758,14 +765,8 @@ export class LogsService implements OnDestroy {
         return;
       }
 
-      const message =
-        error instanceof Error
-          ? error.message
-          : this.i18n.translate('common.errors.unknownError');
       this.selectedContentState.set(null);
-      this.selectedContentErrorState.set(
-        this.i18n.translate('logs.service.loadContentFailed', { message }),
-      );
+      this.selectedContentErrorState.set(this.i18n.translate('logs.service.loadContentFailedGeneric'));
     } finally {
       if (
         connectionLoadToken === this.connectionLoadToken &&
@@ -785,6 +786,12 @@ export class LogsService implements OnDestroy {
 
     try {
       const chunks = await Promise.all(entries.map((entry) => this.readEntryContent(entry, entry.size)));
+      const failedChunk = chunks.find((chunk) => chunk.failureReason);
+      if (failedChunk?.failureReason) {
+        this.selectedContentState.set(null);
+        this.selectedContentErrorState.set(getBlobFailureMessage(this.i18n, failedChunk.failureReason));
+        return;
+      }
       if (
         connectionLoadToken !== this.connectionLoadToken ||
         contentLoadToken !== this.contentLoadToken
@@ -803,7 +810,7 @@ export class LogsService implements OnDestroy {
         content: mergedContent,
         totalSize,
       });
-    } catch (error) {
+    } catch {
       if (
         connectionLoadToken !== this.connectionLoadToken ||
         contentLoadToken !== this.contentLoadToken
@@ -811,14 +818,8 @@ export class LogsService implements OnDestroy {
         return;
       }
 
-      const message =
-        error instanceof Error
-          ? error.message
-          : this.i18n.translate('common.errors.unknownError');
       this.selectedContentState.set(null);
-      this.selectedContentErrorState.set(
-        this.i18n.translate('logs.service.loadContentFailed', { message }),
-      );
+      this.selectedContentErrorState.set(this.i18n.translate('logs.service.loadContentFailedGeneric'));
     } finally {
       if (
         connectionLoadToken === this.connectionLoadToken &&

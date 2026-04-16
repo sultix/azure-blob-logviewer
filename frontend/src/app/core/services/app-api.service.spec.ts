@@ -73,9 +73,6 @@ interface MockBridge {
     typeof vi.fn<(sessionId: string) => Promise<{ cancelled: boolean } | null>>
   >;
   CloseBlobViewSession: ReturnType<typeof vi.fn<(sessionId: string) => Promise<void>>>;
-  DownloadBlobContent: ReturnType<
-    typeof vi.fn<(accountName: string, containerName: string, blobName: string) => Promise<string>>
-  >;
   ImportConnectionsFile: ReturnType<
     typeof vi.fn<() => Promise<{ cancelled: boolean; content: string } | null>>
   >;
@@ -252,7 +249,6 @@ describe('AppApiService', () => {
     bridge.GetBlobViewLines.mockResolvedValue(linesResponse);
     bridge.SearchBlobView.mockResolvedValue(searchResponse);
     bridge.ExportBlobViewSession.mockResolvedValue({ cancelled: false });
-    bridge.DownloadBlobContent.mockResolvedValue('log line 1');
     bridge.ImportConnectionsFile.mockResolvedValue({ cancelled: false, content: '[\n  {}\n]' });
     bridge.ExportConnectionsFile.mockResolvedValue({ cancelled: false });
 
@@ -287,9 +283,6 @@ describe('AppApiService', () => {
       service.searchBlobView({ sessionId: 'session-1', query: 'line', cursor: 0 }),
     ).resolves.toEqual(searchResponse);
     await expect(service.exportBlobViewSession('session-1')).resolves.toEqual({ cancelled: false });
-    await expect(service.downloadBlobContent('storage-a', 'logs', 'app.log')).resolves.toBe(
-      'log line 1',
-    );
     await expect(service.importConnectionsFile()).resolves.toEqual({
       cancelled: false,
       content: '[\n  {}\n]',
@@ -321,7 +314,6 @@ describe('AppApiService', () => {
       cursor: 0,
     });
     expect(bridge.ExportBlobViewSession).toHaveBeenCalledWith('session-1');
-    expect(bridge.DownloadBlobContent).toHaveBeenCalledWith('storage-a', 'logs', 'app.log');
     expect(bridge.ExportConnectionsFile).toHaveBeenCalledWith('[]');
     expect(bridge.AzureLogout).toHaveBeenCalledOnce();
   });
@@ -412,7 +404,6 @@ function createMockBridge(): MockBridge {
     SearchBlobView: vi.fn(),
     ExportBlobViewSession: vi.fn(),
     CloseBlobViewSession: vi.fn().mockResolvedValue(undefined),
-    DownloadBlobContent: vi.fn(),
     ImportConnectionsFile: vi.fn(),
     ExportConnectionsFile: vi.fn(),
   };

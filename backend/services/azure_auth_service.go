@@ -86,9 +86,10 @@ func (s *AzureAuthService) GetCredential() (azcore.TokenCredential, error) {
 type authFailureReason string
 
 const (
-	authFailureNone            authFailureReason = ""
-	authFailureCLINotAvailable authFailureReason = "cli_not_available"
-	authFailureNotLoggedIn     authFailureReason = "not_logged_in"
+	authFailureNone               authFailureReason = ""
+	authFailureCLINotAvailable    authFailureReason = "cli_not_available"
+	authFailureNotLoggedIn        authFailureReason = "not_logged_in"
+	authFailureTokenRequestFailed authFailureReason = "token_request_failed"
 )
 
 func (s *AzureAuthService) authenticate(ctx context.Context, silent bool) *models.AzureAuthState {
@@ -122,6 +123,17 @@ func (s *AzureAuthService) authenticate(ctx context.Context, silent bool) *model
 			ErrorMessage:  "Azure CLI ist nicht angemeldet. Bitte fuehren Sie 'az login' im Terminal aus und versuchen Sie es erneut.",
 			FailureReason: string(authFailureNotLoggedIn),
 		}
+	case authFailureTokenRequestFailed:
+		if silent {
+			return &models.AzureAuthState{
+				Authenticated: false,
+				FailureReason: string(authFailureTokenRequestFailed),
+			}
+		}
+		return &models.AzureAuthState{
+			Authenticated: false,
+			FailureReason: string(authFailureTokenRequestFailed),
+		}
 	default:
 		return &models.AzureAuthState{Authenticated: false}
 	}
@@ -140,8 +152,9 @@ func (s *AzureAuthService) tryAuthenticate(ctx context.Context) authFailureReaso
 		Scopes: []string{"https://management.azure.com/.default"},
 	})
 	if err != nil {
+		logDetailedError("azure auth token request failed", err)
 		s.clearCredential()
-		return authFailureNotLoggedIn
+		return authFailureReasonFromError(err)
 	}
 
 	s.setCredential(cred)

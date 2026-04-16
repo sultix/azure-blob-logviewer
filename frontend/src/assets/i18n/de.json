@@ -29,7 +29,15 @@
       "authFailed": "Authentifizierung fehlgeschlagen",
       "unknownError": "Unbekannter Fehler",
       "noResponseFromBackend": "Keine Antwort vom Backend",
-      "wailsBridgeUnavailable": "Wails-Bridge nicht verfügbar. Führen Sie `wails dev` aus, um Bindings zu erzeugen."
+      "wailsBridgeUnavailable": "Wails-Bridge nicht verfügbar. Führen Sie `wails dev` aus, um Bindings zu erzeugen.",
+      "azureCliUnavailable": "Azure CLI ist auf diesem Gerät nicht verfügbar.",
+      "azureCliNotLoggedIn": "Azure CLI ist nicht angemeldet. Führen Sie `az login` aus und versuchen Sie es erneut.",
+      "azureTokenRequestFailed": "Die Azure-Authentifizierung konnte nicht abgeschlossen werden.",
+      "blobNotFound": "Das angeforderte Blob wurde nicht gefunden.",
+      "blobAccessDenied": "Der Zugriff auf das angeforderte Blob wurde verweigert.",
+      "blobTooLarge": "Das ausgewählte Blob überschreitet das unterstützte Größenlimit.",
+      "blobLimitExceeded": "Die Anfrage überschreitet die Sicherheitsgrenzen der Anwendung.",
+      "blobDownloadFailed": "Die Blob-Anfrage konnte nicht abgeschlossen werden."
     }
   },
   "shell": {
@@ -188,7 +196,8 @@
       }
     },
     "service": {
-      "loadContentFailed": "Fehler beim Laden des Inhalts: {{message}}"
+      "loadContentFailed": "Fehler beim Laden des Inhalts: {{message}}",
+      "loadContentFailedGeneric": "Fehler beim Laden des Inhalts."
     }
   },
   "settings": {
@@ -302,7 +311,8 @@
       "loadStorageAccountsFailed": "Storage-Konten konnten nicht geladen werden",
       "loadContainersFailed": "Container konnten nicht geladen werden",
       "loadBlobsFailed": "Blobs konnten nicht geladen werden",
-      "loadBlobFailed": "Fehler beim Laden des Blobs: {{message}}"
+      "loadBlobFailed": "Fehler beim Laden des Blobs: {{message}}",
+      "loadBlobFailedGeneric": "Fehler beim Laden des Blobs."
     }
   }
 }

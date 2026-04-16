@@ -29,6 +29,7 @@ type BlobViewSessionStatus struct {
 	HasPendingBefore  bool          `json:"hasPendingBefore"`
 	HasPendingAfter   bool          `json:"hasPendingAfter"`
 	ErrorMessage      string        `json:"errorMessage,omitempty"`
+	FailureReason     string        `json:"failureReason,omitempty"`
 	Focus             BlobViewFocus `json:"focus"`
 	TailPreviewLines  []string      `json:"tailPreviewLines"`
 }

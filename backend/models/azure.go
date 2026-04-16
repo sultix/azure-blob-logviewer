@@ -15,6 +15,17 @@ type AzureAuthState struct {
 	FailureReason string `json:"failureReason,omitempty"`
 }
 
+type BlobFailureReason string
+
+const (
+	BlobFailureReasonNone           BlobFailureReason = ""
+	BlobFailureReasonNotFound       BlobFailureReason = "not_found"
+	BlobFailureReasonAccessDenied   BlobFailureReason = "access_denied"
+	BlobFailureReasonTooLarge       BlobFailureReason = "too_large"
+	BlobFailureReasonLimitExceeded  BlobFailureReason = "limit_exceeded"
+	BlobFailureReasonDownloadFailed BlobFailureReason = "download_failed"
+)
+
 // AzureSubscription represents an Azure subscription visible to the authenticated user.
 type AzureSubscription struct {
 	ID          string `json:"id"`
@@ -71,4 +82,6 @@ type AzureBlobTextChunk struct {
 	TruncatedStart     bool   `json:"truncatedStart"`
 	TruncatedEnd       bool   `json:"truncatedEnd"`
 	IsLargeBlob        bool   `json:"isLargeBlob"`
+	ErrorMessage       string `json:"errorMessage,omitempty"`
+	FailureReason      string `json:"failureReason,omitempty"`
 }

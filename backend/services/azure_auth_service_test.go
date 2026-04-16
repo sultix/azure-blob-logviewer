@@ -135,6 +135,27 @@ func TestAzureAuthServiceLoginReturnsHelpfulErrors(t *testing.T) {
 			t.Fatalf("expected not-logged-in failure reason, got %q", state.FailureReason)
 		}
 	})
+
+	t.Run("token request failed", func(t *testing.T) {
+		service := NewAzureAuthService()
+		service.newCredential = func() (azcore.TokenCredential, error) {
+			return fakeTokenCredential{tokenErr: errors.New("unexpected tenant mismatch")}, nil
+		}
+
+		state, err := service.Login(context.Background())
+		if err != nil {
+			t.Fatalf("expected no Go error, got %v", err)
+		}
+		if state.Authenticated {
+			t.Fatalf("expected disconnected login state, got %#v", state)
+		}
+		if state.FailureReason != string(authFailureTokenRequestFailed) {
+			t.Fatalf("expected token-request failure reason, got %q", state.FailureReason)
+		}
+		if state.ErrorMessage != "" {
+			t.Fatalf("expected sanitized token-request failure without raw error message, got %q", state.ErrorMessage)
+		}
+	})
 }
 
 func TestAzureAuthServiceLoginStoresCachedCredential(t *testing.T) {

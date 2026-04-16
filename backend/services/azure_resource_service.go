@@ -22,6 +22,7 @@ type AzureResourceService struct {
 const (
 	largeBlobThresholdBytes   int64 = 8 * 1024 * 1024
 	defaultBlobChunkSizeBytes int64 = 512 * 1024
+	maxBlobTextChunkBytes     int64 = 20 * 1024 * 1024
 )
 
 func NewAzureResourceService(auth *AzureAuthService) *AzureResourceService {
@@ -32,7 +33,7 @@ func NewAzureResourceService(auth *AzureAuthService) *AzureResourceService {
 func (s *AzureResourceService) ListSubscriptions(ctx context.Context) ([]models.AzureSubscription, error) {
 	cred, err := s.auth.GetCredential()
 	if err != nil {
-		return nil, err
+		return nil, sanitizeAuthError(err)
 	}
 
 	client, err := armsubscription.NewSubscriptionsClient(cred, nil)
@@ -45,7 +46,8 @@ func (s *AzureResourceService) ListSubscriptions(ctx context.Context) ([]models.
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list subscriptions: %w", err)
+			logDetailedError("list subscriptions failed", err)
+			return nil, fmt.Errorf("failed to list subscriptions")
 		}
 		for _, sub := range page.Value {
 			if sub == nil {
@@ -68,7 +70,7 @@ func (s *AzureResourceService) ListSubscriptions(ctx context.Context) ([]models.
 func (s *AzureResourceService) ListStorageAccounts(ctx context.Context, subscriptionID string) ([]models.AzureStorageAccount, error) {
 	cred, err := s.auth.GetCredential()
 	if err != nil {
-		return nil, err
+		return nil, sanitizeAuthError(err)
 	}
 
 	client, err := armstorage.NewAccountsClient(subscriptionID, cred, nil)
@@ -81,7 +83,8 @@ func (s *AzureResourceService) ListStorageAccounts(ctx context.Context, subscrip
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list storage accounts: %w", err)
+			logDetailedError("list storage accounts failed", err)
+			return nil, fmt.Errorf("failed to list storage accounts")
 		}
 		for _, acc := range page.Value {
 			if acc == nil {
@@ -108,7 +111,7 @@ func (s *AzureResourceService) ListStorageAccounts(ctx context.Context, subscrip
 func (s *AzureResourceService) ListContainers(ctx context.Context, subscriptionID, resourceGroup, accountName string) ([]models.AzureContainer, error) {
 	cred, err := s.auth.GetCredential()
 	if err != nil {
-		return nil, err
+		return nil, sanitizeAuthError(err)
 	}
 
 	client, err := armstorage.NewBlobContainersClient(subscriptionID, cred, nil)
@@ -121,7 +124,8 @@ func (s *AzureResourceService) ListContainers(ctx context.Context, subscriptionI
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list containers: %w", err)
+			logDetailedError("list blob containers failed", err)
+			return nil, fmt.Errorf("failed to list containers")
 		}
 		for _, c := range page.Value {
 			if c == nil || c.Name == nil {
@@ -148,7 +152,7 @@ func (s *AzureResourceService) ListContainers(ctx context.Context, subscriptionI
 func (s *AzureResourceService) ListBlobs(ctx context.Context, accountName, containerName, prefix string) ([]models.AzureBlobItem, error) {
 	cred, err := s.auth.GetCredential()
 	if err != nil {
-		return nil, err
+		return nil, sanitizeAuthError(err)
 	}
 
 	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
@@ -167,7 +171,8 @@ func (s *AzureResourceService) ListBlobs(ctx context.Context, accountName, conta
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list blobs: %w", err)
+			logDetailedError("list blobs failed", err)
+			return nil, fmt.Errorf("failed to list blobs")
 		}
 		for _, blob := range page.Segment.BlobItems {
 			if blob == nil || blob.Name == nil {
@@ -197,56 +202,44 @@ func (s *AzureResourceService) ListBlobs(ctx context.Context, accountName, conta
 	return result, nil
 }
 
-// DownloadBlobContent downloads a blob and returns its content as a string.
-// Intended for text-based log files. For large files consider streaming instead.
-func (s *AzureResourceService) DownloadBlobContent(ctx context.Context, accountName, containerName, blobName string) (string, error) {
-	cred, err := s.auth.GetCredential()
-	if err != nil {
-		return "", err
-	}
-
-	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
-	client, err := azblob.NewClient(serviceURL, cred, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create blob client: %w", err)
-	}
-
-	resp, err := client.DownloadStream(ctx, containerName, blobName, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to download blob: %w", err)
-	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read blob content: %w", err)
-	}
-	return string(data), nil
-}
-
 // ReadBlobTextChunk downloads a bounded text window from a blob.
 func (s *AzureResourceService) ReadBlobTextChunk(ctx context.Context, request models.AzureBlobTextChunkRequest) (*models.AzureBlobTextChunk, error) {
 	cred, err := s.auth.GetCredential()
 	if err != nil {
-		return nil, err
+		return nil, sanitizeAuthError(err)
 	}
 
 	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net", request.AccountName)
 	client, err := azblob.NewClient(serviceURL, cred, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create blob client: %w", err)
+		logDetailedError("create blob client failed", err)
+		return buildBlobTextChunkFailureResponse(0, "", models.BlobFailureReasonDownloadFailed), nil
 	}
 
 	blobClient := client.ServiceClient().NewContainerClient(request.ContainerName).NewBlobClient(request.BlobName)
 	props, err := blobClient.GetProperties(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get blob properties: %w", err)
+		logDetailedError("get blob properties failed", err)
+		return buildBlobTextChunkFailureResponse(0, "", blobFailureReasonFromError(err)), nil
 	}
 
 	blobSize := derefInt64(props.ContentLength)
+	if failureReason := validateBlobPreviewSize(blobSize); failureReason != models.BlobFailureReasonNone {
+		return buildBlobTextChunkFailureResponse(
+			blobSize,
+			derefStr(props.ContentType),
+			failureReason,
+		), nil
+	}
+
 	window, err := resolveBlobReadWindow(blobSize, request.StartOffset, request.Count)
 	if err != nil {
-		return nil, err
+		logDetailedError("resolve blob read window failed", err)
+		return buildBlobTextChunkFailureResponse(
+			blobSize,
+			derefStr(props.ContentType),
+			models.BlobFailureReasonLimitExceeded,
+		), nil
 	}
 
 	resp, err := blobClient.DownloadStream(ctx, &azblob.DownloadStreamOptions{
@@ -256,13 +249,23 @@ func (s *AzureResourceService) ReadBlobTextChunk(ctx context.Context, request mo
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to download blob chunk: %w", err)
+		logDetailedError("download blob chunk failed", err)
+		return buildBlobTextChunkFailureResponse(
+			blobSize,
+			derefStr(props.ContentType),
+			blobFailureReasonFromError(err),
+		), nil
 	}
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read blob chunk: %w", err)
+		logDetailedError("read blob chunk failed", err)
+		return buildBlobTextChunkFailureResponse(
+			blobSize,
+			derefStr(props.ContentType),
+			models.BlobFailureReasonDownloadFailed,
+		), nil
 	}
 
 	return &models.AzureBlobTextChunk{
@@ -277,6 +280,27 @@ func (s *AzureResourceService) ReadBlobTextChunk(ctx context.Context, request mo
 		TruncatedEnd:       window.startOffset+window.count < blobSize,
 		IsLargeBlob:        blobSize > largeBlobThresholdBytes,
 	}, nil
+}
+
+func buildBlobTextChunkFailureResponse(
+	blobSize int64,
+	contentType string,
+	reason models.BlobFailureReason,
+) *models.AzureBlobTextChunk {
+	return &models.AzureBlobTextChunk{
+		BlobSize:      blobSize,
+		ContentType:   contentType,
+		ErrorMessage:  blobFailureMessage(reason),
+		FailureReason: string(reason),
+	}
+}
+
+func validateBlobPreviewSize(blobSize int64) models.BlobFailureReason {
+	if blobSize > maxBlobTextChunkBytes {
+		return models.BlobFailureReasonTooLarge
+	}
+
+	return models.BlobFailureReasonNone
 }
 
 // derefStr safely dereferences a string pointer.
@@ -315,6 +339,9 @@ func resolveBlobReadWindow(blobSize int64, startOffset *int64, count *int64) (bl
 
 	if count != nil && *count <= 0 {
 		return blobReadWindow{}, fmt.Errorf("count must be greater than 0")
+	}
+	if count != nil && *count > maxBlobTextChunkBytes {
+		return blobReadWindow{}, fmt.Errorf("count exceeds the supported preview limit")
 	}
 
 	if blobSize == 0 {

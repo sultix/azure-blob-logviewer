@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
+import { getAuthFailureMessage, getBlobFailureMessage } from '@app/core/services/app-error-messages';
 import { AppApiService } from '@app/core/services/app-api.service';
 import type {
   AzureBlobItem,
@@ -113,14 +114,12 @@ export class AzureService {
         void this.loadSubscriptions();
       } else {
         this.authStep.set('error');
-        this.authError.set(result.errorMessage ?? this.i18n.translate('common.errors.authFailed'));
+        this.authError.set(getAuthFailureMessage(this.i18n, result.failureReason ?? ''));
       }
-    } catch (err) {
+    } catch {
       this.authStep.set('error');
       this.authFailureReason.set('');
-      this.authError.set(
-        err instanceof Error ? err.message : this.i18n.translate('common.errors.authFailed'),
-      );
+      this.authError.set(this.i18n.translate('common.errors.authFailed'));
     }
   }
 
@@ -182,13 +181,10 @@ export class AzureService {
       try {
         const items = await this.api.listSubscriptions();
         this.subscriptionsState.set({ status: 'success', items });
-      } catch (err) {
+      } catch {
         this.subscriptionsState.set({
           status: 'error',
-          message:
-            err instanceof Error
-              ? err.message
-              : this.i18n.translate('settings.service.loadSubscriptionsFailed'),
+          message: this.i18n.translate('settings.service.loadSubscriptionsFailed'),
         });
       } finally {
         this.subscriptionsLoadPromise = null;
@@ -220,13 +216,10 @@ export class AzureService {
       try {
         const items = await this.api.listStorageAccounts(subscriptionId);
         this.storageAccountsState.set({ status: 'success', items });
-      } catch (err) {
+      } catch {
         this.storageAccountsState.set({
           status: 'error',
-          message:
-            err instanceof Error
-              ? err.message
-              : this.i18n.translate('settings.service.loadStorageAccountsFailed'),
+          message: this.i18n.translate('settings.service.loadStorageAccountsFailed'),
         });
       } finally {
         if (this.storageAccountsLoadKey === subscriptionId) {
@@ -262,13 +255,10 @@ export class AzureService {
       try {
         const items = await this.api.listContainers(subscriptionId, resourceGroup, accountName);
         this.containersState.set({ status: 'success', items });
-      } catch (err) {
+      } catch {
         this.containersState.set({
           status: 'error',
-          message:
-            err instanceof Error
-              ? err.message
-              : this.i18n.translate('settings.service.loadContainersFailed'),
+          message: this.i18n.translate('settings.service.loadContainersFailed'),
         });
       } finally {
         if (this.containersLoadKey === loadKey) {
@@ -301,13 +291,10 @@ export class AzureService {
     try {
       const items = await this.api.listBlobs(accountName, containerName, prefix);
       this.blobsState.set({ status: 'success', items });
-    } catch (err) {
+    } catch {
       this.blobsState.set({
         status: 'error',
-        message:
-          err instanceof Error
-            ? err.message
-            : this.i18n.translate('settings.service.loadBlobsFailed'),
+        message: this.i18n.translate('settings.service.loadBlobsFailed'),
       });
     }
   }
@@ -327,17 +314,18 @@ export class AzureService {
         containerName: container.name,
         blobName,
       });
+      if (chunk.failureReason) {
+        this.blobContent.set(null);
+        this.blobContentChunk.set(null);
+        this.blobContentError.set(getBlobFailureMessage(this.i18n, chunk.failureReason));
+        return;
+      }
       this.blobContent.set(chunk.content);
       this.blobContentChunk.set(chunk);
-    } catch (err) {
+    } catch {
       this.blobContent.set(null);
       this.blobContentChunk.set(null);
-      this.blobContentError.set(
-        this.i18n.translate('settings.service.loadBlobFailed', {
-          message:
-            err instanceof Error ? err.message : this.i18n.translate('common.errors.unknownError'),
-        })
-      );
+      this.blobContentError.set(this.i18n.translate('settings.service.loadBlobFailedGeneric'));
     } finally {
       this.blobContentLoading.set(false);
     }

@@ -66,6 +66,7 @@ func (a *App) RestoreAzureSession() *models.AzureAuthState {
 }
 
 func (a *App) AzureLogout() error {
+	a.blobView.CloseAllSessions()
 	a.azureAuth.Logout()
 	return nil
 }
@@ -108,19 +109,6 @@ func (a *App) ListBlobs(accountName, containerName, prefix string) ([]models.Azu
 		return nil, fmt.Errorf("container name is required")
 	}
 	return a.azureRes.ListBlobs(a.ctx, accountName, containerName, prefix)
-}
-
-func (a *App) DownloadBlobContent(accountName, containerName, blobName string) (string, error) {
-	if accountName == "" {
-		return "", fmt.Errorf("account name is required")
-	}
-	if containerName == "" {
-		return "", fmt.Errorf("container name is required")
-	}
-	if blobName == "" {
-		return "", fmt.Errorf("blob name is required")
-	}
-	return a.azureRes.DownloadBlobContent(a.ctx, accountName, containerName, blobName)
 }
 
 func (a *App) ReadBlobTextChunk(request models.AzureBlobTextChunkRequest) (*models.AzureBlobTextChunk, error) {

@@ -1,6 +1,10 @@
 package services
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/aleksandrsultanov/azure-blob-logviewer/backend/models"
+)
 
 func TestResolveBlobReadWindow(t *testing.T) {
 	t.Run("returns full blob for small default reads", func(t *testing.T) {
@@ -61,4 +65,21 @@ func TestResolveBlobReadWindow(t *testing.T) {
 			t.Fatal("expected error for non-positive count")
 		}
 	})
+
+	t.Run("rejects counts above the preview limit", func(t *testing.T) {
+		count := maxBlobTextChunkBytes + 1
+		if _, err := resolveBlobReadWindow(maxBlobTextChunkBytes, nil, &count); err == nil {
+			t.Fatal("expected error for oversized preview count")
+		}
+	})
+}
+
+func TestValidateBlobPreviewSize(t *testing.T) {
+	if reason := validateBlobPreviewSize(maxBlobTextChunkBytes); reason != models.BlobFailureReasonNone {
+		t.Fatalf("expected blob at preview limit to be allowed, got %q", reason)
+	}
+
+	if reason := validateBlobPreviewSize(maxBlobTextChunkBytes + 1); reason != models.BlobFailureReasonTooLarge {
+		t.Fatalf("expected oversized blob to be rejected as too_large, got %q", reason)
+	}
 }

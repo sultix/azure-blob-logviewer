@@ -109,7 +109,7 @@ describe('LogsService', () => {
     await service.loadForConnection('myaccount', 'logs');
 
     expect(service.status()).toBe('error');
-    expect(service.errorMessage()).toBe('boom');
+    expect(service.errorMessage()).toBe('Failed to load blobs');
   });
 
   it('ignores a stale blob list response from a previous connection load', async () => {
@@ -344,7 +344,45 @@ describe('LogsService', () => {
 
     expect(service.selectedContent()).toBe('');
     expect(service.selectedContentLoaded()).toBe(false);
-    expect(service.selectedContentError()).toBe('Error loading content: network failed');
+    expect(service.selectedContentError()).toBe('Error loading content.');
+  });
+
+  it('maps blob preview failure reasons to localized content errors', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 1024, contentType: 'text/plain' })]);
+    api.readBlobTextChunk.mockResolvedValue(
+      createChunk({
+        failureReason: 'access_denied',
+        errorMessage: 'Access to the requested blob was denied.',
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    expect(service.selectedContent()).toBe('');
+    expect(service.selectedContentLoaded()).toBe(false);
+    expect(service.selectedContentError()).toBe('Access to the requested blob was denied.');
+  });
+
+  it('maps large-view session failure reasons to localized content errors', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.openBlobViewSession.mockResolvedValue(
+      createSessionStatus({
+        sessionId: '',
+        blobName: 'file.log',
+        blobSize: 20_000_000,
+        failureReason: 'limit_exceeded',
+        errorMessage: 'The request exceeds the application\'s safety limits.',
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    expect(service.largeViewerStatus()).toBeNull();
+    expect(service.selectedContentError()).toBe("The request exceeds the application's safety limits.");
   });
 
   it('merges selected files in click order and reads their full content', async () => {

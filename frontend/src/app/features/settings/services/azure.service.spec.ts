@@ -16,10 +16,10 @@ import { AzureService } from './azure.service';
 
 class AppApiServiceStub implements Partial<AppApiService> {
   startAzureLogin = vi.fn<
-    () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: '' | 'cli_not_available' | 'not_logged_in' }>
+    () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: '' | 'cli_not_available' | 'not_logged_in' | 'token_request_failed' }>
   >();
   restoreAzureSession = vi.fn<
-    () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: '' | 'cli_not_available' | 'not_logged_in' }>
+    () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: '' | 'cli_not_available' | 'not_logged_in' | 'token_request_failed' }>
   >();
   azureLogout = vi.fn<() => Promise<void>>();
   getAzureAuthState = vi.fn<() => Promise<{ authenticated: boolean }>>();
@@ -31,9 +31,6 @@ class AppApiServiceStub implements Partial<AppApiService> {
   listBlobs = vi.fn<(accountName: string, containerName: string, prefix: string) => Promise<AzureBlobItem[]>>();
   readBlobTextChunk = vi.fn<
     (request: AzureBlobTextChunkRequest) => Promise<AzureBlobTextChunk>
-  >();
-  downloadBlobContent = vi.fn<
-    (accountName: string, containerName: string, blobName: string) => Promise<string>
   >();
 }
 
@@ -72,14 +69,13 @@ describe('AzureService', () => {
   it('stores an authentication error when login is rejected by the backend', async () => {
     api.startAzureLogin.mockResolvedValue({
       authenticated: false,
-      errorMessage: 'Azure CLI session expired',
       failureReason: 'not_logged_in',
     });
 
     await service.login();
 
     expect(service.authStep()).toBe('error');
-    expect(service.authError()).toBe('Azure CLI session expired');
+    expect(service.authError()).toBe('Azure CLI is not logged in. Run `az login` and try again.');
     expect(service.authFailureReason()).toBe('not_logged_in');
     expect(service.azureCliMissing()).toBe(false);
   });
@@ -87,14 +83,13 @@ describe('AzureService', () => {
   it('tracks Azure CLI missing separately from the generic auth error state', async () => {
     api.startAzureLogin.mockResolvedValue({
       authenticated: false,
-      errorMessage: 'Azure CLI not found',
       failureReason: 'cli_not_available',
     });
 
     await service.login();
 
     expect(service.authStep()).toBe('error');
-    expect(service.authError()).toBe('Azure CLI not found');
+    expect(service.authError()).toBe('Azure CLI is not available on this machine.');
     expect(service.authFailureReason()).toBe('cli_not_available');
     expect(service.azureCliMissing()).toBe(true);
   });
@@ -105,7 +100,7 @@ describe('AzureService', () => {
     await service.login();
 
     expect(service.authStep()).toBe('error');
-    expect(service.authError()).toBe('boom');
+    expect(service.authError()).toBe('Authentication failed');
     expect(service.authFailureReason()).toBe('');
   });
 
@@ -148,7 +143,7 @@ describe('AzureService', () => {
   });
 
   it('restores the startup session once without eagerly loading subscriptions', async () => {
-    let resolveRestore: ((value: { authenticated: boolean; failureReason?: '' | 'cli_not_available' | 'not_logged_in' }) => void) | null = null;
+    let resolveRestore: ((value: { authenticated: boolean; failureReason?: '' | 'cli_not_available' | 'not_logged_in' | 'token_request_failed' }) => void) | null = null;
     api.restoreAzureSession.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -274,13 +269,13 @@ describe('AzureService', () => {
     await service.loadBlobs('storage-a', 'logs');
 
     expect(service.subscriptionsStatus()).toBe('error');
-    expect(service.subscriptionsError()).toBe('subscriptions failed');
+    expect(service.subscriptionsError()).toBe('Failed to load subscriptions');
     expect(service.storageAccountsStatus()).toBe('error');
-    expect(service.storageAccountsError()).toBe('accounts failed');
+    expect(service.storageAccountsError()).toBe('Failed to load storage accounts');
     expect(service.containersStatus()).toBe('error');
-    expect(service.containersError()).toBe('containers failed');
+    expect(service.containersError()).toBe('Failed to load containers');
     expect(service.blobsStatus()).toBe('error');
-    expect(service.blobsError()).toBe('blobs failed');
+    expect(service.blobsError()).toBe('Failed to load blobs');
   });
 
   it('downloads selected blob content and exposes errors as text when the download fails', async () => {
@@ -308,7 +303,7 @@ describe('AzureService', () => {
     expect(service.selectedBlobName()).toBe('error.log');
     expect(service.blobContent()).toBeNull();
     expect(service.blobContentChunk()).toBeNull();
-    expect(service.blobContentError()).toBe('Error loading blob: network failed');
+    expect(service.blobContentError()).toBe('Error loading blob.');
     expect(service.blobContentLoading()).toBe(false);
     expect(api.readBlobTextChunk).toHaveBeenCalledWith({
       accountName: account.name,
@@ -320,6 +315,25 @@ describe('AzureService', () => {
       containerName: container.name,
       blobName: 'error.log',
     });
+  });
+
+  it('surfaces blob failure reasons without exposing raw backend messages', async () => {
+    const account = createStorageAccount();
+    const container = createContainer();
+    service.selectedStorageAccount.set(account);
+    service.selectedContainer.set(container);
+    api.readBlobTextChunk.mockResolvedValue(
+      createBlobChunk({
+        failureReason: 'too_large',
+        errorMessage: 'The requested blob exceeds the supported size limit.',
+      }),
+    );
+
+    await service.downloadBlobContent('oversized.log');
+
+    expect(service.blobContent()).toBeNull();
+    expect(service.blobContentChunk()).toBeNull();
+    expect(service.blobContentError()).toBe('The selected blob exceeds the supported size limit.');
   });
 
   it('skips blob download when no storage account or container is selected', async () => {

@@ -59,7 +59,11 @@ func (c *azureCLITokenCredential) GetToken(ctx context.Context, opts policy.Toke
 		if message == "" {
 			message = err.Error()
 		}
-		return azcore.AccessToken{}, fmt.Errorf("azure CLI token request failed: %s", message)
+		return azcore.AccessToken{}, newAuthFailureError(
+			classifyAzureCLITokenFailure(message),
+			"Azure authentication failed.",
+			fmt.Errorf("azure CLI token request failed: %s", message),
+		)
 	}
 
 	return parseAzureCLIAccessToken(output)
@@ -74,14 +78,22 @@ func parseAzureCLIAccessToken(output []byte) (azcore.AccessToken, error) {
 
 	var token cliTokenResponse
 	if err := json.Unmarshal(output, &token); err != nil {
-		return azcore.AccessToken{}, fmt.Errorf("failed to parse Azure CLI token response: %w", err)
+		return azcore.AccessToken{}, newAuthFailureError(
+			authFailureTokenRequestFailed,
+			"Azure authentication failed.",
+			fmt.Errorf("failed to parse Azure CLI token response: %w", err),
+		)
 	}
 
 	expiresOn := time.Unix(token.ExpiresUnix, 0)
 	if token.ExpiresUnix == 0 {
 		parsed, err := time.ParseInLocation("2006-01-02 15:04:05.999999", token.ExpiresOn, time.Local)
 		if err != nil {
-			return azcore.AccessToken{}, fmt.Errorf("failed to parse Azure CLI token expiration %q: %w", token.ExpiresOn, err)
+			return azcore.AccessToken{}, newAuthFailureError(
+				authFailureTokenRequestFailed,
+				"Azure authentication failed.",
+				fmt.Errorf("failed to parse Azure CLI token expiration %q: %w", token.ExpiresOn, err),
+			)
 		}
 		expiresOn = parsed
 	}
@@ -90,4 +102,16 @@ func parseAzureCLIAccessToken(output []byte) (azcore.AccessToken, error) {
 		Token:     token.AccessToken,
 		ExpiresOn: expiresOn.UTC(),
 	}, nil
+}
+
+func classifyAzureCLITokenFailure(message string) authFailureReason {
+	normalized := strings.ToLower(message)
+	if strings.Contains(normalized, "az login") ||
+		strings.Contains(normalized, "please run 'az login'") ||
+		strings.Contains(normalized, "please run \"az login\"") ||
+		strings.Contains(normalized, "not logged in") {
+		return authFailureNotLoggedIn
+	}
+
+	return authFailureTokenRequestFailed
 }

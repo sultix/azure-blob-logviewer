@@ -29,7 +29,15 @@
       "authFailed": "Authentication failed",
       "unknownError": "Unknown error",
       "noResponseFromBackend": "No response from backend",
-      "wailsBridgeUnavailable": "Wails bridge unavailable. Run `wails dev` to generate bindings."
+      "wailsBridgeUnavailable": "Wails bridge unavailable. Run `wails dev` to generate bindings.",
+      "azureCliUnavailable": "Azure CLI is not available on this machine.",
+      "azureCliNotLoggedIn": "Azure CLI is not logged in. Run `az login` and try again.",
+      "azureTokenRequestFailed": "Azure authentication could not be completed.",
+      "blobNotFound": "The requested blob was not found.",
+      "blobAccessDenied": "Access to the requested blob was denied.",
+      "blobTooLarge": "The selected blob exceeds the supported size limit.",
+      "blobLimitExceeded": "The request exceeds the application's safety limits.",
+      "blobDownloadFailed": "The blob request could not be completed."
     }
   },
   "shell": {
@@ -188,7 +196,8 @@
       }
     },
     "service": {
-      "loadContentFailed": "Error loading content: {{message}}"
+      "loadContentFailed": "Error loading content: {{message}}",
+      "loadContentFailedGeneric": "Error loading content."
     }
   },
   "settings": {
@@ -302,7 +311,8 @@
       "loadStorageAccountsFailed": "Failed to load storage accounts",
       "loadContainersFailed": "Failed to load containers",
       "loadBlobsFailed": "Failed to load blobs",
-      "loadBlobFailed": "Error loading blob: {{message}}"
+      "loadBlobFailed": "Error loading blob: {{message}}",
+      "loadBlobFailedGeneric": "Error loading blob."
     }
   }
 }

@@ -1,4 +1,16 @@
-export type AzureAuthFailureReason = '' | 'cli_not_available' | 'not_logged_in';
+export type AzureAuthFailureReason =
+  | ''
+  | 'cli_not_available'
+  | 'not_logged_in'
+  | 'token_request_failed';
+
+export type BlobFailureReason =
+  | ''
+  | 'not_found'
+  | 'access_denied'
+  | 'too_large'
+  | 'limit_exceeded'
+  | 'download_failed';
 
 export interface DeviceCodeInfo {
   userCode: string;
@@ -63,4 +75,6 @@ export interface AzureBlobTextChunk {
   truncatedStart: boolean;
   truncatedEnd: boolean;
   isLargeBlob: boolean;
+  errorMessage?: string;
+  failureReason?: BlobFailureReason;
 }
