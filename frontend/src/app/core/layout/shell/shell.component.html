@@ -19,11 +19,13 @@
         >
           {{ "shell.appName" | translate }}
         </span>
-        <span
-          class="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant"
-        >
-          v0.1.0
-        </span>
+        @if (appVersion(); as version) {
+          <span
+            class="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant"
+          >
+            v{{ version }}
+          </span>
+        }
       </div>
 
       <nav class="no-drag flex items-center gap-1">

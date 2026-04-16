@@ -233,7 +233,7 @@ describe('AppApiService', () => {
       isComplete: true,
     };
 
-    bridge.GetVersion.mockResolvedValue('0.1.0');
+    bridge.GetVersion.mockResolvedValue('0.1.1');
     bridge.ListLogEntries.mockResolvedValue([entry]);
     bridge.GetLogEntry.mockResolvedValue(entry);
     bridge.StartAzureLogin.mockResolvedValue({ authenticated: true, failureReason: '' });
@@ -252,7 +252,7 @@ describe('AppApiService', () => {
     bridge.ImportConnectionsFile.mockResolvedValue({ cancelled: false, content: '[\n  {}\n]' });
     bridge.ExportConnectionsFile.mockResolvedValue({ cancelled: false });
 
-    await expect(service.getVersion()).resolves.toBe('0.1.0');
+    await expect(service.getVersion()).resolves.toBe('0.1.1');
     await expect(service.listLogEntries()).resolves.toEqual([entry]);
     await expect(service.getLogEntry('log-1')).resolves.toEqual(entry);
     await expect(service.startAzureLogin()).resolves.toEqual({ authenticated: true, failureReason: '' });

@@ -5,6 +5,7 @@ import { MessageService } from 'primeng/api';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
+import { AppApiService } from '@app/core/services/app-api.service';
 import { WindowControlsService } from '@app/core/services/window-controls.service';
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
@@ -17,12 +18,18 @@ class WindowControlsServiceStub implements Partial<WindowControlsService> {
   close = vi.fn();
 }
 
+class AppApiServiceStub implements Partial<AppApiService> {
+  getVersion = vi.fn<() => Promise<string>>().mockResolvedValue('0.1.1');
+}
+
 describe('ShellComponent', () => {
   let fixture: ComponentFixture<ShellComponent>;
   let controls: WindowControlsServiceStub;
+  let appApi: AppApiServiceStub;
 
   beforeEach(async () => {
     controls = new WindowControlsServiceStub();
+    appApi = new AppApiServiceStub();
 
     await TestBed.configureTestingModule({
       imports: [ShellComponent],
@@ -30,6 +37,7 @@ describe('ShellComponent', () => {
         provideRouter([]),
         provideTranslateTesting(),
         MessageService,
+        { provide: AppApiService, useValue: appApi },
         { provide: WindowControlsService, useValue: controls },
       ],
     }).compileComponents();
@@ -49,6 +57,16 @@ describe('ShellComponent', () => {
     expect(branding.textContent).toContain('Azure Blob Log Viewer');
     expect(maximizeButton.getAttribute('aria-label')).toBe('Maximize window');
     expect(maximizeIcon).not.toBeNull();
+  });
+
+  it('loads and renders the version from the app bridge', async () => {
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const branding = getBrandingBlock(fixture);
+
+    expect(appApi.getVersion).toHaveBeenCalledOnce();
+    expect(branding.textContent).toContain('v0.1.1');
   });
 
   it('renders the restore icon and label in the maximized window state', () => {
