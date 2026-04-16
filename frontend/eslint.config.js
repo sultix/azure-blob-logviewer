@@ -40,6 +40,7 @@ module.exports = tseslint.config(
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      quotes: ["error", "single", { avoidEscape: true }],
       eqeqeq: ["error", "always"],
     },
   },

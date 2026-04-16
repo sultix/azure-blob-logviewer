@@ -3,23 +3,23 @@ import {
   Component,
   computed,
   input,
-} from "@angular/core";
-import { ReactiveFormsModule } from "@angular/forms";
-import type { FormControl } from "@angular/forms";
-import { TranslatePipe } from "@ngx-translate/core";
-import { Select } from "primeng/select";
+} from '@angular/core';
+import { ReactiveFormsModule } from '@angular/forms';
+import type { FormControl } from '@angular/forms';
+import { TranslatePipe } from '@ngx-translate/core';
+import { Select } from 'primeng/select';
 
 import type {
   AzureContainer,
   AzureStorageAccount,
   AzureSubscription,
-} from "../../models/azure.model";
+} from '../../models/azure.model';
 
 @Component({
-  selector: "app-azure-resource-picker",
+  selector: 'app-azure-resource-picker',
   imports: [ReactiveFormsModule, Select, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: "./azure-resource-picker.component.html",
+  templateUrl: './azure-resource-picker.component.html',
 })
 export class AzureResourcePickerComponent {
   readonly subscriptionControl =

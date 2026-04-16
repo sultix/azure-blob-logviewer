@@ -3,19 +3,19 @@ import {
   Component,
   input,
   output,
-} from "@angular/core";
-import { FormsModule } from "@angular/forms";
-import { TranslatePipe } from "@ngx-translate/core";
-import { ButtonDirective } from "primeng/button";
-import { DatePicker } from "primeng/datepicker";
-import { IconField } from "primeng/iconfield";
-import { InputIcon } from "primeng/inputicon";
-import { InputText } from "primeng/inputtext";
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '@ngx-translate/core';
+import { ButtonDirective } from 'primeng/button';
+import { DatePicker } from 'primeng/datepicker';
+import { IconField } from 'primeng/iconfield';
+import { InputIcon } from 'primeng/inputicon';
+import { InputText } from 'primeng/inputtext';
 
-import type { LogCreatedRange } from "../../models/logs-view.model";
+import type { LogCreatedRange } from '../../models/logs-view.model';
 
 @Component({
-  selector: "app-logs-filters",
+  selector: 'app-logs-filters',
   standalone: true,
   imports: [
     FormsModule,
@@ -27,10 +27,10 @@ import type { LogCreatedRange } from "../../models/logs-view.model";
     InputText,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: "./logs-filters.component.html",
+  templateUrl: './logs-filters.component.html',
 })
 export class LogsFiltersComponent {
-  readonly searchTerm = input("");
+  readonly searchTerm = input('');
   readonly createdOn = input<Date | null>(null);
   readonly createdRange = input<LogCreatedRange>(null);
   readonly sortLabel = input.required<string>();

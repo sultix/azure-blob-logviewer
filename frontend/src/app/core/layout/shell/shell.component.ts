@@ -3,17 +3,17 @@ import {
   Component,
   computed,
   inject,
-} from "@angular/core";
-import { TranslatePipe } from "@ngx-translate/core";
-import { RouterLink, RouterLinkActive } from "@angular/router";
-import { Toast } from "primeng/toast";
+} from '@angular/core';
+import { TranslatePipe } from '@ngx-translate/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Toast } from 'primeng/toast';
 
-import { WindowControlsService } from "@app/core/services/window-controls.service";
+import { WindowControlsService } from '@app/core/services/window-controls.service';
 
 @Component({
-  selector: "app-shell",
+  selector: 'app-shell',
   imports: [RouterLink, RouterLinkActive, Toast, TranslatePipe],
-  templateUrl: "./shell.component.html",
+  templateUrl: './shell.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ShellComponent {

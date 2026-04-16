@@ -11,22 +11,22 @@ import {
   signal,
   type OnDestroy,
   viewChild,
-} from "@angular/core";
-import { FormsModule } from "@angular/forms";
-import { TranslatePipe } from "@ngx-translate/core";
-import type { MenuItem } from "primeng/api";
-import { Menu } from "primeng/menu";
-import { ToggleSwitch } from "primeng/toggleswitch";
-import { Tooltip } from "primeng/tooltip";
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '@ngx-translate/core';
+import type { MenuItem } from 'primeng/api';
+import { Menu } from 'primeng/menu';
+import { ToggleSwitch } from 'primeng/toggleswitch';
+import { Tooltip } from 'primeng/tooltip';
 
-import { AppI18nService } from "@app/core/i18n/app-i18n.service";
-import { SettingsService } from "@app/features/settings/services/settings.service";
+import { AppI18nService } from '@app/core/i18n/app-i18n.service';
+import { SettingsService } from '@app/features/settings/services/settings.service';
 import type {
   LogFooterVm,
   LogLargeViewerVm,
   LogsStatus,
   LogToolbarVm,
-} from "../../models/logs-view.model";
+} from '../../models/logs-view.model';
 
 interface ContentSearchVm {
   readonly matchCount: number;
@@ -54,14 +54,14 @@ const LARGE_VIEW_LINE_HEIGHT_PX = 20;
 const LARGE_VIEW_OVERSCAN_LINES = 16;
 
 @Component({
-  selector: "app-logs-detail-panel",
+  selector: 'app-logs-detail-panel',
   standalone: true,
   imports: [FormsModule, Menu, ToggleSwitch, Tooltip, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: "block h-full min-h-0 overflow-hidden",
+    class: 'block h-full min-h-0 overflow-hidden',
   },
-  templateUrl: "./logs-detail-panel.component.html",
+  templateUrl: './logs-detail-panel.component.html',
 })
 export class LogsDetailPanelComponent implements OnDestroy {
   private readonly i18n = inject(AppI18nService);
@@ -70,10 +70,10 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly status = input.required<LogsStatus>();
   readonly errorMessage = input<string | null>(null);
   readonly hasSelection = input(false);
-  readonly selectionKey = input("");
+  readonly selectionKey = input('');
   readonly toolbar = input<LogToolbarVm | null>(null);
   readonly largeViewer = input<LogLargeViewerVm | null>(null);
-  readonly content = input("");
+  readonly content = input('');
   readonly contentErrorMessage = input<string | null>(null);
   readonly contentLoading = input(false);
   readonly downloadDisabled = input(false);
@@ -93,26 +93,26 @@ export class LogsDetailPanelComponent implements OnDestroy {
   private lastLargeViewportKey: string | null = null;
   private lastRequestedLargeScrollLine: number | null = null;
   private lastAppliedSelectionKey: string | null = null;
-  private readonly contentElement = viewChild("contentElement", {
+  private readonly contentElement = viewChild('contentElement', {
     read: ElementRef<HTMLPreElement>,
   });
   private readonly contentScrollContainer = viewChild(
-    "contentScrollContainer",
+    'contentScrollContainer',
     {
       read: ElementRef<HTMLDivElement>,
     },
   );
-  readonly contentSearchInput = signal("");
-  private readonly contentSearchQuery = signal("");
+  readonly contentSearchInput = signal('');
+  private readonly contentSearchQuery = signal('');
   private readonly requestedMatchIndex = signal(0);
   readonly wordWrapEnabled = computed(
     () => this.settings.logs().wordWrapEnabled,
   );
   readonly contentClass = computed(() =>
-    this.wordWrapEnabled() ? "whitespace-pre-wrap break-all" : "whitespace-pre",
+    this.wordWrapEnabled() ? 'whitespace-pre-wrap break-all' : 'whitespace-pre',
   );
   readonly largeLineContentClass = computed(
-    () => "inline-block min-w-full whitespace-pre leading-5",
+    () => 'inline-block min-w-full whitespace-pre leading-5',
   );
   readonly canToggleWordWrap = computed(() => this.largeViewer() === null);
   readonly isLargeViewer = computed(() => this.largeViewer() !== null);
@@ -199,12 +199,12 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly mobileActionItems = computed<MenuItem[]>(() => [
     {
       label: this.i18n.translate('logs.detail.mobileActions.refresh'),
-      icon: "pi pi-refresh",
+      icon: 'pi pi-refresh',
       command: () => this.refreshRequested.emit(),
     },
     {
       label: this.i18n.translate('logs.detail.mobileActions.download'),
-      icon: "pi pi-download",
+      icon: 'pi pi-download',
       disabled: this.downloadDisabled(),
       command: () => this.downloadRequested.emit(),
     },
@@ -212,7 +212,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
       label: this.wordWrapEnabled()
         ? this.i18n.translate('logs.detail.mobileActions.wordWrapOn')
         : this.i18n.translate('logs.detail.mobileActions.wordWrapOff'),
-      icon: "pi pi-align-left",
+      icon: 'pi pi-align-left',
       disabled: !this.canToggleWordWrap(),
       command: () => this.toggleWordWrap(),
     },
@@ -261,7 +261,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
         ) {
           scrollContainer.scrollTo({
             top: largeViewer.requestedScrollLine * LARGE_VIEW_LINE_HEIGHT_PX,
-            behavior: "auto",
+            behavior: 'auto',
           });
           this.lastRequestedLargeScrollLine = largeViewer.requestedScrollLine;
           this.largeScrollHandled.emit();
@@ -281,7 +281,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
       const activeMatchIndex = this.activeContentSearchMatchIndex();
       if (activeMatchIndex < 0) {
         this.lastScrolledMatchKey = null;
-        this.lastActiveMatch?.classList.remove("active-search-match");
+        this.lastActiveMatch?.classList.remove('active-search-match');
         this.lastActiveMatch = null;
         return;
       }
@@ -292,11 +292,11 @@ export class LogsDetailPanelComponent implements OnDestroy {
         return;
       }
 
-      const matches = contentElement.querySelectorAll("mark.log-search-match");
+      const matches = contentElement.querySelectorAll('mark.log-search-match');
       const activeMatch = (matches.item(activeMatchIndex) ??
         null) as HTMLElement | null;
-      this.lastActiveMatch?.classList.remove("active-search-match");
-      activeMatch?.classList.add("active-search-match");
+      this.lastActiveMatch?.classList.remove('active-search-match');
+      activeMatch?.classList.add('active-search-match');
       this.lastActiveMatch = activeMatch;
 
       if (this.lastScrolledMatchKey === scrollKey) {
@@ -334,7 +334,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.resetContentSearchState();
 
     if (this.largeViewer()) {
-      this.largeSearchChanged.emit("");
+      this.largeSearchChanged.emit('');
     }
   }
 
@@ -444,8 +444,8 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
   private resetContentSearchState(): void {
     this.clearContentSearchApplyTimer();
-    this.contentSearchInput.set("");
-    this.contentSearchQuery.set("");
+    this.contentSearchInput.set('');
+    this.contentSearchQuery.set('');
     this.requestedMatchIndex.set(0);
     this.lastScrolledMatchKey = null;
   }
@@ -515,7 +515,7 @@ function buildContentSearch(
     };
   }
 
-  let html = "";
+  let html = '';
   let searchStart = 0;
 
   let matchNumber = 0;
@@ -526,7 +526,7 @@ function buildContentSearch(
     }
 
     html += `<mark class="log-search-match ${
-      matchNumber === initialActiveMatchIndex ? "active-search-match " : ""
+      matchNumber === initialActiveMatchIndex ? 'active-search-match ' : ''
     }bg-primary-container/20 text-on-surface">${escapeHtml(
       content.slice(matchIndex, matchIndex + queryLength),
     )}</mark>`;
@@ -564,7 +564,7 @@ function highlightContent(
   const before = escapeHtml(content.slice(0, matchIndex));
   const match = escapeHtml(content.slice(matchIndex, matchIndex + query.length));
   const after = escapeHtml(content.slice(matchIndex + query.length));
-  const activeClass = isActive ? " active-search-match" : "";
+  const activeClass = isActive ? ' active-search-match' : '';
 
   return `${before}<mark class="log-search-match${activeClass} bg-primary-container/20 text-on-surface">${match}</mark>${after}`;
 }
@@ -599,15 +599,15 @@ function scrollMatchIntoView(
     matchRect.top - containerRect.top + scrollContainer.scrollTop - 16;
   scrollContainer.scrollTo({
     top: Math.max(offsetTop, 0),
-    behavior: "auto",
+    behavior: 'auto',
   });
 }
 
 function escapeHtml(value: string): string {
   return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }

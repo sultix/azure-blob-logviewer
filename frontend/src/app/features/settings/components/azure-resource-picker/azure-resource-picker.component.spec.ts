@@ -1,23 +1,23 @@
-import { FormControl } from "@angular/forms";
-import type { ComponentFixture } from "@angular/core/testing";
-import { TestBed } from "@angular/core/testing";
-import { By } from "@angular/platform-browser";
-import { Select } from "primeng/select";
-import { beforeEach, describe, expect, it } from "vitest";
+import { FormControl } from '@angular/forms';
+import type { ComponentFixture } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { Select } from 'primeng/select';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type {
   AzureContainer,
   AzureStorageAccount,
   AzureSubscription,
-} from "@app/features/settings/models/azure.model";
+} from '@app/features/settings/models/azure.model';
 import {
   initializeI18nForTests,
   provideTranslateTesting,
-} from "@app/testing/translate-testing";
+} from '@app/testing/translate-testing';
 
-import { AzureResourcePickerComponent } from "./azure-resource-picker.component";
+import { AzureResourcePickerComponent } from './azure-resource-picker.component';
 
-describe("AzureResourcePickerComponent", () => {
+describe('AzureResourcePickerComponent', () => {
   let fixture: ComponentFixture<AzureResourcePickerComponent>;
   let component: AzureResourcePickerComponent;
   let subscriptionControl: FormControl<AzureSubscription | null>;
@@ -38,18 +38,18 @@ describe("AzureResourcePickerComponent", () => {
     fixture = TestBed.createComponent(AzureResourcePickerComponent);
     component = fixture.componentInstance;
 
-    fixture.componentRef.setInput("subscriptionControl", subscriptionControl);
+    fixture.componentRef.setInput('subscriptionControl', subscriptionControl);
     fixture.componentRef.setInput(
-      "storageAccountControl",
+      'storageAccountControl',
       storageAccountControl,
     );
-    fixture.componentRef.setInput("containerControl", containerControl);
-    fixture.componentRef.setInput("subscriptions", [createSubscription()]);
-    fixture.componentRef.setInput("storageAccounts", [createStorageAccount()]);
-    fixture.componentRef.setInput("containers", [createContainer()]);
+    fixture.componentRef.setInput('containerControl', containerControl);
+    fixture.componentRef.setInput('subscriptions', [createSubscription()]);
+    fixture.componentRef.setInput('storageAccounts', [createStorageAccount()]);
+    fixture.componentRef.setInput('containers', [createContainer()]);
   });
 
-  it("binds the passed form controls to the PrimeNG selects", () => {
+  it('binds the passed form controls to the PrimeNG selects', () => {
     const subscription = createSubscription();
     const storageAccount = createStorageAccount();
     const container = createContainer();
@@ -71,7 +71,7 @@ describe("AzureResourcePickerComponent", () => {
     expect(component.containerControl().value).toBe(container);
   });
 
-  it("disables dependent selects until their parent selection exists", () => {
+  it('disables dependent selects until their parent selection exists', () => {
     storageAccountControl.disable();
     containerControl.disable();
     fixture.detectChanges();
@@ -96,28 +96,28 @@ describe("AzureResourcePickerComponent", () => {
 
 function createSubscription(): AzureSubscription {
   return {
-    id: "sub-1",
-    displayName: "Production",
-    tenantId: "tenant-1",
-    state: "Enabled",
+    id: 'sub-1',
+    displayName: 'Production',
+    tenantId: 'tenant-1',
+    state: 'Enabled',
   };
 }
 
 function createStorageAccount(): AzureStorageAccount {
   return {
-    id: "acc-1",
-    name: "storage-a",
-    location: "westeurope",
-    kind: "StorageV2",
-    resourceGroup: "rg-1",
-    subscriptionId: "sub-1",
+    id: 'acc-1',
+    name: 'storage-a',
+    location: 'westeurope',
+    kind: 'StorageV2',
+    resourceGroup: 'rg-1',
+    subscriptionId: 'sub-1',
   };
 }
 
 function createContainer(): AzureContainer {
   return {
-    name: "logs",
-    lastModified: "2026-04-13T10:30:00Z",
-    leaseState: "available",
+    name: 'logs',
+    lastModified: '2026-04-13T10:30:00Z',
+    leaseState: 'available',
   };
 }

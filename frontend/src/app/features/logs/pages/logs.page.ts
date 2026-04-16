@@ -5,19 +5,19 @@ import {
   DestroyRef,
   inject,
   signal,
-} from "@angular/core";
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import type { OnInit } from "@angular/core";
-import { ActivatedRoute } from "@angular/router";
-import { MessageService } from "primeng/api";
-import { distinctUntilChanged, map } from "rxjs";
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import type { OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { MessageService } from 'primeng/api';
+import { distinctUntilChanged, map } from 'rxjs';
 
-import { AppI18nService } from "@app/core/i18n/app-i18n.service";
-import { ConnectionsService } from "@app/features/connections/services/connections.service";
+import { AppI18nService } from '@app/core/i18n/app-i18n.service';
+import { ConnectionsService } from '@app/features/connections/services/connections.service';
 
-import { LogsDetailPanelComponent } from "../components/logs-detail-panel/logs-detail-panel.component";
-import { LogsFileListComponent } from "../components/logs-file-list/logs-file-list.component";
-import { LogsFiltersComponent } from "../components/logs-filters/logs-filters.component";
+import { LogsDetailPanelComponent } from '../components/logs-detail-panel/logs-detail-panel.component';
+import { LogsFileListComponent } from '../components/logs-file-list/logs-file-list.component';
+import { LogsFiltersComponent } from '../components/logs-filters/logs-filters.component';
 import type {
   LogCreatedRange,
   LogFileSelectionEvent,
@@ -25,13 +25,13 @@ import type {
   LogFooterVm,
   LogLargeViewerVm,
   LogToolbarVm,
-} from "../models/logs-view.model";
+} from '../models/logs-view.model';
 import {
   LogsService,
   type LogSelectionUpdateResult,
-} from "../services/logs.service";
+} from '../services/logs.service';
 
-type SortDir = "asc" | "desc";
+type SortDir = 'asc' | 'desc';
 
 interface PreparedLogFileRowVm extends LogFileRowVm {
   readonly blobNameLower: string;
@@ -46,14 +46,14 @@ interface ContentFooterStatsVm {
 const LOG_VIRTUAL_LINE_HEIGHT_PX = 20;
 
 @Component({
-  selector: "app-logs-page",
+  selector: 'app-logs-page',
   imports: [
     LogsFiltersComponent,
     LogsFileListComponent,
     LogsDetailPanelComponent,
   ],
   providers: [LogsService],
-  templateUrl: "./logs.page.html",
+  templateUrl: './logs.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LogsPage implements OnInit {
@@ -79,8 +79,8 @@ export class LogsPage implements OnInit {
   readonly isLargeBlob = this.logs.isLargeBlob;
   readonly largeViewerStatus = this.logs.largeViewerStatus;
 
-  readonly searchTerm = signal("");
-  readonly sortDir = signal<SortDir>("desc");
+  readonly searchTerm = signal('');
+  readonly sortDir = signal<SortDir>('desc');
   readonly createdOn = signal<Date | null>(null);
   readonly createdRange = signal<LogCreatedRange>(null);
 
@@ -126,7 +126,7 @@ export class LogsPage implements OnInit {
       return true;
     });
 
-    const mult = dir === "asc" ? 1 : -1;
+    const mult = dir === 'asc' ? 1 : -1;
     return [...filteredRows].sort((a, b) => {
       const dateCmp = a.createdAtTs - b.createdAtTs;
       if (dateCmp !== 0) {
@@ -139,24 +139,24 @@ export class LogsPage implements OnInit {
 
   readonly toolbar = computed<LogToolbarVm | null>(() => {
     const contentMode = this.contentMode();
-    if (contentMode === "none") {
+    if (contentMode === 'none') {
       return null;
     }
 
-    if (contentMode === "merged") {
+    if (contentMode === 'merged') {
       const selectedEntries = this.selectedEntries();
       return {
-        title: this.i18n.translate("logs.detail.mergedTitle", {
+        title: this.i18n.translate('logs.detail.mergedTitle', {
           count: selectedEntries.length,
         }),
-        subtitle: this.i18n.translate("logs.detail.mergedSubtitle"),
+        subtitle: this.i18n.translate('logs.detail.mergedSubtitle'),
         metaBadges: [
-          this.i18n.translate("logs.detail.size", {
+          this.i18n.translate('logs.detail.size', {
             value: this.formatSize(
               selectedEntries.reduce((sum, entry) => sum + entry.size, 0),
             ),
           }),
-          this.i18n.translate("logs.detail.mergeOrder"),
+          this.i18n.translate('logs.detail.mergeOrder'),
         ],
       };
     }
@@ -167,10 +167,10 @@ export class LogsPage implements OnInit {
       title: entry.blobName,
       subtitle: entry.path ?? `/${entry.container}/${entry.blobName}`,
       metaBadges: [
-        this.i18n.translate("logs.detail.size", {
+        this.i18n.translate('logs.detail.size', {
           value: this.formatSize(entry.size),
         }),
-        this.i18n.translate("logs.detail.created", {
+        this.i18n.translate('logs.detail.created', {
           value: entry.createdRelative || entry.createdLabel,
         }),
       ],
@@ -178,13 +178,13 @@ export class LogsPage implements OnInit {
   });
 
   readonly sortLabel = computed(() =>
-    this.sortDir() === "desc"
+    this.sortDir() === 'desc'
       ? this.i18n.translate('logs.filters.newestFirst')
       : this.i18n.translate('logs.filters.oldestFirst'),
   );
   readonly hasSelectedEntry = computed(() => this.selectedEntryIds().length > 0);
-  readonly detailSelectionKey = computed(() => this.selectedEntryIds().join("|"));
-  readonly sidebarLoading = computed(() => this.status() === "loading");
+  readonly detailSelectionKey = computed(() => this.selectedEntryIds().join('|'));
+  readonly sidebarLoading = computed(() => this.status() === 'loading');
   readonly largeViewer = computed<LogLargeViewerVm | null>(() => {
     const status = this.largeViewerStatus();
     if (!status) {
@@ -201,13 +201,13 @@ export class LogsPage implements OnInit {
     ) * LOG_VIRTUAL_LINE_HEIGHT_PX;
 
     return {
-      progressLabel: this.i18n.translate("logs.detail.viewer.progress", {
+      progressLabel: this.i18n.translate('logs.detail.viewer.progress', {
         loaded: this.formatProgressSize(status.bytesDownloaded),
         total: this.formatProgressSize(status.blobSize),
       }),
       statusLabel: status.isComplete
-        ? this.i18n.translate("logs.detail.viewer.complete")
-        : this.i18n.translate("logs.detail.viewer.backgroundLoading"),
+        ? this.i18n.translate('logs.detail.viewer.complete')
+        : this.i18n.translate('logs.detail.viewer.backgroundLoading'),
       searchStatusLabel: this.buildLargeViewerSearchStatusLabel(),
       searchQuery: this.logs.largeViewerSearchQuery(),
       matchCount: this.logs.largeViewerSearchMatches().length,
@@ -222,10 +222,10 @@ export class LogsPage implements OnInit {
       totalLines,
       tailPreviewLines: this.logs.largeViewerTailPreviewLines(),
       pendingBeforeLabel: status.hasPendingBefore
-        ? this.i18n.translate("logs.detail.viewer.pendingBefore")
+        ? this.i18n.translate('logs.detail.viewer.pendingBefore')
         : null,
       pendingAfterLabel: status.hasPendingAfter
-        ? this.i18n.translate("logs.detail.viewer.pendingAfter")
+        ? this.i18n.translate('logs.detail.viewer.pendingAfter')
         : null,
       canEnableWordWrap: status.canEnableWordWrap,
       downloadDisabled: !status.isComplete,
@@ -257,8 +257,8 @@ export class LogsPage implements OnInit {
     return {
       lineCountLabel: this.i18n.translate(
         this.isLargeBlob()
-          ? "logs.detail.footer.linesWindow"
-          : "logs.detail.footer.lines",
+          ? 'logs.detail.footer.linesWindow'
+          : 'logs.detail.footer.lines',
         {
         count: countLogicalLines(content),
         },
@@ -296,7 +296,7 @@ export class LogsPage implements OnInit {
   ngOnInit(): void {
     this.route.paramMap
       .pipe(
-        map((paramMap) => paramMap.get("connectionId")),
+        map((paramMap) => paramMap.get('connectionId')),
         distinctUntilChanged(),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -311,7 +311,7 @@ export class LogsPage implements OnInit {
   }
 
   toggleSort(): void {
-    this.sortDir.set(this.sortDir() === "desc" ? "asc" : "desc");
+    this.sortDir.set(this.sortDir() === 'desc' ? 'asc' : 'desc');
   }
 
   onCreatedOnChange(value: Date | null): void {
@@ -329,7 +329,7 @@ export class LogsPage implements OnInit {
   }
 
   clearFilters(): void {
-    this.searchTerm.set("");
+    this.searchTerm.set('');
     this.createdOn.set(null);
     this.createdRange.set(null);
   }
@@ -380,7 +380,7 @@ export class LogsPage implements OnInit {
       }
 
       this.messageService.add({
-        severity: "success",
+        severity: 'success',
         summary: this.i18n.translate('logs.detail.toast.downloadComplete'),
         detail: this.i18n.translate('logs.detail.toast.downloaded', {
           name: entry.blobName,
@@ -409,18 +409,18 @@ export class LogsPage implements OnInit {
       content = this.selectedContent();
     }
 
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const downloadUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const link = document.createElement('a');
     link.href = downloadUrl;
     link.download = isMerged
       ? buildMergedDownloadFileName(new Date())
-      : (selectedEntries[0]?.blobName ?? "log.txt");
+      : (selectedEntries[0]?.blobName ?? 'log.txt');
     link.click();
     URL.revokeObjectURL(downloadUrl);
 
     this.messageService.add({
-      severity: "success",
+      severity: 'success',
       summary: this.i18n.translate('logs.detail.toast.downloadComplete'),
       detail: isMerged
         ? this.i18n.translate('logs.detail.toast.downloadedMerged', {
@@ -449,12 +449,12 @@ export class LogsPage implements OnInit {
 
     const connection = this.connectionsService.getById(connectionId);
     if (!connection) {
-      this.logs.setError(this.i18n.translate("logs.page.connectionNotFound"));
+      this.logs.setError(this.i18n.translate('logs.page.connectionNotFound'));
       return;
     }
 
     if (!connection.storageAccountName || !connection.containerName) {
-      this.logs.setError(this.i18n.translate("logs.page.connectionIncomplete"));
+      this.logs.setError(this.i18n.translate('logs.page.connectionIncomplete'));
       return;
     }
 
@@ -462,7 +462,7 @@ export class LogsPage implements OnInit {
       connection.storageAccountName,
       connection.containerName,
     );
-    if (!this.isActiveRouteLoad(routeLoadToken) || this.logs.status() !== "success") {
+    if (!this.isActiveRouteLoad(routeLoadToken) || this.logs.status() !== 'success') {
       return;
     }
 
@@ -479,14 +479,14 @@ export class LogsPage implements OnInit {
 
   private resetPageState(): void {
     this.logs.reset();
-    this.searchTerm.set("");
-    this.sortDir.set("desc");
+    this.searchTerm.set('');
+    this.sortDir.set('desc');
     this.createdOn.set(null);
     this.createdRange.set(null);
   }
 
   private async ensureConnectionsLoaded(): Promise<void> {
-    if (this.connectionsService.status() === "success") {
+    if (this.connectionsService.status() === 'success') {
       return;
     }
 
@@ -510,15 +510,15 @@ export class LogsPage implements OnInit {
   }
 
   private showSelectionMessage(result: LogSelectionUpdateResult): void {
-    if (result.kind === "updated") {
+    if (result.kind === 'updated') {
       return;
     }
 
-    if (result.kind === "selection-limit") {
+    if (result.kind === 'selection-limit') {
       this.messageService.add({
-        severity: "warn",
-        summary: this.i18n.translate("logs.detail.toast.selectionLimitTitle"),
-        detail: this.i18n.translate("logs.detail.toast.selectionLimitDetail", {
+        severity: 'warn',
+        summary: this.i18n.translate('logs.detail.toast.selectionLimitTitle'),
+        detail: this.i18n.translate('logs.detail.toast.selectionLimitDetail', {
           max: result.maxFiles,
         }),
         life: 3000,
@@ -527,9 +527,9 @@ export class LogsPage implements OnInit {
     }
 
     this.messageService.add({
-      severity: "warn",
-      summary: this.i18n.translate("logs.detail.toast.fileTooLargeTitle"),
-      detail: this.i18n.translate("logs.detail.toast.fileTooLargeDetail", {
+      severity: 'warn',
+      summary: this.i18n.translate('logs.detail.toast.fileTooLargeTitle'),
+      detail: this.i18n.translate('logs.detail.toast.fileTooLargeDetail', {
         name: result.fileName,
         maxSize: this.formatSize(result.maxSizeBytes),
       }),
@@ -542,7 +542,7 @@ export class LogsPage implements OnInit {
     const query = this.logs.largeViewerSearchQuery().trim();
     const isComplete = this.logs.largeViewerSearchIsComplete();
     if (query.length === 0) {
-      return "";
+      return '';
     }
     if (matches.length === 0) {
       return isComplete
@@ -563,11 +563,11 @@ function hasFooterContent(footer: LogFooterVm): boolean {
 
 function buildMergedDownloadFileName(now: Date): string {
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  const seconds = String(now.getSeconds()).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
 
   return `merged-logs-${year}${month}${day}-${hours}${minutes}${seconds}.txt`;
 }
@@ -613,7 +613,7 @@ function countLogicalLines(content: string): number {
 
 function detectLineEndings(
   content: string,
-): "cr" | "crlf" | "lf" | "mixed" | "none" {
+): 'cr' | 'crlf' | 'lf' | 'mixed' | 'none' {
   const hasCrLf = /\r\n/.test(content);
   const hasStandaloneLf = /(^|[^\r])\n/.test(content);
   const hasStandaloneCr = /\r(?!\n)/.test(content);
@@ -622,18 +622,18 @@ function detectLineEndings(
   ).length;
 
   if (types === 0) {
-    return "none";
+    return 'none';
   }
   if (types > 1) {
-    return "mixed";
+    return 'mixed';
   }
   if (hasCrLf) {
-    return "crlf";
+    return 'crlf';
   }
   if (hasStandaloneLf) {
-    return "lf";
+    return 'lf';
   }
-  return "cr";
+  return 'cr';
 }
 
 function toTimestamp(value: string): number {

@@ -1,27 +1,27 @@
-import { computed, signal } from "@angular/core";
-import { TestBed } from "@angular/core/testing";
-import { provideRouter } from "@angular/router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ComponentFixture } from "@angular/core/testing";
-import { MessageService } from "primeng/api";
+import { computed, signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ComponentFixture } from '@angular/core/testing';
+import { MessageService } from 'primeng/api';
 
-import { AppI18nService } from "@app/core/i18n/app-i18n.service";
-import { AppApiService } from "@app/core/services/app-api.service";
-import { ConnectionsService } from "@app/features/connections/services/connections.service";
+import { AppI18nService } from '@app/core/i18n/app-i18n.service';
+import { AppApiService } from '@app/core/services/app-api.service';
+import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import {
   initializeI18nForTests,
   provideTranslateTesting,
-} from "@app/testing/translate-testing";
+} from '@app/testing/translate-testing';
 
-import { SettingsPage } from "./settings.page";
-import type { GeneralConfig, LogsPreferences } from "../models/app-config.model";
-import { AzureService } from "../services/azure.service";
-import { SettingsService } from "../services/settings.service";
+import { SettingsPage } from './settings.page';
+import type { GeneralConfig, LogsPreferences } from '../models/app-config.model';
+import { AzureService } from '../services/azure.service';
+import { SettingsService } from '../services/settings.service';
 
 class AzureServiceStub implements Partial<AzureService> {
   readonly authStep = signal<
-    "disconnected" | "authenticating" | "authenticated" | "error"
-  >("disconnected");
+    'disconnected' | 'authenticating' | 'authenticated' | 'error'
+  >('disconnected');
   readonly authError = signal<string | null>(null);
   readonly azureCliMissing = signal(false);
   login = vi.fn<() => Promise<void>>(async () => undefined);
@@ -31,12 +31,12 @@ class AzureServiceStub implements Partial<AzureService> {
 class SettingsServiceStub implements Partial<SettingsService> {
   readonly general = signal<GeneralConfig>({
     refreshIntervalMinutes: 15,
-    retentionPolicy: "30d" as const,
-    language: "en" as const,
+    retentionPolicy: '30d' as const,
+    language: 'en' as const,
   });
   readonly logs = signal<LogsPreferences>({
     wordWrapEnabled: false,
-    initialLargeFileFocus: "start",
+    initialLargeFileFocus: 'start',
   });
   updateGeneral = vi.fn();
   updateLogsPreferences = vi.fn();
@@ -46,20 +46,20 @@ class SettingsServiceStub implements Partial<SettingsService> {
 class ConnectionsServiceStub implements Partial<ConnectionsService> {
   readonly connectionsState = signal([
     {
-      id: "conn-1",
-      name: "prod-storage",
-      displayName: "storage / logs",
-      environment: "production" as const,
-      status: "online" as const,
-      lastUsed: "2026-04-13T10:30:00Z",
-      accessTier: "Hot" as const,
-      stateText: "Connected",
+      id: 'conn-1',
+      name: 'prod-storage',
+      displayName: 'storage / logs',
+      environment: 'production' as const,
+      status: 'online' as const,
+      lastUsed: '2026-04-13T10:30:00Z',
+      accessTier: 'Hot' as const,
+      stateText: 'Connected',
     },
   ]);
   readonly connections = computed(() => this.connectionsState());
   load = vi.fn<() => Promise<void>>(async () => undefined);
   importFromJson = vi.fn<(json: string) => number>(() => 1);
-  exportJson = vi.fn<() => string>(() => "[\n  {}\n]");
+  exportJson = vi.fn<() => string>(() => '[\n  {}\n]');
 }
 
 class AppApiServiceStub implements Partial<AppApiService> {
@@ -80,7 +80,7 @@ class MessageServiceStub implements Partial<MessageService> {
   add = vi.fn();
 }
 
-describe("SettingsPage", () => {
+describe('SettingsPage', () => {
   let fixture: ComponentFixture<SettingsPage>;
   let azure: AzureServiceStub;
   let api: AppApiServiceStub;
@@ -110,71 +110,71 @@ describe("SettingsPage", () => {
     fixture = TestBed.createComponent(SettingsPage);
   });
 
-  it("loads saved connections on init without triggering another auth startup check", () => {
+  it('loads saved connections on init without triggering another auth startup check', () => {
     fixture.detectChanges();
 
     expect(connections.load).toHaveBeenCalledOnce();
   });
 
-  it("updates TS-derived auth badge labels when the language changes", async () => {
-    azure.authStep.set("authenticated");
+  it('updates TS-derived auth badge labels when the language changes', async () => {
+    azure.authStep.set('authenticated');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain("AUTHENTICATED");
+    expect(fixture.nativeElement.textContent).toContain('AUTHENTICATED');
 
-    await TestBed.inject(AppI18nService).setLanguage("de");
+    await TestBed.inject(AppI18nService).setLanguage('de');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain("AUTHENTIFIZIERT");
+    expect(fixture.nativeElement.textContent).toContain('AUTHENTIFIZIERT');
   });
 
-  it("shows the disconnected Azure CLI warning when the CLI is missing", () => {
+  it('shows the disconnected Azure CLI warning when the CLI is missing', () => {
     azure.azureCliMissing.set(true);
 
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain("Azure CLI not found");
+    expect(fixture.nativeElement.textContent).toContain('Azure CLI not found');
     expect(fixture.nativeElement.textContent).not.toContain(
-      "Make sure you have run az login in your terminal.",
+      'Make sure you have run az login in your terminal.',
     );
   });
 
-  it("renders and updates the large-file focus preference", () => {
+  it('renders and updates the large-file focus preference', () => {
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain("Large File Start");
-    const endButton = getButtonByText(fixture, "End");
+    expect(fixture.nativeElement.textContent).toContain('Large File Start');
+    const endButton = getButtonByText(fixture, 'End');
     endButton.click();
 
     const settings = TestBed.inject(SettingsService) as unknown as SettingsServiceStub;
     expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
-      initialLargeFileFocus: "end",
+      initialLargeFileFocus: 'end',
     });
   });
 
-  it("renders import/export actions and the dashboard management hint instead of a connection list", () => {
+  it('renders import/export actions and the dashboard management hint instead of a connection list', () => {
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain("Import");
-    expect(fixture.nativeElement.textContent).toContain("Export");
+    expect(fixture.nativeElement.textContent).toContain('Import');
+    expect(fixture.nativeElement.textContent).toContain('Export');
     expect(fixture.nativeElement.textContent).toContain(
-      "Manage connections in the Dashboard",
+      'Manage connections in the Dashboard',
     );
-    expect(fixture.nativeElement.textContent).not.toContain("AUTH EXPIRED");
+    expect(fixture.nativeElement.textContent).not.toContain('AUTH EXPIRED');
   });
 
-  it("disables export when no saved connections exist", () => {
+  it('disables export when no saved connections exist', () => {
     connections.connectionsState.set([]);
     fixture.detectChanges();
 
-    const exportButton = getButtonByText(fixture, "Export");
+    const exportButton = getButtonByText(fixture, 'Export');
     expect(exportButton.disabled).toBe(true);
   });
 
-  it("imports connections through the native file bridge and shows success feedback", async () => {
+  it('imports connections through the native file bridge and shows success feedback', async () => {
     fixture.detectChanges();
 
-    const importButton = getButtonByText(fixture, "Import");
+    const importButton = getButtonByText(fixture, 'Import');
     importButton.click();
     await fixture.whenStable();
 
@@ -183,7 +183,7 @@ describe("SettingsPage", () => {
       '[{"id":"conn-2"}]',
     );
     expect(messageService.add).toHaveBeenCalledWith(
-      expect.objectContaining({ severity: "success" }),
+      expect.objectContaining({ severity: 'success' }),
     );
   });
 });
@@ -193,7 +193,7 @@ function getButtonByText(
   text: string,
 ): HTMLButtonElement {
   const buttons = Array.from(
-    fixture.nativeElement.querySelectorAll("button"),
+    fixture.nativeElement.querySelectorAll('button'),
   ) as HTMLButtonElement[];
   const match = buttons.find((button) => button.textContent?.includes(text));
   if (!match) {

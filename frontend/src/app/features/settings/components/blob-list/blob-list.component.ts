@@ -4,10 +4,10 @@ import {
   computed,
   input,
   output,
-} from "@angular/core";
-import { TranslatePipe } from "@ngx-translate/core";
+} from '@angular/core';
+import { TranslatePipe } from '@ngx-translate/core';
 
-import type { AzureBlobItem } from "../../models/azure.model";
+import type { AzureBlobItem } from '../../models/azure.model';
 
 interface BlobRowVm {
   name: string;
@@ -16,19 +16,19 @@ interface BlobRowVm {
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
+  if (bytes === 0) return '0 B';
   const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
+  const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   const val = bytes / Math.pow(k, i);
   return `${val.toFixed(i === 0 ? 0 : 1)} ${sizes[i]}`;
 }
 
 @Component({
-  selector: "app-blob-list",
+  selector: 'app-blob-list',
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: "./blob-list.component.html",
+  templateUrl: './blob-list.component.html',
 })
 export class BlobListComponent {
   readonly blobs = input.required<AzureBlobItem[]>();
