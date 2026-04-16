@@ -5,17 +5,10 @@
   @if (pageVm(); as vm) {
   <p-confirmdialog appendTo="body" />
 
-  <div
-    class="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col px-10 pb-10 pt-10"
-  >
-    <div
-      data-testid="connections-page-header"
-      class="shrink-0 flex flex-col gap-8 pb-8"
-    >
+  <div class="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col px-10 pb-10 pt-10">
+    <div data-testid="connections-page-header" class="shrink-0 flex flex-col gap-8 pb-8">
       <header class="flex flex-col gap-2">
-        <span
-          class="text-xs font-semibold uppercase tracking-[0.2em] text-primary"
-        >
+        <span class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
           {{ 'connections.page.eyebrow' | translate }}
         </span>
         <h1 class="font-display text-3xl font-bold text-on-surface">
@@ -31,9 +24,7 @@
         </h2>
       </div>
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-4">
-        <div
-          class="flex items-start justify-between rounded-xl bg-surface-container p-5"
-        >
+        <div class="flex items-start justify-between rounded-xl bg-surface-container p-5">
           <div class="flex flex-col gap-1">
             <span
               class="text-[11px] font-medium uppercase tracking-wider text-on-surface-variant"
@@ -67,8 +58,8 @@
                 class="max-w-3xl text-sm leading-relaxed"
                 [class]="vm.azureCliCardStyle.descriptionClass"
               >
-                {{ 'connections.page.azureCliDescription' | translate: {
-                command: 'az login' } }}
+                {{ 'connections.page.azureCliDescription' | translate: { command: 'az
+                login' } }}
               </p>
             </div>
             <span
@@ -126,10 +117,7 @@
       }
     </div>
 
-    <div
-      data-testid="connections-list-scroll"
-      class="min-h-0 flex-1 overflow-y-auto"
-    >
+    <div data-testid="connections-list-scroll" class="min-h-0 flex-1 overflow-y-auto">
       @if (vm.status === 'loading') {
       <p class="text-sm text-on-surface-variant">
         {{ 'connections.page.loading' | translate }}
@@ -164,45 +152,24 @@
 
             <div class="flex min-w-0 flex-1 flex-col gap-1">
               <div class="flex items-center gap-3">
-                <span
-                  class="truncate font-mono text-sm font-medium text-on-surface"
+                <a
+                  [routerLink]="['/logs', card.id]"
+                  class="block max-w-full truncate rounded-sm font-mono text-sm font-medium text-on-surface underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >
                   {{ card.name }}
-                </span>
+                </a>
               </div>
-              <div
-                class="flex items-center gap-4 text-xs text-on-surface-variant"
-              >
+              <div class="flex items-center gap-4 text-xs text-on-surface-variant">
                 <span>{{ card.displayName }}</span>
                 <span class="text-outline-variant">•</span>
                 <span
-                  >{{ 'connections.page.tier' | translate: { tier:
-                  card.accessTier } }}</span
+                  >{{ 'connections.page.tier' | translate: { tier: card.accessTier }
+                  }}</span
                 >
               </div>
             </div>
 
             <div class="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                (click)="openEditDialog(card)"
-                [disabled]="!vm.isAuthenticated"
-                [title]="vm.isAuthenticated ? ('connections.page.editButtonTitleEnabled' | translate) : ('connections.page.editButtonTitleDisabled' | translate)"
-                [attr.aria-label]="'connections.page.editConnectionAriaLabel' | translate"
-                class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:opacity-40"
-              >
-                <i class="pi pi-pencil text-xs"></i>
-              </button>
-
-              <button
-                type="button"
-                (click)="requestRemove(card)"
-                [attr.aria-label]="'connections.page.removeConnectionAriaLabel' | translate"
-                class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-surface"
-              >
-                <i class="pi pi-trash text-xs"></i>
-              </button>
-
               <button
                 type="button"
                 (click)="openLogs(card)"
@@ -215,6 +182,24 @@
                 <i class="pi pi-arrow-right text-xs"></i>
                 }
               </button>
+
+              <div #cardActionsAnchor class="relative">
+                <button
+                  type="button"
+                  (click)="toggleCardActionsMenu(cardActionsMenu, $event)"
+                  [attr.aria-label]="'connections.page.moreActionsAriaLabel' | translate"
+                  class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface"
+                >
+                  <i class="pi pi-ellipsis-v text-xs"></i>
+                </button>
+                <p-menu
+                  #cardActionsMenu
+                  [model]="card.actionMenuItems"
+                  [popup]="true"
+                  [appendTo]="cardActionsAnchor"
+                  (onShow)="alignCardActionsMenu(cardActionsMenu)"
+                />
+              </div>
             </div>
           </li>
           }

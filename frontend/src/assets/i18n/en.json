@@ -79,6 +79,7 @@
       "tier": "{{tier}} tier",
       "openLogs": "Open Logs",
       "reconnect": "Reconnect",
+      "moreActionsAriaLabel": "More actions",
       "editConnectionAriaLabel": "Edit connection",
       "removeConnectionAriaLabel": "Remove connection"
     },

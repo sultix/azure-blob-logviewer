@@ -1,15 +1,14 @@
 import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
+import { By } from '@angular/platform-browser';
 import { EMPTY, Subject } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
 import { DialogService } from 'primeng/dynamicdialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
-import type {
-  ConnectionDialogResult,
-} from '@app/features/connections/components/add-connection-dialog/add-connection-dialog.component';
+import type { ConnectionDialogResult } from '@app/features/connections/components/add-connection-dialog/add-connection-dialog.component';
 import type { StorageConnection } from '@app/features/connections/models/storage-connection.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import type {
@@ -18,7 +17,10 @@ import type {
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
 import { AzureService } from '@app/features/settings/services/azure.service';
-import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
+import {
+  initializeI18nForTests,
+  provideTranslateTesting,
+} from '@app/testing/translate-testing';
 
 import { ConnectionsPage } from './connections.page';
 
@@ -65,10 +67,12 @@ class ConfirmationServiceStub implements Partial<ConfirmationService> {
 
   readonly requireConfirmation$ = this.requireConfirmationSource.asObservable();
   readonly accept = this.acceptConfirmationSource.asObservable();
-  readonly confirm = vi.fn<(options: Record<string, unknown>) => ConfirmationService>(() => {
-    this.requireConfirmationSource.next(null);
-    return this as ConfirmationService;
-  });
+  readonly confirm = vi.fn<(options: Record<string, unknown>) => ConfirmationService>(
+    () => {
+      this.requireConfirmationSource.next(null);
+      return this as ConfirmationService;
+    },
+  );
   readonly close = vi.fn<() => ConfirmationService>(() => this as ConfirmationService);
   readonly onAccept = vi.fn<() => void>(() => {
     this.acceptConfirmationSource.next(null);
@@ -100,7 +104,17 @@ describe('ConnectionsPage', () => {
     router = {
       navigate: vi.fn(async () => true),
       createUrlTree: vi.fn((commands: unknown[]) => commands),
-      serializeUrl: vi.fn(() => '/settings'),
+      serializeUrl: vi.fn((tree: unknown) => {
+        if (typeof tree === 'string') {
+          return tree;
+        }
+
+        if (Array.isArray(tree)) {
+          return tree.join('/');
+        }
+
+        return '/';
+      }),
       events: EMPTY,
     };
 
@@ -136,7 +150,9 @@ describe('ConnectionsPage', () => {
   });
 
   it('keeps the page header fixed and renders the connections list in its own scroll container', () => {
-    connections.connectionsState.set([createConnection({ id: 'conn-1', name: 'prod-logs' })]);
+    connections.connectionsState.set([
+      createConnection({ id: 'conn-1', name: 'prod-logs' }),
+    ]);
 
     fixture.detectChanges();
 
@@ -149,7 +165,9 @@ describe('ConnectionsPage', () => {
     const listScroll = fixture.nativeElement.querySelector(
       '[data-testid="connections-list-scroll"]',
     ) as HTMLElement | null;
-    const searchField = fixture.nativeElement.querySelector('.p-iconfield') as HTMLElement | null;
+    const searchField = fixture.nativeElement.querySelector(
+      '.p-iconfield',
+    ) as HTMLElement | null;
 
     expect(page?.className).toContain('overflow-hidden');
     expect(page?.className).not.toContain('overflow-auto');
@@ -213,20 +231,47 @@ describe('ConnectionsPage', () => {
     expect(fixture.nativeElement.textContent).toContain('Azure CLI is required');
   });
 
-  it('renders the edit action and disables it when Azure is not authenticated', () => {
-    connections.connectionsState.set([createConnection({ id: 'conn-1', name: 'prod-logs' })]);
+  it('renders a more actions trigger and disables the edit menu item when Azure is not authenticated', () => {
+    connections.connectionsState.set([
+      createConnection({ id: 'conn-1', name: 'prod-logs' }),
+    ]);
     azure.authenticatedState.set(false);
 
     fixture.detectChanges();
 
-    const actionButtons = [
-      ...fixture.nativeElement.querySelectorAll('li .flex.shrink-0.items-center.gap-2 button'),
-    ] as HTMLButtonElement[];
-    const editButton = actionButtons[0];
+    const moreActionsButton = fixture.nativeElement.querySelector(
+      'button[aria-label="More actions"]',
+    ) as HTMLButtonElement | null;
+    const editButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Edit connection"]',
+    ) as HTMLButtonElement | null;
+    const removeButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Remove connection"]',
+    ) as HTMLButtonElement | null;
+    const menuItems = component.pageVm().cards[0]?.actionMenuItems ?? [];
 
-    expect(editButton).toBeDefined();
-    expect(editButton?.disabled).toBe(true);
-    expect(editButton?.getAttribute('aria-label')).toBe('Edit connection');
+    expect(moreActionsButton).toBeDefined();
+    expect(editButton).toBeNull();
+    expect(removeButton).toBeNull();
+    expect(menuItems.map((item) => item.label)).toEqual(['Edit', 'Remove']);
+    expect(menuItems[0]?.disabled).toBe(true);
+    expect(menuItems[1]?.disabled).not.toBe(true);
+  });
+
+  it('renders the connection name as a link to the logs page', () => {
+    connections.connectionsState.set([
+      createConnection({ id: 'conn-1', name: 'prod-logs' }),
+    ]);
+
+    fixture.detectChanges();
+
+    const logLink = fixture.debugElement
+      .queryAll(By.css('li a'))
+      .map((item) => item.nativeElement as HTMLAnchorElement)
+      .find((item) => item.textContent?.trim() === 'prod-logs');
+
+    expect(logLink).toBeDefined();
+    expect(logLink?.getAttribute('href')).toContain('/logs/conn-1');
   });
 
   it('keeps the list flat when no visible connection has a category', () => {
@@ -278,7 +323,9 @@ describe('ConnectionsPage', () => {
       'prod-logs',
       'ops-archive',
     ]);
-    expect(component.pageVm().cardGroups[2]?.cards.map((card) => card.name)).toEqual(['misc-logs']);
+    expect(component.pageVm().cardGroups[2]?.cards.map((card) => card.name)).toEqual([
+      'misc-logs',
+    ]);
     expect(fixture.nativeElement.textContent).toContain('Operations');
     expect(fixture.nativeElement.textContent).toContain('Security');
     expect(fixture.nativeElement.textContent).toContain('Uncategorized');
@@ -297,7 +344,9 @@ describe('ConnectionsPage', () => {
 
     expect(component.pageVm().cards.map((card) => card.name)).toEqual(['audit-logs']);
     expect(component.pageVm().showCategoryGroups).toBe(true);
-    expect(component.pageVm().cardGroups.map((group) => group.label)).toEqual(['Security']);
+    expect(component.pageVm().cardGroups.map((group) => group.label)).toEqual([
+      'Security',
+    ]);
     expect(fixture.nativeElement.textContent).toContain('audit-logs');
     expect(fixture.nativeElement.textContent).not.toContain('prod-logs');
     expect(fixture.nativeElement.textContent).not.toContain('misc-logs');
@@ -505,6 +554,7 @@ function createCardInput(overrides: Record<string, unknown> = {}) {
     statusColorClass: 'text-primary',
     lastUsedRelative: '1 hr ago',
     isOffline: false,
+    actionMenuItems: [],
     raw: createConnection(),
     ...overrides,
   };

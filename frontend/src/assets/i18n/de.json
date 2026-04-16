@@ -79,6 +79,7 @@
       "tier": "{{tier}}-Tier",
       "openLogs": "Logs öffnen",
       "reconnect": "Neu verbinden",
+      "moreActionsAriaLabel": "Weitere Aktionen",
       "editConnectionAriaLabel": "Verbindung bearbeiten",
       "removeConnectionAriaLabel": "Verbindung entfernen"
     },

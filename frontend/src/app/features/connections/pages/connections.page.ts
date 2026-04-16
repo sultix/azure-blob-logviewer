@@ -10,12 +10,14 @@ import type { OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Router, RouterLink } from '@angular/router';
+import type { MenuItem } from 'primeng/api';
 import { ConfirmationService } from 'primeng/api';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { DialogService } from 'primeng/dynamicdialog';
 import { IconField } from 'primeng/iconfield';
 import { InputIcon } from 'primeng/inputicon';
 import { InputText } from 'primeng/inputtext';
+import { Menu } from 'primeng/menu';
 import { lastValueFrom } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -35,18 +37,19 @@ import {
 } from '../components/add-connection-dialog/add-connection-dialog.component';
 
 interface ConnectionCardVm {
-  id: string;
-  name: string;
-  category?: string;
-  displayName: string;
-  environment: string;
-  accessTier: string;
-  stateText: string;
-  statusIcon: string;
-  statusColorClass: string;
-  lastUsedRelative: string;
-  isOffline: boolean;
-  raw: StorageConnection;
+  readonly id: string;
+  readonly name: string;
+  readonly category?: string;
+  readonly displayName: string;
+  readonly environment: string;
+  readonly accessTier: string;
+  readonly stateText: string;
+  readonly statusIcon: string;
+  readonly statusColorClass: string;
+  readonly lastUsedRelative: string;
+  readonly isOffline: boolean;
+  readonly actionMenuItems: MenuItem[];
+  readonly raw: StorageConnection;
 }
 
 interface PreparedConnectionCardVm extends ConnectionCardVm {
@@ -101,6 +104,7 @@ const MISSING_AZURE_CLI_CARD_STYLE: AzureCliCardStyleVm = {
     IconField,
     InputIcon,
     InputText,
+    Menu,
     NgTemplateOutlet,
     TranslatePipe,
   ],
@@ -124,11 +128,13 @@ export class ConnectionsPage implements OnInit {
 
   readonly searchTerm = signal('');
   readonly uncategorizedGroupLabel = computed(() =>
-    this.i18n.translate('connections.page.uncategorizedGroup')
+    this.i18n.translate('connections.page.uncategorizedGroup'),
   );
 
   readonly preparedCards = computed<PreparedConnectionCardVm[]>(() =>
-    this.connectionsService.connections().map((connection) => this.toCardVm(connection)),
+    this.connectionsService
+      .connections()
+      .map((connection) => this.toCardVm(connection, this.isAuthenticated())),
   );
 
   readonly pageVm = computed<ConnectionsPageVm>(() => {
@@ -173,7 +179,7 @@ export class ConnectionsPage implements OnInit {
   }
 
   openEditDialog(card: ConnectionCardVm): void {
-    this.openConnectionDialog('edit', card.raw);
+    this.editConnection(card.raw);
   }
 
   openLogs(card: ConnectionCardVm): void {
@@ -181,10 +187,38 @@ export class ConnectionsPage implements OnInit {
     void this.router.navigate(['/logs', card.id]);
   }
 
+  toggleCardActionsMenu(menu: Menu, event: Event): void {
+    menu.toggle({
+      currentTarget: event.currentTarget,
+      relativeAlign: true,
+    } as Event & { currentTarget: EventTarget | null; relativeAlign: boolean });
+  }
+
+  alignCardActionsMenu(menu: Menu): void {
+    requestAnimationFrame(() => {
+      const container = menu.container;
+      if (!container) {
+        return;
+      }
+
+      container.style.left = 'auto';
+      container.style.right = '0';
+      container.style.top = container.offsetTop + 5 + 'px';
+    });
+  }
+
   requestRemove(card: ConnectionCardVm): void {
+    this.requestRemoveConnection(card.id, card.name);
+  }
+
+  private editConnection(connection: StorageConnection): void {
+    this.openConnectionDialog('edit', connection);
+  }
+
+  private requestRemoveConnection(id: string, name: string): void {
     this.confirmationService.confirm({
       header: this.i18n.translate('connections.confirm.title'),
-      message: this.i18n.translate('connections.confirm.message', { name: card.name }),
+      message: this.i18n.translate('connections.confirm.message', { name }),
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: this.i18n.translate('common.actions.remove'),
       rejectLabel: this.i18n.translate('common.actions.cancel'),
@@ -193,19 +227,20 @@ export class ConnectionsPage implements OnInit {
       closeOnEscape: true,
       dismissableMask: true,
       accept: () => {
-        this.connectionsService.remove(card.id);
+        this.connectionsService.remove(id);
       },
     });
   }
 
-  private openConnectionDialog(mode: ConnectionDialogMode, initialConnection?: StorageConnection): void {
+  private openConnectionDialog(
+    mode: ConnectionDialogMode,
+    initialConnection?: StorageConnection,
+  ): void {
     const dialogData: ConnectionDialogData =
-      mode === 'edit' && initialConnection
-        ? { mode, initialConnection }
-        : { mode };
+      mode === 'edit' && initialConnection ? { mode, initialConnection } : { mode };
     const ref = this.dialogService.open(AddConnectionDialogComponent, {
       header: this.i18n.translate(
-        mode === 'edit' ? 'connections.dialog.editTitle' : 'connections.dialog.title'
+        mode === 'edit' ? 'connections.dialog.editTitle' : 'connections.dialog.title',
       ),
       closable: true,
       modal: true,
@@ -220,16 +255,21 @@ export class ConnectionsPage implements OnInit {
         if (!result) return;
 
         if (mode === 'edit' && initialConnection) {
-          this.connectionsService.update(this.toUpdatedConnection(initialConnection, result));
+          this.connectionsService.update(
+            this.toUpdatedConnection(initialConnection, result),
+          );
           return;
         }
 
         this.connectionsService.add(this.toNewConnection(result));
-      }
+      },
     );
   }
 
-  private toCardVm(c: StorageConnection): PreparedConnectionCardVm {
+  private toCardVm(
+    c: StorageConnection,
+    isAuthenticated: boolean,
+  ): PreparedConnectionCardVm {
     const category = c.category?.trim();
     return {
       id: c.id,
@@ -243,12 +283,36 @@ export class ConnectionsPage implements OnInit {
       statusColorClass: this.mapStatusColor(c.status),
       lastUsedRelative: this.formatRelative(c.lastUsed),
       isOffline: c.status === 'offline' || c.status === 'error',
+      actionMenuItems: this.buildActionMenuItems(c, isAuthenticated),
       searchText: [c.name, c.displayName, c.environment, category]
         .filter((value): value is string => Boolean(value))
         .join('\n')
         .toLowerCase(),
       raw: c,
     };
+  }
+
+  private buildActionMenuItems(
+    connection: StorageConnection,
+    isAuthenticated: boolean,
+  ): MenuItem[] {
+    return [
+      {
+        label: this.i18n.translate('common.actions.edit'),
+        icon: 'pi pi-pencil',
+        disabled: !isAuthenticated,
+        command: () => {
+          this.editConnection(connection);
+        },
+      },
+      {
+        label: this.i18n.translate('common.actions.remove'),
+        icon: 'pi pi-trash',
+        command: () => {
+          this.requestRemoveConnection(connection.id, connection.name);
+        },
+      },
+    ];
   }
 
   private mapStatusIcon(status: ConnectionStatus): string {
