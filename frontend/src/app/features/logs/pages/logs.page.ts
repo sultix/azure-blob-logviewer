@@ -27,6 +27,7 @@ import type {
   LogLargeViewerVm,
   LogToolbarVm,
 } from '../models/logs-view.model';
+import { LogSortBasis } from '../models/logs-view.model';
 import { LogsService, type LogSelectionUpdateResult } from '../services/logs.service';
 
 type SortDir = 'asc' | 'desc';
@@ -34,6 +35,7 @@ type SortDir = 'asc' | 'desc';
 interface PreparedLogFileRowVm extends LogFileRowVm {
   readonly blobNameLower: string;
   readonly createdAtTs: number;
+  readonly lastModifiedAtTs: number;
 }
 
 interface ContentFooterStatsVm {
@@ -52,11 +54,7 @@ const LOG_VIRTUAL_LINE_HEIGHT_PX = 20;
 
 @Component({
   selector: 'app-logs-page',
-  imports: [
-    LogsFiltersComponent,
-    LogsFileListComponent,
-    LogsDetailPanelComponent,
-  ],
+  imports: [LogsFiltersComponent, LogsFileListComponent, LogsDetailPanelComponent],
   providers: [LogsService],
   templateUrl: './logs.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -88,6 +86,7 @@ export class LogsPage implements OnInit {
 
   readonly searchTerm = signal('');
   readonly sortDir = signal<SortDir>('desc');
+  readonly sortBasis = signal<LogSortBasis>(LogSortBasis.LastModified);
   readonly createdOn = signal<Date | null>(null);
   readonly createdRange = signal<LogCreatedRange>(null);
 
@@ -97,15 +96,18 @@ export class LogsPage implements OnInit {
       blobName: entry.blobName,
       blobNameLower: entry.blobName.toLowerCase(),
       createdLabel: entry.createdLabel,
+      lastModifiedLabel: entry.lastModifiedLabel,
       sizeLabel: this.formatSize(entry.size),
       isLive: entry.isLive === true,
       createdAtTs: toTimestamp(entry.createdAt),
+      lastModifiedAtTs: toTimestamp(entry.lastModified),
     })),
   );
 
   readonly rows = computed<LogFileRowVm[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
     const dir = this.sortDir();
+    const sortBasis = this.sortBasis();
     const createdOn = this.createdOn();
     const createdRange = this.createdRange();
     const rangeStart = isCompleteCreatedRange(createdRange)
@@ -135,7 +137,10 @@ export class LogsPage implements OnInit {
 
     const mult = dir === 'asc' ? 1 : -1;
     return [...filteredRows].sort((a, b) => {
-      const dateCmp = a.createdAtTs - b.createdAtTs;
+      const dateCmp =
+        sortBasis === LogSortBasis.Created
+          ? a.createdAtTs - b.createdAtTs
+          : a.lastModifiedAtTs - b.lastModifiedAtTs;
       if (dateCmp !== 0) {
         return dateCmp * mult;
       }
@@ -191,6 +196,11 @@ export class LogsPage implements OnInit {
     this.sortDir() === 'desc'
       ? this.i18n.translate('logs.filters.newestFirst')
       : this.i18n.translate('logs.filters.oldestFirst'),
+  );
+  readonly sortBasisLabel = computed(() =>
+    this.sortBasis() === LogSortBasis.Created
+      ? this.i18n.translate('logs.filters.sortBasisCreated')
+      : this.i18n.translate('logs.filters.sortBasisLastModified'),
   );
   readonly sidebarConnectionFooter = computed<SidebarConnectionFooterVm | null>(() => {
     const connection = this.currentConnection();
@@ -337,6 +347,10 @@ export class LogsPage implements OnInit {
 
   toggleSort(): void {
     this.sortDir.set(this.sortDir() === 'desc' ? 'asc' : 'desc');
+  }
+
+  onSortBasisChange(value: LogSortBasis): void {
+    this.sortBasis.set(value);
   }
 
   onCreatedOnChange(value: Date | null): void {
@@ -550,6 +564,7 @@ export class LogsPage implements OnInit {
     this.sidebarLastUpdatedAt.set(null);
     this.searchTerm.set('');
     this.sortDir.set('desc');
+    this.sortBasis.set(LogSortBasis.Created);
     this.createdOn.set(null);
     this.createdRange.set(null);
   }

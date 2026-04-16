@@ -3,9 +3,11 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 import { DatePicker } from 'primeng/datepicker';
+import { SplitButton } from 'primeng/splitbutton';
 
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
+import { LogSortBasis } from '../../models/logs-view.model';
 import { LogsFiltersComponent } from './logs-filters.component';
 
 describe('LogsFiltersComponent', () => {
@@ -13,6 +15,21 @@ describe('LogsFiltersComponent', () => {
   let component: LogsFiltersComponent;
 
   beforeEach(async () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
     await TestBed.configureTestingModule({
       imports: [LogsFiltersComponent],
       providers: [provideTranslateTesting()],
@@ -28,6 +45,8 @@ describe('LogsFiltersComponent', () => {
       new Date('2026-04-13T00:00:00Z'),
     ]);
     fixture.componentRef.setInput('sortLabel', 'Newest first');
+    fixture.componentRef.setInput('sortBasisLabel', 'Created');
+    fixture.componentRef.setInput('sortBasis', LogSortBasis.Created);
     fixture.componentRef.setInput('isSortDescending', true);
     fixture.detectChanges();
   });
@@ -36,14 +55,32 @@ describe('LogsFiltersComponent', () => {
     const searchInput = fixture.nativeElement.querySelector(
       'input[aria-label="Search log files"]',
     ) as HTMLInputElement;
-    const buttons = fixture.nativeElement.querySelectorAll('button');
+    const buttons = Array.from(
+      fixture.nativeElement.querySelectorAll('button'),
+    ) as HTMLButtonElement[];
     const datePickers = fixture.debugElement.queryAll(By.directive(DatePicker));
+    const splitButton = fixture.debugElement.query(By.directive(SplitButton));
+    const clearButton = buttons.find((button) =>
+      button.textContent?.includes('Clear filters'),
+    );
+    const sortButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Sort logs"]',
+    ) as HTMLButtonElement;
+    const moreButton = fixture.nativeElement.querySelector(
+      'button[aria-label="More sort options"]',
+    ) as HTMLButtonElement;
 
     expect(searchInput.value).toBe('alpha');
     expect(datePickers).toHaveLength(2);
-    expect(buttons[0]?.textContent).toContain('Clear filters');
-    expect(buttons[1]?.textContent).toContain('Newest first');
-    expect(buttons[1]?.querySelector('.pi-sort-amount-down')).not.toBeNull();
+    expect(clearButton?.textContent).toContain('Clear filters');
+    expect(splitButton).not.toBeNull();
+    expect(sortButton.textContent).toContain('Newest first');
+    expect(sortButton.textContent).not.toContain('Created');
+    expect(sortButton.querySelector('.pi-sort-amount-down')).not.toBeNull();
+    expect(moreButton).not.toBeNull();
+    expect(component.sortTooltip()).toBe(
+      'Sort basis: Created. Change it in More actions.',
+    );
   });
 
   it('emits events for search, clear, and sort toggle', () => {
@@ -56,13 +93,27 @@ describe('LogsFiltersComponent', () => {
 
     component.onSearchInput('beta');
 
-    const buttons = fixture.nativeElement.querySelectorAll('button');
-    buttons[0]?.click();
-    buttons[1]?.click();
+    const clearButton = fixture.nativeElement.querySelectorAll('button')[0] as HTMLButtonElement;
+    const sortButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Sort logs"]',
+    ) as HTMLButtonElement;
+    clearButton.click();
+    sortButton.click();
 
     expect(searchChanged).toHaveBeenCalledWith('beta');
     expect(clearRequested).toHaveBeenCalledOnce();
     expect(sortToggled).toHaveBeenCalledOnce();
+  });
+
+  it('emits sort basis changes independently from sort direction', () => {
+    const sortBasisChanged = vi.fn<(value: LogSortBasis) => void>();
+    component.sortBasisChanged.subscribe(sortBasisChanged);
+
+    component.updateSortBasis(LogSortBasis.LastModified);
+    component.updateSortBasis(LogSortBasis.Created);
+
+    expect(sortBasisChanged).toHaveBeenNthCalledWith(1, LogSortBasis.LastModified);
+    expect(sortBasisChanged).toHaveBeenNthCalledWith(2, LogSortBasis.Created);
   });
 
   it('clears the range when a single created-on date is selected', () => {

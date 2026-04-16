@@ -6,23 +6,17 @@
     (dblclick)="onToggleMaximize()"
   >
     <div class="flex min-w-0 flex-1 items-center gap-0">
-      <div
-        class="flex w-[var(--layout-sidebar-width)] shrink-0 items-center gap-2.5"
-      >
+      <div class="flex w-[var(--layout-sidebar-width)] shrink-0 items-center gap-2.5">
         <span
           class="flex h-6 w-6 items-center justify-center rounded bg-primary-gradient text-on-primary"
         >
           <i class="pi pi-database text-[12px]"></i>
         </span>
-        <span
-          class="font-display text-sm font-semibold tracking-wide text-on-surface"
-        >
-          {{ "shell.appName" | translate }}
+        <span class="font-display text-sm font-semibold tracking-wide text-on-surface">
+          {{ 'shell.appName' | translate }}
         </span>
         @if (appVersion(); as version) {
-          <span
-            class="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant"
-          >
+          <span class="text-[11px] font-medium tracking-widest text-on-surface-variant">
             v{{ version }}
           </span>
         }
@@ -36,7 +30,7 @@
           class="flex items-center gap-2 border-b-2 border-transparent pe-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
         >
           <i class="pi pi-th-large text-[13px]"></i>
-          {{ "shell.navigation.dashboard" | translate }}
+          {{ 'shell.navigation.dashboard' | translate }}
         </a>
         <a
           routerLink="/settings"
@@ -44,7 +38,7 @@
           class="flex items-center gap-2 border-b-2 border-transparent px-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
         >
           <i class="pi pi-cog text-[13px]"></i>
-          {{ "shell.navigation.settings" | translate }}
+          {{ 'shell.navigation.settings' | translate }}
         </a>
       </nav>
     </div>
@@ -93,13 +87,7 @@
             stroke-width="1.5"
             class="size-8"
           >
-            <rect
-              x="7.5"
-              y="7.5"
-              width="9"
-              height="9"
-              stroke-linejoin="miter"
-            />
+            <rect x="7.5" y="7.5" width="9" height="9" stroke-linejoin="miter" />
           </svg>
         }
       </button>

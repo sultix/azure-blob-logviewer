@@ -71,7 +71,9 @@ describe('LogsService', () => {
     expect(service.entries().length).toBe(1);
     expect(service.entries()[0].blobName).toBe('2026/04/11/log.json');
     expect(service.entries()[0].createdAt).toBe('2026-04-11T00:00:00Z');
+    expect(service.entries()[0].lastModified).toBe('2026-04-11T00:00:00Z');
     expect(service.entries()[0].createdLabel).toBe('Apr 11, 2026');
+    expect(service.entries()[0].lastModifiedLabel).toBe('Apr 11, 2026');
     expect(service.entries()[0].createdRelative).toBeTruthy();
     expect(service.entries()[0].contentType).toBe('application/json');
     expect(service.errorMessage()).toBeNull();
@@ -89,7 +91,9 @@ describe('LogsService', () => {
 
     expect(service.entries()[0]).toMatchObject({
       createdAt: '2026-04-12T08:15:00Z',
+      lastModified: '2026-04-12T08:15:00Z',
       createdLabel: 'Apr 12, 2026',
+      lastModifiedLabel: 'Apr 12, 2026',
     });
     expect(service.entries()[0].createdRelative).toBeTruthy();
   });

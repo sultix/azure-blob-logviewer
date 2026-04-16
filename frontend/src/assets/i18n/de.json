@@ -115,13 +115,22 @@
       "dateRange": "Erstellt von - Erstellt bis",
       "clear": "Filter löschen",
       "sortAriaLabel": "Logs sortieren",
+      "moreActionsAriaLabel": "Weitere Sortieroptionen",
+      "moreActionsLabel": "Weitere Aktionen",
       "newestFirst": "Neueste zuerst",
-      "oldestFirst": "Älteste zuerst"
+      "oldestFirst": "Älteste zuerst",
+      "sortBasisCreated": "Erstellt",
+      "sortBasisLastModified": "Zuletzt geändert",
+      "sortTooltip": "Sortierbasis: {{basis}}. Über {{moreActions}} können Sie sie umschalten.",
+      "sortByCreated": "Nach Erstellt sortieren",
+      "sortByLastModified": "Nach Zuletzt geändert sortieren"
     },
     "fileList": {
       "title": "Verfügbare Logs",
       "loading": "Blobs werden geladen…",
       "empty": "Keine Blobs in diesem Container gefunden.",
+      "createdMetaLabel": "Erstellt",
+      "modifiedMetaLabel": "Geändert",
       "live": "LIVE",
       "refreshAriaLabel": "Verfügbare Logs aktualisieren"
     },

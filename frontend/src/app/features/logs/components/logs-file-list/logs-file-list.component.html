@@ -47,10 +47,15 @@
             }
           </div>
           <div
-            class="flex items-center justify-between text-[10px] text-on-surface-variant"
+            class="flex items-center gap-3 text-[10px] text-on-surface-variant"
           >
-            <span>{{ row.createdLabel }}</span>
-            <span>{{ row.sizeLabel }}</span>
+            <span class="min-w-0 truncate">
+              {{ 'logs.fileList.createdMetaLabel' | translate }} {{ row.createdLabel }}
+            </span>
+            <span class="min-w-0 truncate">
+              {{ 'logs.fileList.modifiedMetaLabel' | translate }} {{ row.lastModifiedLabel }}
+            </span>
+            <span class="ms-auto shrink-0">{{ row.sizeLabel }}</span>
           </div>
         </button>
       </li>

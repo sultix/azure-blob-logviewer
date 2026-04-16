@@ -10,6 +10,7 @@ import type { StorageConnection } from '@app/features/connections/models/storage
 import type { BlobViewSessionStatus } from '@app/features/logs/models/blob-view.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
+import { LogSortBasis } from '@app/features/logs/models/logs-view.model';
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { LogsService } from '../services/logs.service';
@@ -209,6 +210,20 @@ describe('LogsPage', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-16T12:00:00Z'));
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
     logs = new LogsServiceStub();
     connections = new ConnectionsServiceStub();
     messageService = new MessageServiceStub();
@@ -456,6 +471,8 @@ describe('LogsPage', () => {
         size: 1024,
         createdAt: '2026-04-12T10:00:00Z',
         createdLabel: 'Yesterday, 10:00',
+        lastModified: '2026-04-12T10:15:00Z',
+        lastModifiedLabel: 'Yesterday, 10:15',
       }),
       createLogEntry({
         id: 'entry-2',
@@ -464,6 +481,8 @@ describe('LogsPage', () => {
         contentType: 'text/plain',
         createdAt: '2026-04-13T09:00:00Z',
         createdLabel: 'Today, 09:00',
+        lastModified: '2026-04-13T09:30:00Z',
+        lastModifiedLabel: 'Today, 09:30',
         createdRelative: '1 hr ago',
         path: 'storage-a/logs/alpha.log',
       }),
@@ -473,6 +492,8 @@ describe('LogsPage', () => {
         size: 2_048,
         createdAt: '2026-04-11T08:00:00Z',
         createdLabel: 'Apr 11, 2026',
+        lastModified: '2026-04-11T08:05:00Z',
+        lastModifiedLabel: 'Apr 11, 2026',
       }),
     ]);
     logs.selectEntry('entry-2');
@@ -483,17 +504,25 @@ describe('LogsPage', () => {
 
     const layout = fixture.nativeElement.querySelector('section') as HTMLElement;
 
+    expect(component.sortBasis()).toBe(LogSortBasis.Created);
     expect(component.rows().map((row) => row.blobName)).toEqual([
       'alpha.log',
       'beta.log',
       'archive.log',
     ]);
+    expect(component.rows()[0]).toMatchObject({
+      createdLabel: 'Today, 09:00',
+      lastModifiedLabel: 'Today, 09:30',
+      sizeLabel: '1.5 KB',
+    });
     expect(layout.className).toContain('grid-cols-[var(--layout-sidebar-width)_1fr]');
     expect(component.toolbar()).toEqual({
       title: 'alpha.log',
       subtitle: 'storage-a/logs/alpha.log',
       metaBadges: ['Size 1.5 KB', 'Created 1 hr ago'],
     });
+    expect(fixture.nativeElement.textContent).toContain('Created Today, 09:00');
+    expect(fixture.nativeElement.textContent).toContain('Modified Today, 09:30');
     expect(component.footer()).toEqual({
       typeLabel: 'text/plain',
       lineCountLabel: 'Lines: 2',
@@ -512,12 +541,25 @@ describe('LogsPage', () => {
     component.clearFilters();
     expect(component.searchTerm()).toBe('');
     component.toggleSort();
+    expect(component.sortDir()).toBe('asc');
     fixture.detectChanges();
     expect(component.rows().map((row) => row.blobName)).toEqual([
       'archive.log',
       'beta.log',
       'alpha.log',
     ]);
+
+    component.onSortBasisChange(LogSortBasis.LastModified);
+    component.toggleSort();
+    expect(component.sortDir()).toBe('desc');
+    fixture.detectChanges();
+    expect(component.rows().map((row) => row.blobName)).toEqual([
+      'alpha.log',
+      'beta.log',
+      'archive.log',
+    ]);
+    expect(component.sortBasis()).toBe(LogSortBasis.LastModified);
+    expect(component.sortBasisLabel()).toBe('Last modified');
   });
 
   it('filters by a complete created-at range and ignores an incomplete range', async () => {
@@ -556,6 +598,78 @@ describe('LogsPage', () => {
       new Date('2026-04-13T00:00:00Z'),
     ]);
     fixture.detectChanges();
+    expect(component.rows().map((row) => row.blobName)).toEqual([
+      'alpha.log',
+      'beta.log',
+    ]);
+  });
+
+  it('sorts by last modified while keeping created-at date filters', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
+    logs.statusState.set('success');
+    logs.entriesState.set([
+      createLogEntry({
+        id: 'entry-1',
+        blobName: 'alpha.log',
+        createdAt: '2026-04-12T12:00:00Z',
+        lastModified: '2026-04-13T09:00:00Z',
+      }),
+      createLogEntry({
+        id: 'entry-2',
+        blobName: 'beta.log',
+        createdAt: '2026-04-12T08:00:00Z',
+        lastModified: '2026-04-15T10:00:00Z',
+      }),
+      createLogEntry({
+        id: 'entry-3',
+        blobName: 'gamma.log',
+        createdAt: '2026-04-11T08:00:00Z',
+        lastModified: '2026-04-16T10:00:00Z',
+      }),
+    ]);
+
+    component.onSortBasisChange(LogSortBasis.LastModified);
+    fixture.detectChanges();
+    expect(component.rows().map((row) => row.blobName)).toEqual([
+      'gamma.log',
+      'beta.log',
+      'alpha.log',
+    ]);
+
+    component.onCreatedOnChange(new Date('2026-04-12T00:00:00Z'));
+    fixture.detectChanges();
+    expect(component.rows().map((row) => row.blobName)).toEqual([
+      'beta.log',
+      'alpha.log',
+    ]);
+  });
+
+  it('falls back to blob name when last-modified timestamps tie', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
+    logs.statusState.set('success');
+    logs.entriesState.set([
+      createLogEntry({
+        id: 'entry-1',
+        blobName: 'beta.log',
+        createdAt: '2026-04-13T08:00:00Z',
+        lastModified: '2026-04-13T10:00:00Z',
+      }),
+      createLogEntry({
+        id: 'entry-2',
+        blobName: 'alpha.log',
+        createdAt: '2026-04-12T08:00:00Z',
+        lastModified: '2026-04-13T10:00:00Z',
+      }),
+    ]);
+
+    component.onSortBasisChange(LogSortBasis.LastModified);
+    component.toggleSort();
+    fixture.detectChanges();
+
     expect(component.rows().map((row) => row.blobName)).toEqual([
       'alpha.log',
       'beta.log',
@@ -938,7 +1052,9 @@ function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
     container: 'logs',
     blobName: 'application.log',
     createdAt: '2026-04-13T10:30:00Z',
+    lastModified: '2026-04-13T10:30:00Z',
     createdLabel: 'Today, 10:30',
+    lastModifiedLabel: 'Today, 10:30',
     size: 512,
     contentType: 'text/plain',
     path: 'storage-a/logs/application.log',

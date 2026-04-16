@@ -7,12 +7,15 @@
       [createdOn]="createdOn()"
       [createdRange]="createdRange()"
       [sortLabel]="sortLabel()"
+      [sortBasisLabel]="sortBasisLabel()"
+      [sortBasis]="sortBasis()"
       [isSortDescending]="sortDir() === 'desc'"
       (searchChanged)="onSearch($event)"
       (createdOnChanged)="onCreatedOnChange($event)"
       (createdRangeChanged)="onCreatedRangeChange($event)"
       (clearFiltersRequested)="clearFilters()"
       (sortToggled)="toggleSort()"
+      (sortBasisChanged)="onSortBasisChange($event)"
     />
 
     <app-logs-file-list

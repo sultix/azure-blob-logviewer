@@ -115,13 +115,22 @@
       "dateRange": "Created from - Created to",
       "clear": "Clear filters",
       "sortAriaLabel": "Sort logs",
+      "moreActionsAriaLabel": "More sort options",
+      "moreActionsLabel": "More actions",
       "newestFirst": "Newest first",
-      "oldestFirst": "Oldest first"
+      "oldestFirst": "Oldest first",
+      "sortBasisCreated": "Created",
+      "sortBasisLastModified": "Last modified",
+      "sortTooltip": "Sort basis: {{basis}}. Change it in {{moreActions}}.",
+      "sortByCreated": "Sort by created",
+      "sortByLastModified": "Sort by last modified"
     },
     "fileList": {
       "title": "Available Logs",
       "loading": "Loading blobs…",
       "empty": "No blobs found in this container.",
+      "createdMetaLabel": "Created",
+      "modifiedMetaLabel": "Modified",
       "live": "LIVE",
       "refreshAriaLabel": "Refresh available logs"
     },

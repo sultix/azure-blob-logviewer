@@ -858,13 +858,16 @@ export class LogsService implements OnDestroy {
 
   private mapBlobToEntry(blob: AzureBlobItem, accountName: string, containerName: string): LogEntry {
     const createdAt = this.resolveCreatedAt(blob);
+    const lastModified = blob.lastModified;
 
     return {
       id: blob.name,
       container: containerName,
       blobName: blob.name,
       createdAt,
-      createdLabel: this.formatCreatedAtLabel(createdAt),
+      lastModified,
+      createdLabel: this.formatTimestampLabel(createdAt),
+      lastModifiedLabel: this.formatTimestampLabel(lastModified),
       size: blob.size,
       contentType: blob.contentType,
       path: `${accountName}/${containerName}/${blob.name}`,
@@ -878,7 +881,7 @@ export class LogsService implements OnDestroy {
     return blob.createdAt || blob.lastModified;
   }
 
-  private formatCreatedAtLabel(iso: string): string {
+  private formatTimestampLabel(iso: string): string {
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) {
       return iso;

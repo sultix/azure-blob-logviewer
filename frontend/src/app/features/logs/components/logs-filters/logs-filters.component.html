@@ -1,8 +1,5 @@
 <div class="flex flex-col gap-3 p-5">
-  <p-iconfield
-    iconPosition="left"
-    class="w-full rounded-lg bg-surface-container-lowest"
-  >
+  <p-iconfield iconPosition="left" class="w-full rounded-lg bg-surface-container-lowest">
     <input
       pInputText
       type="text"
@@ -47,7 +44,7 @@
     />
   </div>
 
-  <div class="flex items-center justify-start gap-4">
+  <div class="flex items-center justify-between gap-3">
     <button
       pButton
       type="button"
@@ -57,24 +54,27 @@
       [text]="true"
       (click)="clearFilters()"
     >
-      {{ "logs.filters.clear" | translate }}
+      {{ 'logs.filters.clear' | translate }}
     </button>
 
-    <button
-      pButton
-      type="button"
-      severity="secondary"
-      size="small"
-      [text]="true"
-      (click)="sortToggled.emit()"
-      [attr.aria-label]="'logs.filters.sortAriaLabel' | translate"
-    >
-      <i
-        class="pi text-xs"
-        [class.pi-sort-amount-down]="isSortDescending()"
-        [class.pi-sort-amount-up-alt]="!isSortDescending()"
-      ></i>
-      {{ sortLabel() }}
-    </button>
+    <div #sortSplitButtonAnchor>
+      <p-splitbutton
+        #sortSplitButton
+        severity="secondary"
+        size="small"
+        [text]="true"
+        [label]="sortLabel()"
+        [icon]="sortIcon()"
+        [model]="sortBasisMenuItems()"
+        dropdownIcon="pi pi-ellipsis-v"
+        [tooltip]="sortTooltip()"
+        [tooltipOptions]="sortTooltipOptions"
+        [buttonProps]="sortButtonProps()"
+        [menuButtonProps]="sortMenuButtonProps()"
+        appendTo="body"
+        (onClick)="sortToggled.emit()"
+        (onMenuShow)="alignSortMenu(sortSplitButtonAnchor, sortSplitButton)"
+      />
+    </div>
   </div>
 </div>

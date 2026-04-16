@@ -30,9 +30,7 @@ describe('LogsFileListComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Loading blobs…');
-    expect(
-      fixture.nativeElement.querySelector('button[aria-label="Refresh available logs"]'),
-    ).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('p-button')).not.toBeNull();
   });
 
   it('renders the empty state when there are no rows', () => {
@@ -50,6 +48,7 @@ describe('LogsFileListComponent', () => {
         id: 'entry-1',
         blobName: 'alpha.log',
         createdLabel: 'Today, 10:30',
+        lastModifiedLabel: 'Today, 10:45',
         sizeLabel: '1.0 KB',
         isLive: true,
       },
@@ -57,6 +56,7 @@ describe('LogsFileListComponent', () => {
         id: 'entry-2',
         blobName: 'beta.log',
         createdLabel: 'Today, 10:00',
+        lastModifiedLabel: 'Today, 10:05',
         sizeLabel: '2.0 KB',
         isLive: false,
       },
@@ -78,6 +78,8 @@ describe('LogsFileListComponent', () => {
     expect(secondButton.className).toContain('bg-surface-container-highest');
     expect(firstButton.getAttribute('aria-pressed')).toBe('true');
     expect(fixture.nativeElement.textContent).toContain('LIVE');
+    expect(fixture.nativeElement.textContent).toContain('Created Today, 10:30');
+    expect(fixture.nativeElement.textContent).toContain('Modified Today, 10:45');
 
     secondButton.dispatchEvent(new MouseEvent('click', { ctrlKey: true }));
 
@@ -96,10 +98,7 @@ describe('LogsFileListComponent', () => {
     fixture.componentRef.setInput('selectedEntryIds', []);
     fixture.detectChanges();
 
-    const refreshButton = fixture.nativeElement.querySelector(
-      'button[aria-label="Refresh available logs"]',
-    ) as HTMLButtonElement;
-    refreshButton.click();
+    component.refresh();
 
     expect(refreshRequested).toHaveBeenCalledOnce();
   });

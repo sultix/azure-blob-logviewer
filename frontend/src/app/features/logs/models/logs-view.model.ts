@@ -2,10 +2,16 @@ export type LogsStatus = 'idle' | 'loading' | 'success' | 'error';
 export type LogCreatedRange = [Date] | [Date, Date] | null;
 export type LogContentMode = 'none' | 'single' | 'merged';
 
+export enum LogSortBasis {
+  Created = 'created',
+  LastModified = 'lastModified',
+}
+
 export interface LogFileRowVm {
   id: string;
   blobName: string;
   createdLabel: string;
+  lastModifiedLabel: string;
   sizeLabel: string;
   isLive: boolean;
 }
