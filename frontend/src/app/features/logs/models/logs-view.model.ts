@@ -7,6 +7,10 @@ export enum LogSortBasis {
   LastModified = 'lastModified',
 }
 
+export function isLogSortBasis(value: unknown): value is LogSortBasis {
+  return value === LogSortBasis.Created || value === LogSortBasis.LastModified;
+}
+
 export interface LogFileRowVm {
   id: string;
   blobName: string;

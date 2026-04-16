@@ -11,6 +11,8 @@ import type { BlobViewSessionStatus } from '@app/features/logs/models/blob-view.
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
 import { LogSortBasis } from '@app/features/logs/models/logs-view.model';
+import type { LogsPreferences } from '@app/features/settings/models/app-config.model';
+import { SettingsService } from '@app/features/settings/services/settings.service';
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { LogsService } from '../services/logs.service';
@@ -195,11 +197,26 @@ class MessageServiceStub implements Partial<MessageService> {
   readonly add = vi.fn<(message: { severity?: string; summary?: string; detail?: string }) => void>();
 }
 
+class SettingsServiceStub implements Partial<SettingsService> {
+  readonly logsState = signal<LogsPreferences>({
+    wordWrapEnabled: false,
+    initialLargeFileFocus: 'start',
+    sortBasis: LogSortBasis.Created,
+  });
+  readonly logs = computed(() => this.logsState());
+  readonly updateLogsPreferences = vi.fn<(partial: Partial<LogsPreferences>) => void>(
+    (partial) => {
+      this.logsState.update((current) => ({ ...current, ...partial }));
+    },
+  );
+}
+
 describe('LogsPage', () => {
   let fixture: ComponentFixture<LogsPage>;
   let component: LogsPage;
   let logs: LogsServiceStub;
   let connections: ConnectionsServiceStub;
+  let settings: SettingsServiceStub;
   let route: ActivatedRoute;
   let routeParamMap$: BehaviorSubject<ParamMap>;
   let messageService: MessageServiceStub;
@@ -226,6 +243,7 @@ describe('LogsPage', () => {
     });
     logs = new LogsServiceStub();
     connections = new ConnectionsServiceStub();
+    settings = new SettingsServiceStub();
     messageService = new MessageServiceStub();
     createObjectUrlSpy = vi.fn(() => 'blob:logs-download');
     revokeObjectUrlSpy = vi.fn();
@@ -250,6 +268,7 @@ describe('LogsPage', () => {
       providers: [
         provideTranslateTesting(),
         { provide: ConnectionsService, useValue: connections },
+        { provide: SettingsService, useValue: settings },
         { provide: ActivatedRoute, useValue: route },
         { provide: MessageService, useValue: messageService },
       ],
@@ -560,6 +579,23 @@ describe('LogsPage', () => {
     ]);
     expect(component.sortBasis()).toBe(LogSortBasis.LastModified);
     expect(component.sortBasisLabel()).toBe('Last modified');
+    expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
+      sortBasis: LogSortBasis.LastModified,
+    });
+  });
+
+  it('reads the initial sort basis from persisted logs settings', async () => {
+    settings.logsState.update((current) => ({
+      ...current,
+      sortBasis: LogSortBasis.LastModified,
+    }));
+
+    fixture = TestBed.createComponent(LogsPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushAsync();
+
+    expect(component.sortBasis()).toBe(LogSortBasis.LastModified);
   });
 
   it('filters by a complete created-at range and ignores an incomplete range', async () => {
@@ -690,6 +726,41 @@ describe('LogsPage', () => {
     component.onCreatedOnChange(new Date('2026-04-14T00:00:00Z'));
     expect(component.createdOn()).toEqual(new Date('2026-04-14T00:00:00Z'));
     expect(component.createdRange()).toBeNull();
+  });
+
+  it('restores the persisted sort basis on route resets without persisting sort direction', async () => {
+    settings.logsState.update((current) => ({
+      ...current,
+      sortBasis: LogSortBasis.LastModified,
+    }));
+    setRouteConnectionId('conn-1', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection());
+    logs.loadForConnection.mockImplementation(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([createLogEntry({ id: 'entry-1', blobName: 'alpha.log' })]);
+    });
+
+    fixture = TestBed.createComponent(LogsPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushAsync();
+
+    expect(component.sortBasis()).toBe(LogSortBasis.LastModified);
+
+    component.toggleSort();
+    expect(component.sortDir()).toBe('asc');
+
+    settings.logsState.update((current) => ({
+      ...current,
+      sortBasis: LogSortBasis.Created,
+    }));
+    setRouteConnectionId('conn-2', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection({ id: 'conn-2' }));
+    fixture.detectChanges();
+    await flushAsync();
+
+    expect(component.sortBasis()).toBe(LogSortBasis.Created);
+    expect(component.sortDir()).toBe('desc');
   });
 
   it('refreshes content through the logs service', () => {

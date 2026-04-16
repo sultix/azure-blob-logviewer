@@ -1,5 +1,6 @@
 import type { AppLanguage } from '@app/core/i18n/app-language';
 import { detectPreferredLanguage } from '@app/core/i18n/app-language';
+import { LogSortBasis } from '@app/features/logs/models/logs-view.model';
 
 export interface AzurePreferences {
   lastSubscriptionId: string;
@@ -26,6 +27,7 @@ export interface AppConfig {
 export interface LogsPreferences {
   wordWrapEnabled: boolean;
   initialLargeFileFocus: InitialLargeFileFocus;
+  sortBasis: LogSortBasis;
 }
 
 export const DEFAULT_APP_CONFIG: AppConfig = createDefaultAppConfig('en');
@@ -45,6 +47,7 @@ export function createDefaultAppConfig(language = detectPreferredLanguage()): Ap
     logs: {
       wordWrapEnabled: false,
       initialLargeFileFocus: 'start',
+      sortBasis: LogSortBasis.LastModified,
     },
   };
 }

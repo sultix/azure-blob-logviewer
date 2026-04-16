@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 
 import { isAppLanguage } from '@app/core/i18n/app-language';
+import { isLogSortBasis } from '@app/features/logs/models/logs-view.model';
 
 import type {
   AppConfig,
@@ -34,6 +35,9 @@ function loadFromStorage(): AppConfig {
       logs: {
         ...defaults.logs,
         ...(parsed.logs ?? {}),
+        sortBasis: isLogSortBasis(parsed.logs?.sortBasis)
+          ? parsed.logs.sortBasis
+          : defaults.logs.sortBasis,
       },
     };
   } catch {

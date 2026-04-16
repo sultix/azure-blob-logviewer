@@ -15,6 +15,7 @@ import { distinctUntilChanged, map } from 'rxjs';
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import type { StorageConnection } from '@app/features/connections/models/storage-connection.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
+import { SettingsService } from '@app/features/settings/services/settings.service';
 
 import { LogsDetailPanelComponent } from '../components/logs-detail-panel/logs-detail-panel.component';
 import { LogsFileListComponent } from '../components/logs-file-list/logs-file-list.component';
@@ -66,6 +67,7 @@ export class LogsPage implements OnInit {
   private readonly connectionsService = inject(ConnectionsService);
   private readonly messageService = inject(MessageService);
   private readonly i18n = inject(AppI18nService);
+  private readonly settings = inject(SettingsService);
   private routeLoadToken = 0;
   private readonly currentConnection = signal<StorageConnection | null>(null);
   private readonly sidebarLastUpdatedAt = signal<Date | null>(null);
@@ -86,7 +88,7 @@ export class LogsPage implements OnInit {
 
   readonly searchTerm = signal('');
   readonly sortDir = signal<SortDir>('desc');
-  readonly sortBasis = signal<LogSortBasis>(LogSortBasis.LastModified);
+  readonly sortBasis = signal<LogSortBasis>(this.settings.logs().sortBasis);
   readonly createdOn = signal<Date | null>(null);
   readonly createdRange = signal<LogCreatedRange>(null);
 
@@ -351,6 +353,7 @@ export class LogsPage implements OnInit {
 
   onSortBasisChange(value: LogSortBasis): void {
     this.sortBasis.set(value);
+    this.settings.updateLogsPreferences({ sortBasis: value });
   }
 
   onCreatedOnChange(value: Date | null): void {
@@ -564,7 +567,7 @@ export class LogsPage implements OnInit {
     this.sidebarLastUpdatedAt.set(null);
     this.searchTerm.set('');
     this.sortDir.set('desc');
-    this.sortBasis.set(LogSortBasis.Created);
+    this.sortBasis.set(this.settings.logs().sortBasis);
     this.createdOn.set(null);
     this.createdRange.set(null);
   }

@@ -8,6 +8,7 @@ import { MessageService } from 'primeng/api';
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import { AppApiService } from '@app/core/services/app-api.service';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
+import { LogSortBasis } from '@app/features/logs/models/logs-view.model';
 import {
   initializeI18nForTests,
   provideTranslateTesting,
@@ -37,6 +38,7 @@ class SettingsServiceStub implements Partial<SettingsService> {
   readonly logs = signal<LogsPreferences>({
     wordWrapEnabled: false,
     initialLargeFileFocus: 'start',
+    sortBasis: LogSortBasis.LastModified,
   });
   updateGeneral = vi.fn();
   updateLogsPreferences = vi.fn();

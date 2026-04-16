@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { LogSortBasis } from '@app/features/logs/models/logs-view.model';
+
 import { createDefaultAppConfig } from '../models/app-config.model';
 
 import { SettingsService } from './settings.service';
@@ -45,6 +47,7 @@ describe('SettingsService', () => {
       JSON.stringify({
         azure: { lastSubscriptionId: 'sub-1' },
         general: { retentionPolicy: 'manual' },
+        logs: { wordWrapEnabled: true },
       }),
     );
 
@@ -64,8 +67,9 @@ describe('SettingsService', () => {
       language: 'de',
     });
     expect(service.logs()).toEqual({
-      wordWrapEnabled: false,
+      wordWrapEnabled: true,
       initialLargeFileFocus: 'start',
+      sortBasis: LogSortBasis.LastModified,
     });
   });
 
@@ -101,6 +105,7 @@ describe('SettingsService', () => {
     });
     service.updateLogsPreferences({
       wordWrapEnabled: true,
+      sortBasis: LogSortBasis.Created,
     });
 
     expect(service.azure()).toEqual({
@@ -116,6 +121,7 @@ describe('SettingsService', () => {
     expect(service.logs()).toEqual({
       wordWrapEnabled: true,
       initialLargeFileFocus: 'start',
+      sortBasis: LogSortBasis.Created,
     });
     expect(localStorage.getItem(STORAGE_KEY)).toBe(
       JSON.stringify({
