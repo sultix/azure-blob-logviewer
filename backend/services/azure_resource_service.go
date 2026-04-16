@@ -20,7 +20,7 @@ type AzureResourceService struct {
 }
 
 const (
-	largeBlobThresholdBytes   int64 = 8 * 1024 * 1024
+	largeBlobThresholdBytes   int64 = 20 * 1024 * 1024
 	defaultBlobChunkSizeBytes int64 = 512 * 1024
 	maxBlobTextChunkBytes     int64 = 20 * 1024 * 1024
 )
