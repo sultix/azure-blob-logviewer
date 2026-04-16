@@ -71,6 +71,9 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly status = input.required<LogsStatus>();
   readonly errorMessage = input<string | null>(null);
   readonly hasSelection = input(false);
+  readonly tailAvailable = input(false);
+  readonly tailEnabled = input(false);
+  readonly tailRefreshIntervalSeconds = input(10);
   readonly selectionKey = input('');
   readonly toolbar = input<LogToolbarVm | null>(null);
   readonly largeViewer = input<LogLargeViewerVm | null>(null);
@@ -87,6 +90,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly nextLargeMatchRequested = output<void>();
   readonly largeViewportChanged = output<{ startLine: number; lineCount: number }>();
   readonly largeScrollHandled = output<void>();
+  readonly tailToggled = output<boolean>();
 
   private contentSearchApplyTimer: ReturnType<typeof setTimeout> | null = null;
   private lastScrolledMatchKey: string | null = null;
@@ -110,8 +114,22 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly largeLineContentClass = computed(
     () => 'inline-block min-w-full whitespace-pre leading-5',
   );
-  readonly canToggleWordWrap = computed(() => this.largeViewer() === null);
+  readonly canToggleWordWrap = computed(
+    () => this.largeViewer() === null && !this.tailEnabled(),
+  );
   readonly isLargeViewer = computed(() => this.largeViewer() !== null);
+  readonly largeViewerInfoLabel = computed(() => {
+    const viewer = this.largeViewer();
+    if (!viewer) {
+      return '';
+    }
+
+    return viewer.mode === 'tail'
+      ? this.i18n.translate('logs.detail.viewer.tailRefresh', {
+          seconds: this.tailRefreshIntervalSeconds(),
+        })
+      : this.i18n.translate('logs.detail.viewer.wordWrapUnavailable');
+  });
   readonly normalizedToolbar = computed<NormalizedToolbarVm | null>(() => {
     const toolbar = this.toolbar();
     if (!toolbar) {
@@ -220,6 +238,17 @@ export class LogsDetailPanelComponent implements OnDestroy {
       disabled: this.downloadDisabled(),
       command: () => this.downloadRequested.emit(),
     },
+    ...(this.tailAvailable()
+      ? [
+          {
+            label: this.tailEnabled()
+              ? this.i18n.translate('logs.detail.mobileActions.tailOn')
+              : this.i18n.translate('logs.detail.mobileActions.tailOff'),
+            icon: 'pi pi-sync',
+            command: () => this.toggleTail(),
+          },
+        ]
+      : []),
     {
       label: this.wordWrapEnabled()
         ? this.i18n.translate('logs.detail.mobileActions.wordWrapOn')
@@ -330,8 +359,16 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.updateWordWrap(value);
   }
 
+  onTailChange(value: boolean): void {
+    this.updateTail(value);
+  }
+
   toggleWordWrap(): void {
     this.updateWordWrap(!this.wordWrapEnabled());
+  }
+
+  toggleTail(): void {
+    this.updateTail(!this.tailEnabled());
   }
 
   onContentSearchChange(value: string): void {
@@ -475,6 +512,14 @@ export class LogsDetailPanelComponent implements OnDestroy {
     }
 
     this.settings.updateLogsPreferences({ wordWrapEnabled: value });
+  }
+
+  private updateTail(value: boolean): void {
+    if (!this.tailAvailable()) {
+      return;
+    }
+
+    this.tailToggled.emit(value);
   }
 }
 

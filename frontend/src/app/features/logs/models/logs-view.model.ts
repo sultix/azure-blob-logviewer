@@ -49,6 +49,7 @@ export interface LogVirtualLineVm {
 }
 
 export interface LogLargeViewerVm {
+  mode: 'snapshot' | 'tail';
   progressLabel: string;
   statusLabel: string;
   searchStatusLabel: string;

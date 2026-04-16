@@ -76,6 +76,7 @@ describe('LogsDetailPanelComponent', () => {
 
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('tailAvailable', true);
     fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput('content', 'line 1\nline 2');
     fixture.componentRef.setInput('contentLoading', false);
@@ -116,6 +117,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(component.mobileActionItems().map((item) => item.label)).toEqual([
       'Refresh',
       'Download',
+      'Tail: Off',
       'Word Wrap: Off',
     ]);
 
@@ -227,6 +229,7 @@ describe('LogsDetailPanelComponent', () => {
       created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
+      mode: 'snapshot',
       progressLabel: '4.0 MB / 100.0 MB loaded',
       statusLabel: 'File is loading in the background',
       searchStatusLabel: '1 / 2',
@@ -336,6 +339,7 @@ describe('LogsDetailPanelComponent', () => {
       created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
+      mode: 'snapshot',
       progressLabel: '100.0 MB / 100.0 MB loaded',
       statusLabel: 'File fully loaded',
       searchStatusLabel: '',
@@ -376,6 +380,7 @@ describe('LogsDetailPanelComponent', () => {
       created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
+      mode: 'tail',
       progressLabel: '4.0 MB / 100.0 MB loaded',
       statusLabel: 'File is loading in the background',
       searchStatusLabel: '1 / 1',
@@ -417,6 +422,7 @@ describe('LogsDetailPanelComponent', () => {
       created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
+      mode: 'snapshot',
       progressLabel: '100.0 MB / 100.0 MB loaded',
       statusLabel: 'File fully loaded',
       searchStatusLabel: '',
@@ -479,6 +485,7 @@ describe('LogsDetailPanelComponent', () => {
       created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
+      mode: 'snapshot',
       progressLabel: '100.0 MB / 100.0 MB loaded',
       statusLabel: 'File fully loaded',
       searchStatusLabel: '',
@@ -525,6 +532,7 @@ describe('LogsDetailPanelComponent', () => {
         },
         logs: {
           wordWrapEnabled: true,
+          tailRefreshIntervalSeconds: 10,
         },
       }),
     );

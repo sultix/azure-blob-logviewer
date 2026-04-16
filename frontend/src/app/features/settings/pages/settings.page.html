@@ -84,26 +84,26 @@
           <span
             class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-primary"
           >
-            <i class="pi pi-align-left text-sm"></i>
+            <i class="pi pi-clock text-sm"></i>
           </span>
           <div class="flex flex-col">
             <span class="text-sm font-semibold text-on-surface">
-              {{ 'settings.page.largeFileFocus.title' | translate }}
+              {{ 'settings.page.tailRefreshInterval.title' | translate }}
             </span>
             <span class="text-[11px] text-on-surface-variant">
-              {{ 'settings.page.largeFileFocus.description' | translate }}
+              {{ 'settings.page.tailRefreshInterval.description' | translate }}
             </span>
           </div>
         </div>
         <div class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1">
-          @for (opt of largeFileFocusOptions(); track opt.value) {
+          @for (opt of tailRefreshIntervalOptions(); track opt.value) {
           <button
             type="button"
-            (click)="setInitialLargeFileFocus(opt.value)"
+            (click)="setTailRefreshInterval(opt.value)"
             class="rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors"
-            [class.bg-surface-container-highest]="logs().initialLargeFileFocus === opt.value"
-            [class.text-on-surface]="logs().initialLargeFileFocus === opt.value"
-            [class.text-on-surface-variant]="logs().initialLargeFileFocus !== opt.value"
+            [class.bg-surface-container-highest]="logs().tailRefreshIntervalSeconds === opt.value"
+            [class.text-on-surface]="logs().tailRefreshIntervalSeconds === opt.value"
+            [class.text-on-surface-variant]="logs().tailRefreshIntervalSeconds !== opt.value"
           >
             {{ opt.label }}
           </button>

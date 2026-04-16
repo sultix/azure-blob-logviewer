@@ -68,7 +68,7 @@ describe('SettingsService', () => {
     });
     expect(service.logs()).toEqual({
       wordWrapEnabled: true,
-      initialLargeFileFocus: 'start',
+      tailRefreshIntervalSeconds: 10,
       sortBasis: LogSortBasis.LastModified,
     });
   });
@@ -120,7 +120,7 @@ describe('SettingsService', () => {
     });
     expect(service.logs()).toEqual({
       wordWrapEnabled: true,
-      initialLargeFileFocus: 'start',
+      tailRefreshIntervalSeconds: 10,
       sortBasis: LogSortBasis.Created,
     });
     expect(localStorage.getItem(STORAGE_KEY)).toBe(

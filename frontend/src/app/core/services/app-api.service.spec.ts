@@ -219,6 +219,7 @@ describe('AppApiService', () => {
       canEnableWordWrap: true,
       hasPendingBefore: false,
       hasPendingAfter: false,
+      mode: 'snapshot',
       focus: 'start',
       tailPreviewLines: [],
     };
@@ -276,7 +277,7 @@ describe('AppApiService', () => {
         accountName: 'storage-a',
         containerName: 'logs',
         blobName: 'app.log',
-        focus: 'start',
+        mode: 'snapshot',
       }),
     ).resolves.toEqual(sessionStatus);
     await expect(service.getBlobViewStatus('session-1')).resolves.toEqual(sessionStatus);
@@ -306,7 +307,7 @@ describe('AppApiService', () => {
       accountName: 'storage-a',
       containerName: 'logs',
       blobName: 'app.log',
-      focus: 'start',
+      mode: 'snapshot',
     });
     expect(bridge.GetBlobViewStatus).toHaveBeenCalledWith('session-1');
     expect(bridge.GetBlobViewLines).toHaveBeenCalledWith('session-1', 0, 100);
@@ -333,6 +334,7 @@ describe('AppApiService', () => {
       canEnableWordWrap: true,
       hasPendingBefore: false,
       hasPendingAfter: false,
+      mode: 'snapshot',
       focus: 'start',
       tailPreviewLines: undefined as unknown as string[],
     });
@@ -348,6 +350,7 @@ describe('AppApiService', () => {
       canEnableWordWrap: true,
       hasPendingBefore: false,
       hasPendingAfter: false,
+      mode: 'snapshot',
       focus: 'start',
       tailPreviewLines: undefined as unknown as string[],
     });
@@ -369,7 +372,7 @@ describe('AppApiService', () => {
         accountName: 'storage-a',
         containerName: 'logs',
         blobName: 'app.log',
-        focus: 'start',
+        mode: 'snapshot',
       }),
     ).resolves.toMatchObject({ tailPreviewLines: [] });
     await expect(service.getBlobViewStatus('session-1')).resolves.toMatchObject({

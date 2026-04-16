@@ -1,18 +1,22 @@
 package models
 
 type BlobViewFocus string
+type BlobViewMode string
 
 const (
 	BlobViewFocusStart BlobViewFocus = "start"
 	BlobViewFocusEnd   BlobViewFocus = "end"
+
+	BlobViewModeSnapshot BlobViewMode = "snapshot"
+	BlobViewModeTail     BlobViewMode = "tail"
 )
 
 // OpenBlobViewSessionRequest starts a progressive viewer session for a blob.
 type OpenBlobViewSessionRequest struct {
-	AccountName   string        `json:"accountName"`
-	ContainerName string        `json:"containerName"`
-	BlobName      string        `json:"blobName"`
-	Focus         BlobViewFocus `json:"focus"`
+	AccountName   string       `json:"accountName"`
+	ContainerName string       `json:"containerName"`
+	BlobName      string       `json:"blobName"`
+	Mode          BlobViewMode `json:"mode"`
 }
 
 // BlobViewSessionStatus describes the current session progress and available content.
@@ -30,6 +34,7 @@ type BlobViewSessionStatus struct {
 	HasPendingAfter   bool          `json:"hasPendingAfter"`
 	ErrorMessage      string        `json:"errorMessage,omitempty"`
 	FailureReason     string        `json:"failureReason,omitempty"`
+	Mode              BlobViewMode  `json:"mode"`
 	Focus             BlobViewFocus `json:"focus"`
 	TailPreviewLines  []string      `json:"tailPreviewLines"`
 }

@@ -1,12 +1,13 @@
 import type { BlobFailureReason } from '@app/features/settings/models/azure.model';
 
 export type BlobViewFocus = 'start' | 'end';
+export type BlobViewMode = 'snapshot' | 'tail';
 
 export interface OpenBlobViewSessionRequest {
   accountName: string;
   containerName: string;
   blobName: string;
-  focus: BlobViewFocus;
+  mode: BlobViewMode;
 }
 
 export interface BlobViewSessionStatus {
@@ -23,6 +24,7 @@ export interface BlobViewSessionStatus {
   hasPendingAfter: boolean;
   errorMessage?: string;
   failureReason?: BlobFailureReason;
+  mode: BlobViewMode;
   focus: BlobViewFocus;
   tailPreviewLines: string[];
 }

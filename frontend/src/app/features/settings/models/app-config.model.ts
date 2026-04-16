@@ -10,7 +10,7 @@ export interface AzurePreferences {
 
 export type RefreshInterval = 5 | 15 | 60;
 export type RetentionPolicy = '30d' | '90d' | 'manual';
-export type InitialLargeFileFocus = 'start' | 'end';
+export type TailRefreshIntervalSeconds = 5 | 10 | 30 | 60;
 
 export interface GeneralConfig {
   refreshIntervalMinutes: RefreshInterval;
@@ -26,7 +26,7 @@ export interface AppConfig {
 
 export interface LogsPreferences {
   wordWrapEnabled: boolean;
-  initialLargeFileFocus: InitialLargeFileFocus;
+  tailRefreshIntervalSeconds: TailRefreshIntervalSeconds;
   sortBasis: LogSortBasis;
 }
 
@@ -46,7 +46,7 @@ export function createDefaultAppConfig(language = detectPreferredLanguage()): Ap
     },
     logs: {
       wordWrapEnabled: false,
-      initialLargeFileFocus: 'start',
+      tailRefreshIntervalSeconds: 10,
       sortBasis: LogSortBasis.LastModified,
     },
   };

@@ -146,6 +146,9 @@
       "modified": "Geändert {{value}}",
       "wordWrap": "Zeilenumbruch",
       "wordWrapToggleAriaLabel": "Zeilenumbruch für Loginhalt umschalten",
+      "tail": "Tail",
+      "tailToggleAriaLabel": "Live-Tail-Modus für Loginhalt umschalten",
+      "wordWrapDisabledInTail": "Der Zeilenumbruch ist deaktiviert, solange der Tail-Modus aktiv ist.",
       "searchContentPlaceholder": "Inhalt durchsuchen...",
       "searchContentAriaLabel": "Im Loginhalt suchen",
       "clearSearch": "Suche löschen",
@@ -164,6 +167,8 @@
         "progress": "{{loaded}} / {{total}} geladen",
         "backgroundLoading": "Datei wird im Hintergrund geladen",
         "complete": "Datei vollständig geladen",
+        "tailActive": "Tail-Modus aktiv",
+        "tailRefresh": "Aktualisierung alle {{seconds}}s",
         "wordWrapUnavailable": "Zeilenumbruch ist für große Dateien nicht verfügbar, damit der Viewer flüssig bleibt.",
         "pendingBefore": "Frühere Zeilen werden noch geladen",
         "pendingAfter": "Spätere Zeilen werden noch geladen",
@@ -186,7 +191,9 @@
         "refresh": "Aktualisieren",
         "download": "Herunterladen",
         "wordWrapOn": "Zeilenumbruch: An",
-        "wordWrapOff": "Zeilenumbruch: Aus"
+        "wordWrapOff": "Zeilenumbruch: Aus",
+        "tailOn": "Tail: An",
+        "tailOff": "Tail: Aus"
       },
       "footer": {
         "lines": "Zeilen: {{count}}",
@@ -230,11 +237,11 @@
         "title": "Sprache",
         "description": "Wählen Sie die Frontend-Sprache für Beschriftungen, Meldungen und Datumsformate."
       },
-      "largeFileFocus": {
-        "title": "Startpunkt großer Dateien",
-        "description": "Legen Sie fest, ob große Logs zuerst vom Anfang oder vom neuesten Tail-Bereich geöffnet werden.",
-        "start": "Anfang",
-        "end": "Ende"
+      "tailRefreshInterval": {
+        "title": "Tail-Aktualisierungsintervall",
+        "description": "Wie oft der Tail-Modus die neuesten Logzeilen neu lädt.",
+        "seconds": "{{count}}s",
+        "minute": "60s"
       },
       "refreshInterval": {
         "title": "Automatisches Aktualisierungsintervall",

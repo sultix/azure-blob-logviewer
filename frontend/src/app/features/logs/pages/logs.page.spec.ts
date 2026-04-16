@@ -49,6 +49,7 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly largeViewerActiveMatchLineState = signal<number | null>(null);
   readonly largeViewerTailPreviewLinesState = signal<string[]>([]);
   readonly largeViewerCanEnableWordWrapState = signal(true);
+  readonly isTailModeState = signal(false);
 
   readonly status = computed(() => this.statusState());
   readonly entries = computed(() => this.entriesState());
@@ -93,6 +94,7 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly largeViewerActiveMatchLine = computed(() => this.largeViewerActiveMatchLineState());
   readonly largeViewerTailPreviewLines = computed(() => this.largeViewerTailPreviewLinesState());
   readonly largeViewerCanEnableWordWrap = computed(() => this.largeViewerCanEnableWordWrapState());
+  readonly isTailMode = computed(() => this.isTailModeState());
 
   readonly loadForConnection = vi.fn<(accountName: string, containerName: string) => Promise<void>>(
     async () => undefined,
@@ -137,6 +139,9 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly selectPreviousSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly selectNextSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly exportLargeViewer = vi.fn<() => Promise<boolean>>(async () => false);
+  readonly setTailMode = vi.fn<(enabled: boolean) => Promise<void>>(async (enabled) => {
+    this.isTailModeState.set(enabled);
+  });
   readonly clearRequestedScrollLine = vi.fn<() => void>(() => {
     this.largeViewerRequestedScrollLineState.set(null);
   });
@@ -164,6 +169,7 @@ class LogsServiceStub implements Partial<LogsService> {
     this.largeViewerActiveMatchLineState.set(null);
     this.largeViewerTailPreviewLinesState.set([]);
     this.largeViewerCanEnableWordWrapState.set(true);
+    this.isTailModeState.set(false);
   });
   readonly setError = vi.fn<(message: string) => void>((message) => {
     this.statusState.set('error');
@@ -189,6 +195,7 @@ class LogsServiceStub implements Partial<LogsService> {
     this.largeViewerActiveMatchLineState.set(null);
     this.largeViewerTailPreviewLinesState.set([]);
     this.largeViewerCanEnableWordWrapState.set(true);
+    this.isTailModeState.set(false);
   });
 
   private resolveSelectedEntries(ids: string[]): LogEntry[] {
@@ -229,7 +236,7 @@ class MessageServiceStub implements Partial<MessageService> {
 class SettingsServiceStub implements Partial<SettingsService> {
   readonly logsState = signal<LogsPreferences>({
     wordWrapEnabled: false,
-    initialLargeFileFocus: 'start',
+    tailRefreshIntervalSeconds: 10,
     sortBasis: LogSortBasis.Created,
   });
   readonly logs = computed(() => this.logsState());
@@ -1323,6 +1330,7 @@ function createLargeViewerStatus(
     canEnableWordWrap: true,
     hasPendingBefore: false,
     hasPendingAfter: false,
+    mode: 'snapshot',
     focus: 'start',
     tailPreviewLines: [],
     ...overrides,

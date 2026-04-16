@@ -51,6 +51,7 @@ type blobViewSession struct {
 	accountName   string
 	containerName string
 	blobName      string
+	mode          models.BlobViewMode
 	focus         models.BlobViewFocus
 	filePath      string
 	file          *os.File
@@ -111,9 +112,14 @@ func (s *BlobViewService) CloseAllSessions() {
 }
 
 func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBlobViewSessionRequest) (*models.BlobViewSessionStatus, error) {
-	focus := request.Focus
-	if focus != models.BlobViewFocusEnd {
-		focus = models.BlobViewFocusStart
+	mode := request.Mode
+	if mode != models.BlobViewModeTail {
+		mode = models.BlobViewModeSnapshot
+	}
+
+	focus := models.BlobViewFocusStart
+	if mode == models.BlobViewModeTail {
+		focus = models.BlobViewFocusEnd
 	}
 
 	blobClient, blobSize, contentType, err := s.createBlobClient(
@@ -124,30 +130,33 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 	)
 	if err != nil {
 		logDetailedError("open blob view session metadata failed", err)
-		return buildBlobViewFailureStatus(request.BlobName, focus, blobFailureReasonFromError(err)), nil
+		return buildBlobViewFailureStatus(request.BlobName, mode, focus, blobFailureReasonFromError(err)), nil
 	}
 
 	if blobSize > blobViewMaxBlobBytes {
-		return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonTooLarge), nil
+		return buildBlobViewFailureStatus(request.BlobName, mode, focus, models.BlobFailureReasonTooLarge), nil
 	}
 
 	if err := s.reserveSessionCapacity(blobSize); err != nil {
-		return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonLimitExceeded), nil
+		return buildBlobViewFailureStatus(request.BlobName, mode, focus, models.BlobFailureReasonLimitExceeded), nil
 	}
 
-	tempFile, err := s.openTempFile()
-	if err != nil {
-		s.releasePendingSessionCapacity(blobSize)
-		logDetailedError("create temp file for blob view failed", err)
-		return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonDownloadFailed), nil
-	}
+	var tempFile *os.File
+	if mode == models.BlobViewModeSnapshot {
+		tempFile, err = s.openTempFile()
+		if err != nil {
+			s.releasePendingSessionCapacity(blobSize)
+			logDetailedError("create temp file for blob view failed", err)
+			return buildBlobViewFailureStatus(request.BlobName, mode, focus, models.BlobFailureReasonDownloadFailed), nil
+		}
 
-	if err := tempFile.Truncate(blobSize); err != nil {
-		s.releasePendingSessionCapacity(blobSize)
-		_ = tempFile.Close()
-		_ = os.Remove(tempFile.Name())
-		logDetailedError("prepare temp file for blob view failed", err)
-		return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonLimitExceeded), nil
+		if err := tempFile.Truncate(blobSize); err != nil {
+			s.releasePendingSessionCapacity(blobSize)
+			_ = tempFile.Close()
+			_ = os.Remove(tempFile.Name())
+			logDetailedError("prepare temp file for blob view failed", err)
+			return buildBlobViewFailureStatus(request.BlobName, mode, focus, models.BlobFailureReasonLimitExceeded), nil
+		}
 	}
 
 	downloadCtx, cancel := context.WithCancel(context.Background())
@@ -157,22 +166,34 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 		accountName:      request.AccountName,
 		containerName:    request.ContainerName,
 		blobName:         request.BlobName,
+		mode:             mode,
 		focus:            focus,
-		filePath:         tempFile.Name(),
 		file:             tempFile,
 		blobSize:         blobSize,
 		contentType:      contentType,
-		reservedBytes:    blobSize,
 		downloadCtx:      downloadCtx,
 		cancel:           cancel,
 		lineStarts:       makeInitialLineStarts(blobSize),
 		lastAccess:       s.now(),
 		tailPreviewLines: nil,
 	}
+	if tempFile != nil {
+		session.filePath = tempFile.Name()
+		session.reservedBytes = blobSize
+	} else {
+		session.lineStarts = nil
+	}
 
 	if blobSize == 0 {
 		session.indexedBytes = 0
-		session.isComplete = true
+		session.isComplete = mode == models.BlobViewModeSnapshot
+	} else if mode == models.BlobViewModeTail {
+		if err := s.refreshTailSession(session); err != nil {
+			s.releasePendingSessionCapacity(blobSize)
+			cancel()
+			logDetailedError("download blob tail session failed", err)
+			return buildBlobViewFailureStatus(request.BlobName, mode, focus, blobFailureReasonFromError(err)), nil
+		}
 	} else if focus == models.BlobViewFocusEnd && blobSize > largeBlobThresholdBytes {
 		tailStart := maxInt64(blobSize-defaultBlobChunkSizeBytes, 0)
 		tailData, err := blobClient.DownloadRange(
@@ -188,7 +209,7 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 			_ = tempFile.Close()
 			_ = os.Remove(session.filePath)
 			logDetailedError("download blob tail preview failed", err)
-			return buildBlobViewFailureStatus(request.BlobName, focus, blobFailureReasonFromError(err)), nil
+			return buildBlobViewFailureStatus(request.BlobName, mode, focus, blobFailureReasonFromError(err)), nil
 		}
 		if err := writeBlobRange(session.file, tailStart, tailData); err != nil {
 			s.releasePendingSessionCapacity(blobSize)
@@ -196,19 +217,25 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 			_ = tempFile.Close()
 			_ = os.Remove(session.filePath)
 			logDetailedError("write blob tail preview failed", err)
-			return buildBlobViewFailureStatus(request.BlobName, focus, models.BlobFailureReasonDownloadFailed), nil
+			return buildBlobViewFailureStatus(request.BlobName, mode, focus, models.BlobFailureReasonDownloadFailed), nil
 		}
 
 		session.bytesDownloaded = int64(len(tailData))
+		session.indexedBytes = session.bytesDownloaded
 		session.tailPreviewLines = buildTailPreviewLines(string(tailData), tailStart > 0)
 	}
 
 	s.mu.Lock()
 	s.sessions[session.id] = session
-	s.pendingSessionCount--
+	if s.pendingSessionCount > 0 {
+		s.pendingSessionCount--
+	}
+	if mode == models.BlobViewModeTail {
+		s.reservedTempBytes = maxInt64(s.reservedTempBytes-blobSize, 0)
+	}
 	s.mu.Unlock()
 
-	if !session.isComplete {
+	if session.mode == models.BlobViewModeSnapshot && !session.isComplete {
 		go s.downloadSession(session)
 	}
 
@@ -219,6 +246,12 @@ func (s *BlobViewService) GetStatus(sessionID string) (*models.BlobViewSessionSt
 	session, err := s.getSession(sessionID)
 	if err != nil {
 		return nil, err
+	}
+
+	if session.mode == models.BlobViewModeTail {
+		if err := s.refreshTailSession(session); err != nil {
+			s.failSession(session, err)
+		}
 	}
 
 	return s.statusForSession(session), nil
@@ -232,6 +265,16 @@ func (s *BlobViewService) GetLines(sessionID string, startLine, lineCount int64)
 
 	session.mu.Lock()
 	session.lastAccess = s.now()
+	if session.mode == models.BlobViewModeTail {
+		totalLines := int64(len(session.tailPreviewLines))
+		session.mu.Unlock()
+		return &models.BlobViewLinesResponse{
+			StartLine:  0,
+			TotalLines: totalLines,
+			IsComplete: false,
+			Lines:      []models.BlobViewLine{},
+		}, nil
+	}
 	totalLines := session.indexedLineCountLocked()
 	indexedBytes := session.indexedBytes
 	lineStarts := append([]int64(nil), session.lineStarts...)
@@ -290,6 +333,29 @@ func (s *BlobViewService) Search(request models.BlobViewSearchRequest) (*models.
 
 	session.mu.Lock()
 	session.lastAccess = s.now()
+	if session.mode == models.BlobViewModeTail {
+		tailPreviewLines := append([]string(nil), session.tailPreviewLines...)
+		session.mu.Unlock()
+
+		matches := make([]models.BlobViewSearchMatch, 0, len(tailPreviewLines))
+		queryLower := strings.ToLower(query)
+		for index, line := range tailPreviewLines {
+			if !strings.Contains(strings.ToLower(line), queryLower) {
+				continue
+			}
+			matches = append(matches, models.BlobViewSearchMatch{
+				LineNumber: int64(index),
+				Preview:    line,
+			})
+		}
+
+		return &models.BlobViewSearchResponse{
+			Query:      query,
+			Matches:    matches,
+			NextCursor: -1,
+			IsComplete: true,
+		}, nil
+	}
 	totalLines := session.indexedLineCountLocked()
 	indexedBytes := session.indexedBytes
 	lineStarts := append([]int64(nil), session.lineStarts...)
@@ -378,6 +444,10 @@ func (s *BlobViewService) Export(ctx context.Context, sessionID string) (*models
 
 	session.mu.Lock()
 	session.lastAccess = s.now()
+	if session.mode == models.BlobViewModeTail {
+		session.mu.Unlock()
+		return nil, fmt.Errorf("tail mode export is unavailable")
+	}
 	isComplete := session.isComplete
 	blobName := session.blobName
 	blobSize := session.blobSize
@@ -540,7 +610,9 @@ func (s *BlobViewService) statusForSession(session *blobViewSession) *models.Blo
 
 	hasPendingBefore := false
 	hasPendingAfter := false
-	if !session.isComplete {
+	if session.mode == models.BlobViewModeTail {
+		hasPendingBefore = session.blobSize > session.bytesDownloaded
+	} else if !session.isComplete {
 		if session.focus == models.BlobViewFocusEnd {
 			hasPendingBefore = true
 		} else {
@@ -557,11 +629,12 @@ func (s *BlobViewService) statusForSession(session *blobViewSession) *models.Blo
 		IndexedLineCount:  session.indexedLineCountLocked(),
 		IndexedThrough:    session.indexedBytes,
 		IsComplete:        session.isComplete,
-		CanEnableWordWrap: session.isComplete,
+		CanEnableWordWrap: session.mode == models.BlobViewModeSnapshot && session.isComplete,
 		HasPendingBefore:  hasPendingBefore,
 		HasPendingAfter:   hasPendingAfter,
 		ErrorMessage:      session.errorMessage,
 		FailureReason:     session.failureReason,
+		Mode:              session.mode,
 		Focus:             session.focus,
 		TailPreviewLines:  append([]string{}, session.tailPreviewLines...),
 	}
@@ -648,6 +721,7 @@ func (s *BlobViewService) releaseAllocatedTempBytes(blobSize int64) {
 
 func buildBlobViewFailureStatus(
 	blobName string,
+	mode models.BlobViewMode,
 	focus models.BlobViewFocus,
 	reason models.BlobFailureReason,
 ) *models.BlobViewSessionStatus {
@@ -655,6 +729,7 @@ func buildBlobViewFailureStatus(
 		BlobName:         blobName,
 		ErrorMessage:     blobFailureMessage(reason),
 		FailureReason:    string(reason),
+		Mode:             mode,
 		Focus:            focus,
 		TailPreviewLines: []string{},
 	}
@@ -755,6 +830,9 @@ func appendLineStartsLocked(session *blobViewSession, offset int64, data []byte)
 }
 
 func (s *blobViewSession) indexedLineCountLocked() int64 {
+	if s.mode == models.BlobViewModeTail {
+		return int64(len(s.tailPreviewLines))
+	}
 	if s.indexedBytes == 0 || len(s.lineStarts) == 0 {
 		return 0
 	}
@@ -786,6 +864,65 @@ func writeBlobRange(file *os.File, offset int64, data []byte) error {
 	if _, err := file.WriteAt(data, offset); err != nil {
 		return fmt.Errorf("failed to write temp file")
 	}
+	return nil
+}
+
+func (s *BlobViewService) refreshTailSession(session *blobViewSession) error {
+	blobClient, blobSize, contentType, err := s.createBlobClient(
+		session.downloadCtx,
+		session.accountName,
+		session.containerName,
+		session.blobName,
+	)
+	if err != nil {
+		return err
+	}
+
+	var tailData []byte
+	if blobSize > 0 {
+		tailStart := maxInt64(blobSize-defaultBlobChunkSizeBytes, 0)
+		tailData, err = blobClient.DownloadRange(
+			session.downloadCtx,
+			session.containerName,
+			session.blobName,
+			tailStart,
+			blobSize-tailStart,
+		)
+		if err != nil {
+			return err
+		}
+
+		session.mu.Lock()
+		if session.closed {
+			session.mu.Unlock()
+			return nil
+		}
+		session.blobSize = blobSize
+		session.contentType = contentType
+		session.bytesDownloaded = int64(len(tailData))
+		session.indexedBytes = int64(len(tailData))
+		session.tailPreviewLines = buildTailPreviewLines(string(tailData), tailStart > 0)
+		session.errorMessage = ""
+		session.failureReason = ""
+		session.lastAccess = s.now()
+		session.mu.Unlock()
+		return nil
+	}
+
+	session.mu.Lock()
+	if session.closed {
+		session.mu.Unlock()
+		return nil
+	}
+	session.blobSize = 0
+	session.contentType = contentType
+	session.bytesDownloaded = 0
+	session.indexedBytes = 0
+	session.tailPreviewLines = nil
+	session.errorMessage = ""
+	session.failureReason = ""
+	session.lastAccess = s.now()
+	session.mu.Unlock()
 	return nil
 }
 

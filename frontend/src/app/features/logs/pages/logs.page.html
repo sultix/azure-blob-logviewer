@@ -57,6 +57,9 @@
     [status]="status()"
     [errorMessage]="errorMessage()"
     [hasSelection]="hasSelectedEntry()"
+    [tailAvailable]="tailAvailable()"
+    [tailEnabled]="tailEnabled()"
+    [tailRefreshIntervalSeconds]="tailRefreshIntervalSeconds()"
     [selectionKey]="detailSelectionKey()"
     [toolbar]="toolbar()"
     [largeViewer]="largeViewer()"
@@ -71,6 +74,7 @@
     (nextLargeMatchRequested)="onNextLargeMatch()"
     (largeViewportChanged)="onLargeViewportChange($event)"
     (largeScrollHandled)="onLargeScrollHandled()"
+    (tailToggled)="onTailToggled($event)"
     (refreshRequested)="refresh()"
   />
 </section>

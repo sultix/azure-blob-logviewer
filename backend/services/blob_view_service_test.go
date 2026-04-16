@@ -23,7 +23,7 @@ func TestBlobViewServiceOpenSessionRejectsOversizedBlobs(t *testing.T) {
 		AccountName:   "storage-a",
 		ContainerName: "logs",
 		BlobName:      "oversized.log",
-		Focus:         models.BlobViewFocusStart,
+		Mode:          models.BlobViewModeSnapshot,
 	})
 	if err != nil {
 		t.Fatalf("expected oversized blob to return failure status, got error: %v", err)
@@ -49,7 +49,7 @@ func TestBlobViewServiceOpenSessionRejectsWhenSessionLimitIsReached(t *testing.T
 			AccountName:   "storage-a",
 			ContainerName: "logs",
 			BlobName:      fmt.Sprintf("file-%d.log", index),
-			Focus:         models.BlobViewFocusStart,
+			Mode:          models.BlobViewModeSnapshot,
 		})
 		if err != nil {
 			t.Fatalf("expected session %d to open successfully, got %v", index, err)
@@ -63,7 +63,7 @@ func TestBlobViewServiceOpenSessionRejectsWhenSessionLimitIsReached(t *testing.T
 		AccountName:   "storage-a",
 		ContainerName: "logs",
 		BlobName:      "overflow.log",
-		Focus:         models.BlobViewFocusStart,
+		Mode:          models.BlobViewModeSnapshot,
 	})
 	if err != nil {
 		t.Fatalf("expected session limit to return failure status, got error: %v", err)
@@ -87,7 +87,7 @@ func TestBlobViewServiceOpenSessionRejectsWhenTempQuotaIsExceeded(t *testing.T) 
 		AccountName:   "storage-a",
 		ContainerName: "logs",
 		BlobName:      "quota.log",
-		Focus:         models.BlobViewFocusStart,
+		Mode:          models.BlobViewModeSnapshot,
 	})
 	if err != nil {
 		t.Fatalf("expected temp quota failure to be returned as status, got error: %v", err)
@@ -109,7 +109,7 @@ func TestBlobViewServiceCloseSessionRemovesTempFileAndReleasesQuota(t *testing.T
 		AccountName:   "storage-a",
 		ContainerName: "logs",
 		BlobName:      "cleanup.log",
-		Focus:         models.BlobViewFocusStart,
+		Mode:          models.BlobViewModeSnapshot,
 	})
 	if err != nil {
 		t.Fatalf("expected cleanup session to open successfully, got %v", err)

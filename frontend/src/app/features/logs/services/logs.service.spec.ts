@@ -359,7 +359,7 @@ describe('LogsService', () => {
       accountName: 'myaccount',
       containerName: 'logs',
       blobName: 'file.log',
-      focus: 'start',
+      mode: 'snapshot',
     });
     expect(api.readBlobTextChunk).not.toHaveBeenCalled();
   });
@@ -1090,6 +1090,7 @@ function createSessionStatus(
     canEnableWordWrap: true,
     hasPendingBefore: false,
     hasPendingAfter: false,
+    mode: 'snapshot',
     focus: 'start',
     tailPreviewLines: [],
     ...overrides,

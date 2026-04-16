@@ -228,6 +228,13 @@ export class LogsPage implements OnInit {
   readonly sidebarLoading = computed(
     () => this.status() === 'loading' || this.sidebarRefreshing(),
   );
+  readonly tailAvailable = computed(
+    () => this.selectedEntryIds().length === 1 && this.contentMode() === 'single',
+  );
+  readonly tailEnabled = computed(() => this.logs.isTailMode());
+  readonly tailRefreshIntervalSeconds = computed(
+    () => this.settings.logs().tailRefreshIntervalSeconds,
+  );
   readonly largeViewer = computed<LogLargeViewerVm | null>(() => {
     const status = this.largeViewerStatus();
     if (!status) {
@@ -243,13 +250,17 @@ export class LogsPage implements OnInit {
       LOG_VIRTUAL_LINE_HEIGHT_PX;
 
     return {
+      mode: status.mode,
       progressLabel: this.i18n.translate('logs.detail.viewer.progress', {
         loaded: this.formatProgressSize(status.bytesDownloaded),
         total: this.formatProgressSize(status.blobSize),
       }),
-      statusLabel: status.isComplete
-        ? this.i18n.translate('logs.detail.viewer.complete')
-        : this.i18n.translate('logs.detail.viewer.backgroundLoading'),
+      statusLabel:
+        status.mode === 'tail'
+          ? this.i18n.translate('logs.detail.viewer.tailActive')
+          : status.isComplete
+            ? this.i18n.translate('logs.detail.viewer.complete')
+            : this.i18n.translate('logs.detail.viewer.backgroundLoading'),
       searchStatusLabel: this.buildLargeViewerSearchStatusLabel(),
       searchQuery: this.logs.largeViewerSearchQuery(),
       matchCount: this.logs.largeViewerSearchMatches().length,
@@ -270,7 +281,7 @@ export class LogsPage implements OnInit {
         ? this.i18n.translate('logs.detail.viewer.pendingAfter')
         : null,
       canEnableWordWrap: status.canEnableWordWrap,
-      downloadDisabled: !status.isComplete,
+      downloadDisabled: status.mode === 'tail' || !status.isComplete,
     };
   });
   readonly downloadDisabled = computed(
@@ -438,6 +449,14 @@ export class LogsPage implements OnInit {
 
   onLargeScrollHandled(): void {
     this.logs.clearRequestedScrollLine();
+  }
+
+  onTailToggled(enabled: boolean): void {
+    if (enabled) {
+      this.settings.updateLogsPreferences({ wordWrapEnabled: false });
+    }
+
+    void this.logs.setTailMode(enabled);
   }
 
   async download(): Promise<void> {

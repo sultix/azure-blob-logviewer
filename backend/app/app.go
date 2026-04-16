@@ -134,6 +134,9 @@ func (a *App) OpenBlobViewSession(request models.OpenBlobViewSessionRequest) (*m
 	if request.BlobName == "" {
 		return nil, fmt.Errorf("blob name is required")
 	}
+	if request.Mode == "" {
+		request.Mode = models.BlobViewModeSnapshot
+	}
 	return a.blobView.OpenSession(a.ctx, request)
 }
 

@@ -146,6 +146,9 @@
       "modified": "Modified {{value}}",
       "wordWrap": "Word Wrap",
       "wordWrapToggleAriaLabel": "Toggle word wrap for log content",
+      "tail": "Tail",
+      "tailToggleAriaLabel": "Toggle live tail mode for log content",
+      "wordWrapDisabledInTail": "Word wrap is disabled while tail mode is active.",
       "searchContentPlaceholder": "Search content...",
       "searchContentAriaLabel": "Search within log content",
       "clearSearch": "Clear search",
@@ -164,6 +167,8 @@
         "progress": "{{loaded}} / {{total}} loaded",
         "backgroundLoading": "File is loading in the background",
         "complete": "File fully loaded",
+        "tailActive": "Tail mode active",
+        "tailRefresh": "Refreshing every {{seconds}}s",
         "wordWrapUnavailable": "Word wrap is unavailable for large files to keep the viewer responsive.",
         "pendingBefore": "Earlier lines are still loading",
         "pendingAfter": "Later lines are still loading",
@@ -186,7 +191,9 @@
         "refresh": "Refresh",
         "download": "Download",
         "wordWrapOn": "Word Wrap: On",
-        "wordWrapOff": "Word Wrap: Off"
+        "wordWrapOff": "Word Wrap: Off",
+        "tailOn": "Tail: On",
+        "tailOff": "Tail: Off"
       },
       "footer": {
         "lines": "Lines: {{count}}",
@@ -230,11 +237,11 @@
         "title": "Language",
         "description": "Choose the frontend language for labels, messages, and date formatting."
       },
-      "largeFileFocus": {
-        "title": "Large File Start",
-        "description": "Choose whether large logs initially open from the beginning or from the newest tail section.",
-        "start": "Start",
-        "end": "End"
+      "tailRefreshInterval": {
+        "title": "Tail Refresh Interval",
+        "description": "How often tail mode fetches the newest log lines.",
+        "seconds": "{{count}}s",
+        "minute": "60s"
       },
       "refreshInterval": {
         "title": "Auto-refresh Interval",

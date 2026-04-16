@@ -5,6 +5,7 @@ import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import { getBlobFailureMessage } from '@app/core/services/app-error-messages';
 import { AppApiService } from '@app/core/services/app-api.service';
 import type {
+  BlobViewMode,
   BlobViewSearchMatch,
   BlobViewSearchResponse,
   BlobViewSessionStatus,
@@ -40,6 +41,7 @@ type SelectedBlobContentState = SingleBlobContentState | MergedBlobContentState;
 interface LargeViewerState {
   entryId: string;
   sessionId: string;
+  mode: BlobViewMode;
   status: BlobViewSessionStatus;
   linesResponse: BlobViewLinesResponse | null;
   viewportStartLine: number;
@@ -55,7 +57,7 @@ interface LargeViewerState {
 const INLINE_BLOB_PREVIEW_LIMIT_BYTES = 13 * 1024 * 1024;
 const MAX_MERGED_BLOB_SIZE_BYTES = 20 * 1024 * 1024;
 const MAX_MERGED_SELECTION_COUNT = 5;
-const LARGE_VIEW_POLL_INTERVAL_MS = 700;
+const SNAPSHOT_VIEW_POLL_INTERVAL_MS = 700;
 const DEFAULT_LINE_WINDOW_SIZE = 120;
 const MIN_SEARCH_QUERY_LENGTH = 3;
 
@@ -153,9 +155,19 @@ export class LogsService implements OnDestroy {
   readonly contentWindow = computed(() => {
     const largeViewerState = this.largeViewerState();
     if (largeViewerState) {
+      const startOffset =
+        largeViewerState.mode === 'tail'
+          ? Math.max(
+              largeViewerState.status.blobSize - largeViewerState.status.bytesDownloaded,
+              0,
+            )
+          : 0;
       return {
-        startOffset: 0,
-        endOffsetExclusive: largeViewerState.status.bytesDownloaded,
+        startOffset,
+        endOffsetExclusive:
+          largeViewerState.mode === 'tail'
+            ? largeViewerState.status.blobSize
+            : largeViewerState.status.bytesDownloaded,
         blobSize: largeViewerState.status.blobSize,
         hasOlderContent: largeViewerState.status.hasPendingBefore,
         hasNewerContent: largeViewerState.status.hasPendingAfter,
@@ -194,6 +206,9 @@ export class LogsService implements OnDestroy {
   readonly hasNewerContent = computed(() => this.contentWindow()?.hasNewerContent ?? false);
 
   readonly largeViewerStatus = computed(() => this.largeViewerState()?.status ?? null);
+  readonly largeViewerMode = computed<BlobViewMode | null>(
+    () => this.largeViewerState()?.mode ?? null,
+  );
   readonly largeViewerLines = computed(() => this.largeViewerState()?.linesResponse?.lines ?? []);
   readonly largeViewerViewportStartLine = computed(() => this.largeViewerState()?.viewportStartLine ?? 0);
   readonly largeViewerViewportLineCount = computed(() => this.largeViewerState()?.viewportLineCount ?? DEFAULT_LINE_WINDOW_SIZE);
@@ -211,6 +226,7 @@ export class LogsService implements OnDestroy {
   });
   readonly largeViewerTailPreviewLines = computed(() => this.largeViewerState()?.status.tailPreviewLines ?? []);
   readonly largeViewerCanEnableWordWrap = computed(() => this.largeViewerState()?.status.canEnableWordWrap ?? false);
+  readonly isTailMode = computed(() => this.largeViewerMode() === 'tail');
 
   ngOnDestroy(): void {
     void this.closeLargeViewer();
@@ -344,17 +360,41 @@ export class LogsService implements OnDestroy {
       return;
     }
 
+    const viewer = this.largeViewerState();
+    if (viewer?.entryId === entry.id && viewer.mode === 'tail') {
+      await this.refreshLargeViewerStatus(viewer.sessionId);
+      return;
+    }
+
     if (entry.size > INLINE_BLOB_PREVIEW_LIMIT_BYTES) {
-      await this.openLargeViewer(entry, true);
+      await this.openLargeViewer(entry, 'snapshot', true);
       return;
     }
 
     await this.loadContentChunk(entry.id);
   }
 
+  async setTailMode(enabled: boolean): Promise<void> {
+    const entry = this.selectedEntry();
+    if (!entry || this.selectionCount() !== 1) {
+      return;
+    }
+
+    if (enabled) {
+      await this.openLargeViewer(entry, 'tail', true);
+      return;
+    }
+
+    await this.applySelection([entry.id]);
+  }
+
   async updateLargeViewport(startLine: number, lineCount: number): Promise<void> {
     const viewer = this.largeViewerState();
     if (!viewer) {
+      return;
+    }
+
+    if (viewer.mode === 'tail') {
       return;
     }
 
@@ -417,7 +457,7 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (viewer.status.tailPreviewLines.length > 0) {
+    if (viewer.mode === 'tail' || viewer.status.tailPreviewLines.length > 0) {
       this.applyTailPreviewSearch(viewer.sessionId, normalizedQuery, false);
       return;
     }
@@ -435,7 +475,7 @@ export class LogsService implements OnDestroy {
 
   async exportLargeViewer(): Promise<boolean> {
     const viewer = this.largeViewerState();
-    if (!viewer || !viewer.status.isComplete) {
+    if (!viewer || viewer.mode === 'tail' || !viewer.status.isComplete) {
       return false;
     }
 
@@ -518,7 +558,7 @@ export class LogsService implements OnDestroy {
       }
 
       if (entry.size > INLINE_BLOB_PREVIEW_LIMIT_BYTES) {
-        await this.openLargeViewer(entry);
+        await this.openLargeViewer(entry, 'snapshot');
         return;
       }
 
@@ -535,7 +575,7 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (viewer.status.tailPreviewLines.length > 0) {
+    if (viewer.mode === 'tail' || viewer.status.tailPreviewLines.length > 0) {
       this.moveTailPreviewSearchMatch(viewer, direction);
       return;
     }
@@ -576,19 +616,28 @@ export class LogsService implements OnDestroy {
         : current,
     );
 
-    if (updatedViewer.status.tailPreviewLines.length === 0) {
+    if (updatedViewer.mode !== 'tail' && updatedViewer.status.tailPreviewLines.length === 0) {
       const startLine = Math.max(activeMatch.lineNumber - Math.floor(updatedViewer.viewportLineCount / 2), 0);
       await this.updateLargeViewport(startLine, updatedViewer.viewportLineCount);
     }
   }
 
-  private async openLargeViewer(entry: LogEntry, forceReload = false): Promise<void> {
+  private async openLargeViewer(
+    entry: LogEntry,
+    mode: BlobViewMode,
+    forceReload = false,
+  ): Promise<void> {
     if (!entry.storageAccountName || !entry.containerName) {
       return;
     }
 
     const currentViewer = this.largeViewerState();
-    if (currentViewer && currentViewer.entryId === entry.id && !forceReload) {
+    if (
+      currentViewer &&
+      currentViewer.entryId === entry.id &&
+      currentViewer.mode === mode &&
+      !forceReload
+    ) {
       return;
     }
 
@@ -604,7 +653,7 @@ export class LogsService implements OnDestroy {
         accountName: entry.storageAccountName,
         containerName: entry.containerName,
         blobName: entry.blobName,
-        focus: this.settings.logs().initialLargeFileFocus,
+        mode,
       });
       if (status.failureReason) {
         this.selectedContentErrorState.set(getBlobFailureMessage(this.i18n, status.failureReason));
@@ -619,14 +668,12 @@ export class LogsService implements OnDestroy {
         return;
       }
 
-      const initialViewportStartLine =
-        status.focus === 'end' && status.isComplete
-          ? Math.max(status.indexedLineCount - DEFAULT_LINE_WINDOW_SIZE, 0)
-          : 0;
+      const initialViewportStartLine = 0;
 
       this.largeViewerState.set({
         entryId: entry.id,
         sessionId: status.sessionId,
+        mode: status.mode,
         status,
         linesResponse: null,
         viewportStartLine: initialViewportStartLine,
@@ -636,14 +683,19 @@ export class LogsService implements OnDestroy {
         searchNextCursor: 0,
         searchIsComplete: true,
         activeMatchIndex: -1,
-        requestedScrollLine: status.focus === 'end' && status.isComplete
-          ? Math.max(status.indexedLineCount - 1, 0)
-          : null,
+        requestedScrollLine:
+          status.mode === 'tail' && status.tailPreviewLines.length > 0
+            ? Math.max(status.tailPreviewLines.length - 1, 0)
+            : null,
       });
 
-      this.startStatusPolling(status.sessionId);
+      this.startStatusPolling(status.sessionId, status.mode);
 
-      if (status.tailPreviewLines.length === 0 && status.indexedLineCount > 0) {
+      if (
+        status.mode === 'snapshot' &&
+        status.tailPreviewLines.length === 0 &&
+        status.indexedLineCount > 0
+      ) {
         await this.updateLargeViewport(initialViewportStartLine, DEFAULT_LINE_WINDOW_SIZE);
       }
     } catch {
@@ -660,6 +712,9 @@ export class LogsService implements OnDestroy {
 
   private async refreshLargeViewerStatus(sessionId: string): Promise<void> {
     const status = await this.api.getBlobViewStatus(sessionId);
+    const viewerMode = this.largeViewerState()?.sessionId === sessionId
+      ? this.largeViewerState()?.mode ?? status.mode
+      : status.mode;
     const activeQuery = this.largeViewerSearchQuery().trim();
     const previousTailPreviewLength = this.largeViewerState()?.status.tailPreviewLines.length ?? 0;
 
@@ -676,17 +731,16 @@ export class LogsService implements OnDestroy {
         current.status.indexedLineCount !== status.indexedLineCount ||
         current.status.isComplete !== status.isComplete;
       nextViewportStartLine =
-        status.focus === 'end' && current.linesResponse === null && status.isComplete
-          ? Math.max(status.indexedLineCount - current.viewportLineCount, 0)
-          : current.viewportStartLine;
+        current.viewportStartLine;
       nextViewportLineCount = current.viewportLineCount;
 
       return {
         ...current,
+        mode: status.mode,
         status,
         requestedScrollLine:
-          status.focus === 'end' && current.requestedScrollLine === null && status.isComplete
-            ? Math.max(status.indexedLineCount - 1, 0)
+          status.mode === 'tail' && current.requestedScrollLine === null && status.tailPreviewLines.length > 0
+            ? Math.max(status.tailPreviewLines.length - 1, 0)
             : current.requestedScrollLine,
       };
     });
@@ -702,11 +756,15 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (status.isComplete) {
+    if (viewerMode === 'snapshot' && status.isComplete) {
       this.stopStatusPolling();
     }
 
-    if (status.tailPreviewLines.length === 0 && (needsViewportRefresh || this.largeViewerLines().length === 0)) {
+    if (
+      viewerMode === 'snapshot' &&
+      status.tailPreviewLines.length === 0 &&
+      (needsViewportRefresh || this.largeViewerLines().length === 0)
+    ) {
       await this.updateLargeViewport(nextViewportStartLine, nextViewportLineCount);
     }
 
@@ -714,7 +772,7 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (status.tailPreviewLines.length > 0) {
+    if (viewerMode === 'tail' || status.tailPreviewLines.length > 0) {
       this.applyTailPreviewSearch(sessionId, activeQuery, true);
       return;
     }
@@ -729,11 +787,15 @@ export class LogsService implements OnDestroy {
     await this.loadSearchResults(sessionId, activeQuery);
   }
 
-  private startStatusPolling(sessionId: string): void {
+  private startStatusPolling(sessionId: string, mode: BlobViewMode): void {
     this.stopStatusPolling();
+    const intervalMs =
+      mode === 'tail'
+        ? this.settings.logs().tailRefreshIntervalSeconds * 1000
+        : SNAPSHOT_VIEW_POLL_INTERVAL_MS;
     this.statusPollTimer = setInterval(() => {
       void this.refreshLargeViewerStatus(sessionId);
-    }, LARGE_VIEW_POLL_INTERVAL_MS);
+    }, intervalMs);
   }
 
   private stopStatusPolling(): void {
@@ -844,7 +906,7 @@ export class LogsService implements OnDestroy {
         ...current,
         searchMatches: matches,
         searchNextCursor: 0,
-        searchIsComplete: current.status.isComplete,
+        searchIsComplete: current.mode === 'tail' || current.status.isComplete,
         activeMatchIndex,
         requestedScrollLine:
           activeMatchIndex >= 0

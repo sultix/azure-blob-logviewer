@@ -37,7 +37,7 @@ class SettingsServiceStub implements Partial<SettingsService> {
   });
   readonly logs = signal<LogsPreferences>({
     wordWrapEnabled: false,
-    initialLargeFileFocus: 'start',
+    tailRefreshIntervalSeconds: 10,
     sortBasis: LogSortBasis.LastModified,
   });
   updateGeneral = vi.fn();
@@ -151,16 +151,16 @@ describe('SettingsPage', () => {
     );
   });
 
-  it('renders and updates the large-file focus preference', () => {
+  it('renders and updates the tail refresh interval preference', () => {
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Large File Start');
-    const endButton = getButtonByText(fixture, 'End');
-    endButton.click();
+    expect(fixture.nativeElement.textContent).toContain('Tail Refresh Interval');
+    const intervalButton = getButtonByText(fixture, '30s');
+    intervalButton.click();
 
     const settings = TestBed.inject(SettingsService) as unknown as SettingsServiceStub;
     expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
-      initialLargeFileFocus: 'end',
+      tailRefreshIntervalSeconds: 30,
     });
   });
 

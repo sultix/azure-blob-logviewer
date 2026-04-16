@@ -26,9 +26,9 @@ import {
 import { AzureService } from '../services/azure.service';
 import { SettingsService } from '../services/settings.service';
 import type {
-  InitialLargeFileFocus,
   RefreshInterval,
   RetentionPolicy,
+  TailRefreshIntervalSeconds,
 } from '../models/app-config.model';
 
 import { AzureLoginComponent } from '../components/azure-login/azure-login.component';
@@ -73,9 +73,13 @@ export class SettingsPage implements OnInit {
     { value: 'en', label: this.i18n.translate('common.languageNames.en') },
     { value: 'de', label: this.i18n.translate('common.languageNames.de') },
   ]);
-  readonly largeFileFocusOptions = computed<{ value: InitialLargeFileFocus; label: string }[]>(() => [
-    { value: 'start', label: this.i18n.translate('settings.page.largeFileFocus.start') },
-    { value: 'end', label: this.i18n.translate('settings.page.largeFileFocus.end') },
+  readonly tailRefreshIntervalOptions = computed<
+    { value: TailRefreshIntervalSeconds; label: string }[]
+  >(() => [
+    { value: 5, label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', { count: 5 }) },
+    { value: 10, label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', { count: 10 }) },
+    { value: 30, label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', { count: 30 }) },
+    { value: 60, label: this.i18n.translate('settings.page.tailRefreshInterval.minute') },
   ]);
   readonly savedConnectionsCount = computed(() => this.connections.connections().length);
   readonly hasSavedConnections = computed(() => this.savedConnectionsCount() > 0);
@@ -134,8 +138,8 @@ export class SettingsPage implements OnInit {
     void this.i18n.setLanguage(value);
   }
 
-  setInitialLargeFileFocus(value: InitialLargeFileFocus): void {
-    this.settings.updateLogsPreferences({ initialLargeFileFocus: value });
+  setTailRefreshInterval(value: TailRefreshIntervalSeconds): void {
+    this.settings.updateLogsPreferences({ tailRefreshIntervalSeconds: value });
   }
 
   resetSettings(): void {

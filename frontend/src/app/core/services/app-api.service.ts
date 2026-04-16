@@ -213,6 +213,7 @@ export class AppApiService implements AppApi {
 function normalizeBlobViewSessionStatus(status: BlobViewSessionStatus): BlobViewSessionStatus {
   return {
     ...status,
+    mode: status.mode ?? 'snapshot',
     tailPreviewLines: status.tailPreviewLines ?? [],
   };
 }
