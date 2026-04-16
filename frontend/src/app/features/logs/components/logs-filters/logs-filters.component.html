@@ -1,17 +1,22 @@
 <div class="flex flex-col gap-3 p-5">
-  <div
-    class="flex items-center gap-2 rounded-lg bg-surface-container-lowest px-3 py-2"
+  <p-iconfield
+    iconPosition="left"
+    class="w-full rounded-lg bg-surface-container-lowest"
   >
-    <i class="pi pi-search text-xs text-on-surface-variant"></i>
     <input
+      pInputText
       type="text"
       [placeholder]="'logs.filters.searchPlaceholder' | translate"
       [ngModel]="searchTerm()"
       (ngModelChange)="onSearchInput($event)"
-      class="flex-1 bg-transparent text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+      class="w-full border-0 bg-transparent px-4 py-2 text-xs text-on-surface placeholder:text-on-surface-variant shadow-none focus:outline-none"
       [attr.aria-label]="'logs.filters.searchAriaLabel' | translate"
+      pSize="small"
     />
-  </div>
+    <p-inputicon>
+      <i class="pi pi-search text-xs text-on-surface-variant"></i>
+    </p-inputicon>
+  </p-iconfield>
 
   <div class="flex flex-col gap-2">
     <p-datepicker
@@ -22,7 +27,6 @@
       [showIcon]="true"
       iconDisplay="input"
       [showClear]="true"
-      styleClass="w-full text-xs"
       inputStyleClass="text-xs w-full"
       size="small"
       appendTo="body"
@@ -37,7 +41,6 @@
       [showIcon]="true"
       iconDisplay="input"
       [showClear]="true"
-      styleClass="w-full text-xs"
       inputStyleClass="text-xs w-full"
       size="small"
       appendTo="body"
@@ -54,7 +57,7 @@
       [text]="true"
       (click)="clearFilters()"
     >
-      {{ 'logs.filters.clear' | translate }}
+      {{ "logs.filters.clear" | translate }}
     </button>
 
     <button
