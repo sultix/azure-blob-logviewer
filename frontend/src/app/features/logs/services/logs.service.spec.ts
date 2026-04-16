@@ -34,6 +34,10 @@ class AppApiServiceStub implements Partial<AppApiService> {
   closeBlobViewSession = vi.fn<(sessionId: string) => Promise<void>>(async () => undefined);
 }
 
+const INLINE_BLOB_PREVIEW_LIMIT_BYTES = 13 * 1024 * 1024;
+const LARGE_BLOB_SIZE_BYTES = INLINE_BLOB_PREVIEW_LIMIT_BYTES + 1;
+const MAX_MERGED_BLOB_SIZE_BYTES = 20 * 1024 * 1024;
+
 describe('LogsService', () => {
   let service: LogsService;
   let api: AppApiServiceStub;
@@ -173,13 +177,83 @@ describe('LogsService', () => {
     });
   });
 
+  it('loads a blob between 8 MiB and 13 MiB directly in the inline viewer', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({
+        name: 'medium.log',
+        size: 10 * 1024 * 1024,
+        contentType: 'text/plain',
+      }),
+    ]);
+    api.readBlobTextChunk.mockResolvedValue(
+      createChunk({
+        content: 'mid-sized log content',
+        blobSize: 10 * 1024 * 1024,
+        endOffsetExclusive: 10 * 1024 * 1024,
+        contentType: 'text/plain',
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('medium.log');
+    await flushAsync();
+
+    expect(service.selectedEntry()?.id).toBe('medium.log');
+    expect(service.selectedContent()).toBe('mid-sized log content');
+    expect(service.selectedContentLoaded()).toBe(true);
+    expect(service.isLargeBlob()).toBe(false);
+    expect(api.readBlobTextChunk).toHaveBeenCalledWith({
+      accountName: 'myaccount',
+      containerName: 'logs',
+      blobName: 'medium.log',
+      startOffset: null,
+      count: null,
+    });
+    expect(api.openBlobViewSession).not.toHaveBeenCalled();
+  });
+
+  it('loads a blob at the 13 MiB limit directly in the inline viewer', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({
+        name: 'limit.log',
+        size: INLINE_BLOB_PREVIEW_LIMIT_BYTES,
+        contentType: 'text/plain',
+      }),
+    ]);
+    api.readBlobTextChunk.mockResolvedValue(
+      createChunk({
+        content: 'limit-sized log content',
+        blobSize: INLINE_BLOB_PREVIEW_LIMIT_BYTES,
+        endOffsetExclusive: INLINE_BLOB_PREVIEW_LIMIT_BYTES,
+        contentType: 'text/plain',
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('limit.log');
+    await flushAsync();
+
+    expect(service.selectedEntry()?.id).toBe('limit.log');
+    expect(service.selectedContent()).toBe('limit-sized log content');
+    expect(service.selectedContentLoaded()).toBe(true);
+    expect(service.isLargeBlob()).toBe(false);
+    expect(api.readBlobTextChunk).toHaveBeenCalledWith({
+      accountName: 'myaccount',
+      containerName: 'logs',
+      blobName: 'limit.log',
+      startOffset: null,
+      count: null,
+    });
+    expect(api.openBlobViewSession).not.toHaveBeenCalled();
+  });
+
   it('opens a large viewer session for a large blob and exposes progress flags', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
         bytesDownloaded: 524_288,
         indexedLineCount: 12,
         hasPendingBefore: true,
@@ -203,7 +277,7 @@ describe('LogsService', () => {
     expect(service.contentWindow()).toEqual({
       startOffset: 0,
       endOffsetExclusive: 524_288,
-      blobSize: 20_000_000,
+      blobSize: LARGE_BLOB_SIZE_BYTES,
       hasOlderContent: true,
       hasNewerContent: false,
     });
@@ -217,12 +291,12 @@ describe('LogsService', () => {
   });
 
   it('searches within tail preview lines locally without calling the backend search', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
         bytesDownloaded: 524_288,
         indexedLineCount: 12,
         isComplete: false,
@@ -250,13 +324,13 @@ describe('LogsService', () => {
   });
 
   it('does not start large-file search before three characters', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
-        bytesDownloaded: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
         indexedLineCount: 5_000,
         isComplete: true,
         hasPendingBefore: false,
@@ -285,12 +359,12 @@ describe('LogsService', () => {
   });
 
   it('navigates tail preview search matches locally', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
         bytesDownloaded: 524_288,
         indexedLineCount: 12,
         isComplete: false,
@@ -318,13 +392,13 @@ describe('LogsService', () => {
   });
 
   it('searches through all loaded large-file search pages and jumps to the first later match', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
-        bytesDownloaded: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
         indexedLineCount: 5_000,
         isComplete: true,
         hasPendingBefore: false,
@@ -377,12 +451,12 @@ describe('LogsService', () => {
   });
 
   it('searches all currently loaded indexed lines for incomplete large files', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
         bytesDownloaded: 10_000_000,
         indexedLineCount: 3_500,
         isComplete: false,
@@ -442,13 +516,13 @@ describe('LogsService', () => {
   });
 
   it('loads a virtual line window for large blobs', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
-        bytesDownloaded: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
         indexedLineCount: 350,
         isComplete: true,
         hasPendingBefore: false,
@@ -479,13 +553,13 @@ describe('LogsService', () => {
   });
 
   it('retries the same large-file viewport when the previous response was empty but lines are now indexed', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
-        bytesDownloaded: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
         indexedLineCount: 350,
         isComplete: true,
         hasPendingBefore: false,
@@ -520,12 +594,12 @@ describe('LogsService', () => {
   });
 
   it('recomputes tail preview matches locally during status refresh', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
         bytesDownloaded: 524_288,
         indexedLineCount: 12,
         isComplete: false,
@@ -538,7 +612,7 @@ describe('LogsService', () => {
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
         bytesDownloaded: 1_048_576,
         indexedLineCount: 24,
         isComplete: false,
@@ -568,12 +642,12 @@ describe('LogsService', () => {
   });
 
   it('switches from local tail preview search to backend search after the preview phase ends', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
         bytesDownloaded: 524_288,
         indexedLineCount: 12,
         isComplete: false,
@@ -586,7 +660,7 @@ describe('LogsService', () => {
       createSessionStatus({
         sessionId: 'session-1',
         blobName: 'file.log',
-        blobSize: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
         bytesDownloaded: 2_097_152,
         indexedLineCount: 120,
         isComplete: false,
@@ -636,13 +710,13 @@ describe('LogsService', () => {
   });
 
   it('refreshes large blobs by reopening the viewer session', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession
       .mockResolvedValueOnce(
         createSessionStatus({
           sessionId: 'session-1',
           blobName: 'file.log',
-          blobSize: 20_000_000,
+          blobSize: LARGE_BLOB_SIZE_BYTES,
           bytesDownloaded: 524_288,
           indexedLineCount: 10,
           isComplete: false,
@@ -655,7 +729,7 @@ describe('LogsService', () => {
         createSessionStatus({
           sessionId: 'session-2',
           blobName: 'file.log',
-          blobSize: 20_000_000,
+          blobSize: LARGE_BLOB_SIZE_BYTES,
           bytesDownloaded: 1_048_576,
           indexedLineCount: 24,
           isComplete: false,
@@ -711,12 +785,12 @@ describe('LogsService', () => {
   });
 
   it('maps large-view session failure reasons to localized content errors', async () => {
-    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: 20_000_000 })]);
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
       createSessionStatus({
         sessionId: '',
         blobName: 'file.log',
-        blobSize: 20_000_000,
+        blobSize: LARGE_BLOB_SIZE_BYTES,
         failureReason: 'limit_exceeded',
         errorMessage: 'The request exceeds the application\'s safety limits.',
       }),
@@ -740,7 +814,7 @@ describe('LogsService', () => {
         content: request.blobName === 'alpha.log' ? 'alpha line' : 'beta line',
         blobSize: request.count ?? 42,
         endOffsetExclusive: request.count ?? 42,
-        isLargeBlob: (request.count ?? 0) > 8 * 1024 * 1024,
+        isLargeBlob: (request.count ?? 0) > INLINE_BLOB_PREVIEW_LIMIT_BYTES,
       }),
     );
 
@@ -824,7 +898,7 @@ describe('LogsService', () => {
     expect(result).toEqual({
       kind: 'file-too-large',
       fileName: 'huge.log',
-      maxSizeBytes: 20 * 1024 * 1024,
+      maxSizeBytes: MAX_MERGED_BLOB_SIZE_BYTES,
     });
     expect(service.selectedEntryIds()).toEqual(['small.log']);
   });

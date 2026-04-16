@@ -52,7 +52,7 @@ interface LargeViewerState {
   requestedScrollLine: number | null;
 }
 
-const LARGE_BLOB_THRESHOLD_BYTES = 8 * 1024 * 1024;
+const INLINE_BLOB_PREVIEW_LIMIT_BYTES = 13 * 1024 * 1024;
 const MAX_MERGED_BLOB_SIZE_BYTES = 20 * 1024 * 1024;
 const MAX_MERGED_SELECTION_COUNT = 5;
 const LARGE_VIEW_POLL_INTERVAL_MS = 700;
@@ -307,7 +307,7 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (entry.size > LARGE_BLOB_THRESHOLD_BYTES) {
+    if (entry.size > INLINE_BLOB_PREVIEW_LIMIT_BYTES) {
       await this.openLargeViewer(entry, true);
       return;
     }
@@ -480,7 +480,7 @@ export class LogsService implements OnDestroy {
         return;
       }
 
-      if (entry.size > LARGE_BLOB_THRESHOLD_BYTES) {
+      if (entry.size > INLINE_BLOB_PREVIEW_LIMIT_BYTES) {
         await this.openLargeViewer(entry);
         return;
       }
