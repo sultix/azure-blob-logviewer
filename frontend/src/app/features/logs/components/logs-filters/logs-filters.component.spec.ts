@@ -79,7 +79,7 @@ describe('LogsFiltersComponent', () => {
     expect(sortButton.querySelector('.pi-sort-amount-down')).not.toBeNull();
     expect(moreButton).not.toBeNull();
     expect(component.sortTooltip()).toBe(
-      'Sort basis: Created. Change it in More actions.',
+      'Sorted by creation date. Change it in More actions.',
     );
   });
 

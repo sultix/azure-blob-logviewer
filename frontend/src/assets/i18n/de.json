@@ -121,7 +121,8 @@
       "oldestFirst": "Älteste zuerst",
       "sortBasisCreated": "Erstellt",
       "sortBasisLastModified": "Zuletzt geändert",
-      "sortTooltip": "Sortierbasis: {{basis}}. Über {{moreActions}} können Sie sie umschalten.",
+      "sortTooltipCreated": "Sortiert nach Erstellungsdatum. Umstellen über {{moreActions}}.",
+      "sortTooltipLastModified": "Sortiert nach Änderungsdatum. Umstellen über {{moreActions}}.",
       "sortByCreated": "Nach Erstellt sortieren",
       "sortByLastModified": "Nach Zuletzt geändert sortieren"
     },

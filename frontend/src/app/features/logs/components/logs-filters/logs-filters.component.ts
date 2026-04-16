@@ -58,10 +58,13 @@ export class LogsFiltersComponent {
     this.isSortDescending() ? 'pi pi-sort-amount-down' : 'pi pi-sort-amount-up-alt',
   );
   readonly sortTooltip = computed(() =>
-    this.i18n.translate('logs.filters.sortTooltip', {
-      basis: this.sortBasisLabel(),
-      moreActions: this.i18n.translate('logs.filters.moreActionsLabel'),
-    }),
+    this.sortBasis() === LogSortBasis.Created
+      ? this.i18n.translate('logs.filters.sortTooltipCreated', {
+          moreActions: this.i18n.translate('logs.filters.moreActionsLabel'),
+        })
+      : this.i18n.translate('logs.filters.sortTooltipLastModified', {
+          moreActions: this.i18n.translate('logs.filters.moreActionsLabel'),
+        }),
   );
   readonly sortTooltipOptions: TooltipOptions = { tooltipPosition: 'bottom' };
   readonly sortButtonProps = computed(() => ({
