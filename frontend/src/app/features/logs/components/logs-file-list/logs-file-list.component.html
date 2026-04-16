@@ -1,4 +1,4 @@
-<div class="flex shrink-0 items-center justify-between gap-3 ps-5 pe-5 pb-2">
+<div class="flex shrink-0 items-center justify-between gap-3 ps-6 pe-3 pb-0">
   <h2
     class="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant"
   >
@@ -23,7 +23,7 @@
     {{ 'logs.fileList.loading' | translate }}
   </div>
 } @else {
-  <ul class="min-h-0 flex-1 space-y-1 overflow-y-auto px-5 pb-5">
+  <ul class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-5">
     @for (row of rows(); track row.id) {
       <li>
         <button
