@@ -538,7 +538,11 @@ describe('LogsPage', () => {
     expect(component.toolbar()).toEqual({
       title: 'alpha.log',
       subtitle: 'storage-a/logs/alpha.log',
-      metaBadges: ['Size 1.5 KB', 'Created 1 hr ago'],
+      metaBadges: [
+        'Size 1.5 KB',
+        `Created ${formatDetailTimestamp('2026-04-13T09:00:00Z')}`,
+        `Modified ${formatDetailTimestamp('2026-04-13T09:30:00Z')}`,
+      ],
     });
     expect(fixture.nativeElement.textContent).toContain('Created Today, 09:00');
     expect(fixture.nativeElement.textContent).toContain('Modified Today, 09:30');
@@ -864,7 +868,11 @@ describe('LogsPage', () => {
       connectionName: 'prod-storage',
       title: 'alpha.log',
       subtitle: 'storage-a/logs/alpha.log',
-      metaBadges: ['Size 1.5 KB', 'Created 1 hr ago'],
+      metaBadges: [
+        'Size 1.5 KB',
+        `Created ${formatDetailTimestamp('2026-04-13T10:30:00Z')}`,
+        `Modified ${formatDetailTimestamp('2026-04-13T10:30:00Z')}`,
+      ],
     });
     expect(component.sidebarConnectionFooter()).toEqual(
       expect.objectContaining({
@@ -1156,6 +1164,16 @@ function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
     containerName: 'logs',
     ...overrides,
   };
+}
+
+function formatDetailTimestamp(value: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }
 
 function createLargeViewerStatus(

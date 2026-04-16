@@ -143,6 +143,7 @@
       "mergeOrder": "Merge-Reihenfolge: Klickreihenfolge",
       "size": "Größe {{value}}",
       "created": "Erstellt {{value}}",
+      "modified": "Geändert {{value}}",
       "wordWrap": "Zeilenumbruch",
       "wordWrapToggleAriaLabel": "Zeilenumbruch für Loginhalt umschalten",
       "searchContentPlaceholder": "Inhalt durchsuchen...",

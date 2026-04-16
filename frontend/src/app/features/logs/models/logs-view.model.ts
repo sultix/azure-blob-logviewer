@@ -34,6 +34,7 @@ export interface LogToolbarVm {
   path?: string;
   sizeLabel?: string;
   created?: string;
+  lastModified?: string;
 }
 
 export interface LogContentWindowVm {

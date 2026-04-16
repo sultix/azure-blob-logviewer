@@ -65,7 +65,8 @@ describe('LogsDetailPanelComponent', () => {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '1.5 KB',
-      created: '1 hr ago',
+      created: 'Apr 13, 2026, 11:00 AM',
+      lastModified: 'Apr 13, 2026, 11:30 AM',
     };
     const footer: LogFooterVm = {
       typeLabel: 'Type text/plain',
@@ -84,7 +85,8 @@ describe('LogsDetailPanelComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('alpha.log');
     expect(fixture.nativeElement.textContent).toContain('storage-a/logs/alpha.log');
     expect(fixture.nativeElement.textContent).toContain('Size 1.5 KB');
-    expect(fixture.nativeElement.textContent).toContain('Created 1 hr ago');
+    expect(fixture.nativeElement.textContent).toContain('Created Apr 13, 2026, 11:00 AM');
+    expect(fixture.nativeElement.textContent).toContain('Modified Apr 13, 2026, 11:30 AM');
     expect(fixture.nativeElement.textContent).toContain('line 1');
     expect(fixture.nativeElement.textContent).toContain('Lines 2');
     expect(fixture.nativeElement.textContent).toContain('Type text/plain');

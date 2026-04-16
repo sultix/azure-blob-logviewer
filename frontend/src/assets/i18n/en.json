@@ -143,6 +143,7 @@
       "mergeOrder": "Merge order: click order",
       "size": "Size {{value}}",
       "created": "Created {{value}}",
+      "modified": "Modified {{value}}",
       "wordWrap": "Word Wrap",
       "wordWrapToggleAriaLabel": "Toggle word wrap for log content",
       "searchContentPlaceholder": "Search content...",

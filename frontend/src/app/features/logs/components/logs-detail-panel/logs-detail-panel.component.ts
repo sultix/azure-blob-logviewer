@@ -138,6 +138,9 @@ export class LogsDetailPanelComponent implements OnDestroy {
         toolbar.created
           ? this.i18n.translate('logs.detail.created', { value: toolbar.created })
           : null,
+        toolbar.lastModified
+          ? this.i18n.translate('logs.detail.modified', { value: toolbar.lastModified })
+          : null,
       ].filter((badge): badge is string => badge !== null),
     };
   });

@@ -189,7 +189,10 @@ export class LogsPage implements OnInit {
           value: this.formatSize(entry.size),
         }),
         this.i18n.translate('logs.detail.created', {
-          value: entry.createdRelative || entry.createdLabel,
+          value: this.formatDetailTimestamp(entry.createdAt),
+        }),
+        this.i18n.translate('logs.detail.modified', {
+          value: this.formatDetailTimestamp(entry.lastModified),
         }),
       ],
     };
@@ -585,6 +588,21 @@ export class LogsPage implements OnInit {
     return this.i18n.formatDate(value, {
       day: '2-digit',
       month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  private formatDetailTimestamp(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return this.i18n.formatDate(date, {
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
