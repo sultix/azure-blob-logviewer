@@ -1,11 +1,38 @@
 <!doctype html>
-<html lang="en" class="dark h-full">
+<html lang="en" class="h-full">
   <head>
     <meta charset="utf-8" />
     <title>Azure Blob Log Viewer</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" href="assets/branding/app-icon.png" />
+    <script>
+      (() => {
+        const STORAGE_KEY = 'obsidian-console:config';
+        const root = document.documentElement;
+
+        try {
+          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
+          const appearance = parsed?.general?.appearance;
+          const prefersDark =
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const theme =
+            appearance === 'dark' || appearance === 'light'
+              ? appearance
+              : prefersDark
+                ? 'dark'
+                : 'light';
+
+          root.classList.toggle('dark', theme === 'dark');
+          root.dataset.theme = theme;
+          root.style.colorScheme = theme;
+        } catch {
+          root.dataset.theme = 'light';
+          root.style.colorScheme = 'light';
+        }
+      })();
+    </script>
   </head>
   <body class="h-full bg-surface text-on-surface antialiased">
     <app-root></app-root>

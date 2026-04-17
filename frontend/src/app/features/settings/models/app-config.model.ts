@@ -11,11 +11,15 @@ export interface AzurePreferences {
 export type RefreshInterval = 5 | 15 | 60;
 export type RetentionPolicy = '30d' | '90d' | 'manual';
 export type TailRefreshIntervalSeconds = 5 | 10 | 30 | 60;
+export type AppAppearance = 'system' | 'dark' | 'light';
+
+const APP_APPEARANCES = ['system', 'dark', 'light'] as const;
 
 export interface GeneralConfig {
   refreshIntervalMinutes: RefreshInterval;
   retentionPolicy: RetentionPolicy;
   language: AppLanguage;
+  appearance: AppAppearance;
 }
 
 export interface AppConfig {
@@ -43,6 +47,7 @@ export function createDefaultAppConfig(language = detectPreferredLanguage()): Ap
       refreshIntervalMinutes: 15,
       retentionPolicy: '30d',
       language,
+      appearance: 'system',
     },
     logs: {
       wordWrapEnabled: false,
@@ -50,4 +55,8 @@ export function createDefaultAppConfig(language = detectPreferredLanguage()): Ap
       sortBasis: LogSortBasis.LastModified,
     },
   };
+}
+
+export function isAppAppearance(value: unknown): value is AppAppearance {
+  return typeof value === 'string' && APP_APPEARANCES.includes(value as AppAppearance);
 }

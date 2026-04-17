@@ -85,14 +85,14 @@ const DEFAULT_AZURE_CLI_CARD_STYLE: AzureCliCardStyleVm = {
   containerClass: 'border-primary/15 bg-surface-container',
   eyebrowClass: 'text-on-surface-variant',
   descriptionClass: 'text-on-surface',
-  iconClass: 'bg-white/10 text-on-surface-variant',
+  iconClass: 'bg-surface-container-high text-on-surface-variant',
 };
 
 const MISSING_AZURE_CLI_CARD_STYLE: AzureCliCardStyleVm = {
   containerClass: 'border-error/40 bg-error-container/70',
   eyebrowClass: 'text-error',
   descriptionClass: 'text-on-surface',
-  iconClass: 'bg-error text-white',
+  iconClass: 'bg-error-container text-error',
 };
 
 @Component({

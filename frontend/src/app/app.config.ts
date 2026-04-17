@@ -15,6 +15,7 @@ import { providePrimeNG } from 'primeng/config';
 
 import { AppI18nService } from './core/i18n/app-i18n.service';
 import { ObsidianConsolePreset } from './core/theme/primeng-preset';
+import { ThemeService } from './core/theme/theme.service';
 import { appRoutes } from './app.routes';
 import { SettingsService } from './features/settings/services/settings.service';
 
@@ -32,6 +33,7 @@ export const appConfig: ApplicationConfig = {
       }),
       fallbackLang: 'en',
     }),
+    provideAppInitializer(() => inject(ThemeService).initialize()),
     provideAppInitializer(() => {
       const settings = inject(SettingsService);
       return inject(AppI18nService).initialize(settings.general().language);

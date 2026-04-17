@@ -34,6 +34,7 @@ class SettingsServiceStub implements Partial<SettingsService> {
     refreshIntervalMinutes: 15,
     retentionPolicy: '30d' as const,
     language: 'en' as const,
+    appearance: 'system' as const,
   });
   readonly logs = signal<LogsPreferences>({
     wordWrapEnabled: false,
@@ -161,6 +162,19 @@ describe('SettingsPage', () => {
     const settings = TestBed.inject(SettingsService) as unknown as SettingsServiceStub;
     expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
       tailRefreshIntervalSeconds: 30,
+    });
+  });
+
+  it('renders and updates the appearance preference', () => {
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Appearance');
+    const darkButton = getButtonByText(fixture, 'Dark');
+    darkButton.click();
+
+    const settings = TestBed.inject(SettingsService) as unknown as SettingsServiceStub;
+    expect(settings.updateGeneral).toHaveBeenCalledWith({
+      appearance: 'dark',
     });
   });
 

@@ -9,7 +9,7 @@ import type {
   GeneralConfig,
   LogsPreferences,
 } from '../models/app-config.model';
-import { createDefaultAppConfig } from '../models/app-config.model';
+import { createDefaultAppConfig, isAppAppearance } from '../models/app-config.model';
 
 const STORAGE_KEY = 'obsidian-console:config';
 
@@ -31,6 +31,9 @@ function loadFromStorage(): AppConfig {
         language: isAppLanguage(parsed.general?.language)
           ? parsed.general.language
           : defaults.general.language,
+        appearance: isAppAppearance(parsed.general?.appearance)
+          ? parsed.general.appearance
+          : defaults.general.appearance,
       },
       logs: {
         ...defaults.logs,

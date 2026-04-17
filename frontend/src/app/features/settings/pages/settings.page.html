@@ -50,6 +50,38 @@
       <div class="flex items-center justify-between gap-6">
         <div class="flex items-start gap-3">
           <span
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-primary"
+          >
+            <i class="pi pi-desktop text-sm"></i>
+          </span>
+          <div class="flex flex-col">
+            <span class="text-sm font-semibold text-on-surface">
+              {{ 'settings.page.appearance.title' | translate }}
+            </span>
+            <span class="text-[11px] text-on-surface-variant">
+              {{ 'settings.page.appearance.description' | translate }}
+            </span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1">
+          @for (opt of appearanceOptions(); track opt.value) {
+          <button
+            type="button"
+            (click)="setAppearance(opt.value)"
+            class="rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors"
+            [class.bg-surface-container-highest]="general().appearance === opt.value"
+            [class.text-on-surface]="general().appearance === opt.value"
+            [class.text-on-surface-variant]="general().appearance !== opt.value"
+          >
+            {{ opt.label }}
+          </button>
+          }
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-6">
+        <div class="flex items-start gap-3">
+          <span
             class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-tertiary"
           >
             <i class="pi pi-language text-sm"></i>
@@ -110,72 +142,6 @@
           }
         </div>
       </div>
-
-      <!-- <div class="flex items-center justify-between gap-6">
-        <div class="flex items-start gap-3">
-          <span
-            class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-primary"
-          >
-            <i class="pi pi-clock text-sm"></i>
-          </span>
-          <div class="flex flex-col">
-            <span class="text-sm font-semibold text-on-surface">
-              {{ 'settings.page.refreshInterval.title' | translate }}
-            </span>
-            <span class="text-[11px] text-on-surface-variant">
-              {{ 'settings.page.refreshInterval.description' | translate }}
-            </span>
-          </div>
-        </div>
-        <div class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1">
-          @for (opt of refreshOptions(); track opt.value) {
-            <button
-              type="button"
-              (click)="setRefreshInterval(opt.value)"
-              class="rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors"
-              [class.bg-surface-container-highest]="general().refreshIntervalMinutes === opt.value"
-              [class.text-on-surface]="general().refreshIntervalMinutes === opt.value"
-              [class.text-on-surface-variant]="general().refreshIntervalMinutes !== opt.value"
-            >
-              {{ opt.label }}
-            </button>
-          }
-        </div>
-      </div> -->
-      <!-- 
-      <div class="flex items-center justify-between gap-6">
-        <div class="flex items-start gap-3">
-          <span
-            class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-secondary"
-          >
-            <i class="pi pi-database text-sm"></i>
-          </span>
-          <div class="flex flex-col">
-            <span class="text-sm font-semibold text-on-surface">
-              {{ 'settings.page.retention.title' | translate }}
-            </span>
-            <span class="text-[11px] text-on-surface-variant">
-              {{ 'settings.page.retention.description' | translate }}
-            </span>
-          </div>
-        </div>
-        <div
-          class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1"
-        >
-          @for (opt of retentionOptions(); track opt.value) {
-          <button
-            type="button"
-            (click)="setRetentionPolicy(opt.value)"
-            class="rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors"
-            [class.bg-surface-container-highest]="general().retentionPolicy === opt.value"
-            [class.text-on-surface]="general().retentionPolicy === opt.value"
-            [class.text-on-surface-variant]="general().retentionPolicy !== opt.value"
-          >
-            {{ opt.label }}
-          </button>
-          }
-        </div>
-      </div> -->
 
       <div class="flex justify-end pt-2">
         <button

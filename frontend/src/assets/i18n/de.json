@@ -41,7 +41,7 @@
     }
   },
   "shell": {
-    "appName": "Azure Blob Log Viewer",
+    "appName": "Azure Blob Logviewer",
     "navigation": {
       "dashboard": "Dashboard",
       "settings": "Einstellungen"
@@ -61,7 +61,7 @@
       "overview": "Übersicht",
       "totalContainers": "Container gesamt",
       "azureCliRequired": "Azure CLI wird benötigt",
-      "azureCliDescription": "Die App verwendet Ihre Azure-CLI-Sitzung, speichert keine Azure-Tokens und benötigt {{command}}.",
+      "azureCliDescription": "Die App verwendet Ihre Azure-CLI-Sitzung, speichert keine Azure-Tokens und benötigt az login.",
       "searchPlaceholder": "Verbindungen, Umgebungen durchsuchen...",
       "searchAriaLabel": "Verbindungen durchsuchen",
       "addButton": "Neue Storage-Verbindung",
@@ -231,6 +231,13 @@
       "azureStatus": "Azure-Status",
       "azureAuth": "Azure-Authentifizierung",
       "general": "Allgemeine Einstellungen",
+      "appearance": {
+        "title": "Darstellung",
+        "description": "Wählen Sie, ob die App dem System-Theme folgt oder immer das helle bzw. dunkle Preset verwendet.",
+        "system": "System",
+        "dark": "Dunkel",
+        "light": "Hell"
+      },
       "appInfo": "Anwendungsinformationen",
       "appInfoDescription": "Azure Blob Log Viewer verbindet sich mit Azure Blob Storage, zeigt gespeicherte Logs übersichtlich an und öffnet auch große Logdateien performant auf dem Desktop.",
       "language": {
@@ -279,7 +286,7 @@
           "exportFileErrorDetail": "Die Verbindungsdatei konnte nicht geschrieben werden."
         }
       },
-      "securityNote": "Die Authentifizierung verwendet Azure-CLI-Anmeldedaten. Führen Sie {{command}} in Ihrem Terminal aus, um sich zu authentifizieren. Diese Anwendung speichert keine Anmeldedaten.",
+      "securityNote": "Die Authentifizierung verwendet Azure-CLI-Anmeldedaten. Führen Sie az login in Ihrem Terminal aus, um sich zu authentifizieren. Diese Anwendung speichert keine Anmeldedaten.",
       "authBadge": {
         "authenticated": "AUTHENTIFIZIERT",
         "authenticating": "AUTHENTIFIZIERUNG",
@@ -291,8 +298,8 @@
       "disconnected": {
         "description": "Verbinden Sie sich über Ihre lokale Azure-CLI-Sitzung mit Azure.",
         "cliMissingTitle": "Azure CLI nicht gefunden",
-        "cliMissingDescription": "Installieren Sie zuerst die Azure CLI auf diesem Gerät und führen Sie dann {{command}} im Terminal aus.",
-        "hint": "Stellen Sie sicher, dass Sie {{command}} im Terminal ausgeführt haben.",
+        "cliMissingDescription": "Installieren Sie zuerst die Azure CLI auf diesem Gerät und führen Sie dann az login im Terminal aus.",
+        "hint": "Stellen Sie sicher, dass Sie az login im Terminal ausgeführt haben.",
         "button": "Mit Azure verbinden"
       },
       "authenticating": {

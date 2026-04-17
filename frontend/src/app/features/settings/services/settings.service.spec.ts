@@ -65,6 +65,7 @@ describe('SettingsService', () => {
       refreshIntervalMinutes: 15,
       retentionPolicy: 'manual',
       language: 'de',
+      appearance: 'system',
     });
     expect(service.logs()).toEqual({
       wordWrapEnabled: true,
@@ -102,6 +103,7 @@ describe('SettingsService', () => {
       refreshIntervalMinutes: 60,
       retentionPolicy: '90d',
       language: 'de',
+      appearance: 'dark',
     });
     service.updateLogsPreferences({
       wordWrapEnabled: true,
@@ -117,6 +119,7 @@ describe('SettingsService', () => {
       refreshIntervalMinutes: 60,
       retentionPolicy: '90d',
       language: 'de',
+      appearance: 'dark',
     });
     expect(service.logs()).toEqual({
       wordWrapEnabled: true,
@@ -149,5 +152,23 @@ describe('SettingsService', () => {
     expect(service.general()).toEqual(defaults.general);
     expect(service.logs()).toEqual(defaults.logs);
     expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(defaults));
+  });
+
+  it('falls back to the default appearance when the persisted value is invalid', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        general: {
+          appearance: 'sepia',
+        },
+      }),
+    );
+
+    TestBed.configureTestingModule({
+      providers: [SettingsService],
+    });
+    const service = TestBed.inject(SettingsService);
+
+    expect(service.general().appearance).toBe('system');
   });
 });

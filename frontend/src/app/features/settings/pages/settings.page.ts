@@ -26,6 +26,7 @@ import {
 import { AzureService } from '../services/azure.service';
 import { SettingsService } from '../services/settings.service';
 import type {
+  AppAppearance,
   RefreshInterval,
   RetentionPolicy,
   TailRefreshIntervalSeconds,
@@ -80,6 +81,13 @@ export class SettingsPage implements OnInit {
     { value: 10, label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', { count: 10 }) },
     { value: 30, label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', { count: 30 }) },
     { value: 60, label: this.i18n.translate('settings.page.tailRefreshInterval.minute') },
+  ]);
+  readonly appearanceOptions = computed<
+    { value: AppAppearance; label: string }[]
+  >(() => [
+    { value: 'system', label: this.i18n.translate('settings.page.appearance.system') },
+    { value: 'dark', label: this.i18n.translate('settings.page.appearance.dark') },
+    { value: 'light', label: this.i18n.translate('settings.page.appearance.light') },
   ]);
   readonly savedConnectionsCount = computed(() => this.connections.connections().length);
   readonly hasSavedConnections = computed(() => this.savedConnectionsCount() > 0);
@@ -136,6 +144,10 @@ export class SettingsPage implements OnInit {
   setLanguage(value: AppLanguage): void {
     this.settings.updateGeneral({ language: value });
     void this.i18n.setLanguage(value);
+  }
+
+  setAppearance(value: AppAppearance): void {
+    this.settings.updateGeneral({ appearance: value });
   }
 
   setTailRefreshInterval(value: TailRefreshIntervalSeconds): void {

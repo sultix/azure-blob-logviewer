@@ -529,6 +529,7 @@ describe('LogsDetailPanelComponent', () => {
           refreshIntervalMinutes: 15,
           retentionPolicy: '30d',
           language: 'en',
+          appearance: 'system',
         },
         logs: {
           wordWrapEnabled: true,

@@ -58,8 +58,7 @@
                 class="max-w-3xl text-sm leading-relaxed"
                 [class]="vm.azureCliCardStyle.descriptionClass"
               >
-                {{ 'connections.page.azureCliDescription' | translate: { command: 'az
-                login' } }}
+                {{ 'connections.page.azureCliDescription' | translate }}
               </p>
             </div>
             <span
@@ -95,7 +94,7 @@
           type="button"
           (click)="openDialog()"
           [disabled]="!vm.isAuthenticated"
-          class="flex items-center gap-2 rounded-lg bg-primary-gradient px-5 py-2.5 text-sm font-semibold text-on-primary shadow-ambient transition-transform hover:-translate-y-[1px] disabled:opacity-40 disabled:hover:translate-y-0"
+          class="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary transition-transform hover:bg-primary/90 hover:-translate-y-[1px] disabled:opacity-40 disabled:hover:translate-y-0"
           [title]="vm.isAuthenticated ? ('connections.page.addButtonTitleEnabled' | translate) : ('connections.page.addButtonTitleDisabled' | translate)"
         >
           <i class="pi pi-plus text-xs"></i>

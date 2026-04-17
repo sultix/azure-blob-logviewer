@@ -7,6 +7,66 @@
 @layer base {
   :root {
     --layout-sidebar-width: 24rem;
+    --surface: 242 246 252;
+    --surface-dim: 233 239 247;
+    --surface-bright: 222 230 241;
+    --surface-container-lowest: 255 255 255;
+    --surface-container-low: 243 247 252;
+    --surface-container: 234 239 245;
+    --surface-container-high: 225 232 241;
+    --surface-container-highest: 214 223 234;
+    --on-surface: 20 28 45;
+    --on-surface-variant: 79 93 117;
+    --primary: 14 165 233;
+    --primary-container: 125 211 252;
+    --on-primary: 255 255 255;
+    --on-primary-container: 12 74 110;
+    --secondary: 71 85 105;
+    --secondary-container: 203 213 225;
+    --on-secondary-container: 30 41 59;
+    --tertiary: 217 119 6;
+    --tertiary-container: 254 215 170;
+    --error: 220 38 38;
+    --error-container: 254 226 226;
+    --outline: 148 163 184;
+    --outline-variant: 203 213 225;
+    --glass: 255 255 255;
+    --glass-opacity: 0.74;
+    --selection-background: 14 165 233;
+    --selection-opacity: 0.18;
+    --selection-color: 20 28 45;
+  }
+
+  .dark,
+  [data-theme='dark'] {
+    --surface: 11 19 38;
+    --surface-dim: 11 19 38;
+    --surface-bright: 49 57 77;
+    --surface-container-lowest: 6 14 32;
+    --surface-container-low: 19 27 46;
+    --surface-container: 23 31 51;
+    --surface-container-high: 34 42 61;
+    --surface-container-highest: 45 52 73;
+    --on-surface: 218 226 253;
+    --on-surface-variant: 190 200 210;
+    --primary: 137 206 255;
+    --primary-container: 14 165 233;
+    --on-primary: 0 52 77;
+    --on-primary-container: 0 55 81;
+    --secondary: 183 200 225;
+    --secondary-container: 58 74 95;
+    --on-secondary-container: 169 186 211;
+    --tertiary: 255 184 110;
+    --tertiary-container: 222 135 18;
+    --error: 255 180 171;
+    --error-container: 147 0 10;
+    --outline: 136 146 155;
+    --outline-variant: 62 72 80;
+    --glass: 49 57 77;
+    --glass-opacity: 0.7;
+    --selection-background: 137 206 255;
+    --selection-opacity: 0.2;
+    --selection-color: 218 226 253;
   }
 
   html,
@@ -18,23 +78,28 @@
     @apply bg-surface text-on-surface font-sans antialiased;
   }
 
+  ::selection {
+    background: rgb(var(--selection-background) / var(--selection-opacity));
+    color: rgb(var(--selection-color));
+  }
+
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
 
   ::-webkit-scrollbar-track {
-    background: #131b2e;
+    background: rgb(var(--surface-container-low));
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #3e4850;
+    background: rgb(var(--outline-variant));
     border-radius: 9999px;
-    border: 2px solid #131b2e;
+    border: 2px solid rgb(var(--surface-container-low));
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #88929b;
+    background: rgb(var(--outline));
   }
 }
 
@@ -50,7 +115,7 @@
   }
 
   .glass {
-    background-color: rgba(49, 57, 77, 0.7);
+    background-color: rgb(var(--glass) / var(--glass-opacity));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }

@@ -61,7 +61,7 @@
       "overview": "Overview",
       "totalContainers": "Total Containers",
       "azureCliRequired": "Azure CLI is required",
-      "azureCliDescription": "The app uses your Azure CLI session, does not persist Azure tokens, and requires {{command}}.",
+      "azureCliDescription": "The app uses your Azure CLI session, does not persist Azure tokens, and requires az login.",
       "searchPlaceholder": "Search connections, environments...",
       "searchAriaLabel": "Search connections",
       "addButton": "Add New Storage",
@@ -231,6 +231,13 @@
       "azureStatus": "Azure Status",
       "azureAuth": "Azure Authentication",
       "general": "General Settings",
+      "appearance": {
+        "title": "Appearance",
+        "description": "Choose whether the app follows the system theme or always uses a fixed light or dark preset.",
+        "system": "System",
+        "dark": "Dark",
+        "light": "Light"
+      },
       "appInfo": "Application Information",
       "appInfoDescription": "Azure Blob Log Viewer connects to Azure Blob Storage, helps you browse saved logs, and opens large log files efficiently on desktop.",
       "language": {
@@ -279,7 +286,7 @@
           "exportFileErrorDetail": "The connections file could not be written."
         }
       },
-      "securityNote": "Authentication uses Azure CLI credentials. Run {{command}} in your terminal to authenticate. No credentials are stored by this application.",
+      "securityNote": "Authentication uses Azure CLI credentials. Run az login in your terminal to authenticate. No credentials are stored by this application.",
       "authBadge": {
         "authenticated": "AUTHENTICATED",
         "authenticating": "AUTHENTICATING",
@@ -291,8 +298,8 @@
       "disconnected": {
         "description": "Connect to Azure through your local Azure CLI session.",
         "cliMissingTitle": "Azure CLI not found",
-        "cliMissingDescription": "Install Azure CLI on this machine first, then run {{command}} in your terminal.",
-        "hint": "Make sure you have run {{command}} in your terminal.",
+        "cliMissingDescription": "Install Azure CLI on this machine first, then run az login in your terminal.",
+        "hint": "Make sure you have run az login in your terminal.",
         "button": "Connect to Azure"
       },
       "authenticating": {

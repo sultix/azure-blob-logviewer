@@ -828,7 +828,7 @@ describe('LogsPage', () => {
   });
 
   it('refreshes content through the logs service', () => {
-    component.refresh();
+    void component.refresh();
 
     expect(logs.refreshContent).toHaveBeenCalledOnce();
   });

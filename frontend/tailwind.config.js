@@ -4,29 +4,38 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        surface: '#0b1326',
-        'surface-dim': '#0b1326',
-        'surface-bright': '#31394d',
-        'surface-container-lowest': '#060e20',
-        'surface-container-low': '#131b2e',
-        'surface-container': '#171f33',
-        'surface-container-high': '#222a3d',
-        'surface-container-highest': '#2d3449',
-        'on-surface': '#dae2fd',
-        'on-surface-variant': '#bec8d2',
-        primary: '#89ceff',
-        'primary-container': '#0ea5e9',
-        'on-primary': '#00344d',
-        'on-primary-container': '#003751',
-        secondary: '#b7c8e1',
-        'secondary-container': '#3a4a5f',
-        'on-secondary-container': '#a9bad3',
-        tertiary: '#ffb86e',
-        'tertiary-container': '#de8712',
-        error: '#ffb4ab',
-        'error-container': '#93000a',
-        outline: '#88929b',
-        'outline-variant': '#3e4850',
+        surface: 'rgb(var(--surface) / <alpha-value>)',
+        'surface-dim': 'rgb(var(--surface-dim) / <alpha-value>)',
+        'surface-bright': 'rgb(var(--surface-bright) / <alpha-value>)',
+        'surface-container-lowest':
+          'rgb(var(--surface-container-lowest) / <alpha-value>)',
+        'surface-container-low':
+          'rgb(var(--surface-container-low) / <alpha-value>)',
+        'surface-container': 'rgb(var(--surface-container) / <alpha-value>)',
+        'surface-container-high':
+          'rgb(var(--surface-container-high) / <alpha-value>)',
+        'surface-container-highest':
+          'rgb(var(--surface-container-highest) / <alpha-value>)',
+        'on-surface': 'rgb(var(--on-surface) / <alpha-value>)',
+        'on-surface-variant':
+          'rgb(var(--on-surface-variant) / <alpha-value>)',
+        primary: 'rgb(var(--primary) / <alpha-value>)',
+        'primary-container': 'rgb(var(--primary-container) / <alpha-value>)',
+        'on-primary': 'rgb(var(--on-primary) / <alpha-value>)',
+        'on-primary-container':
+          'rgb(var(--on-primary-container) / <alpha-value>)',
+        secondary: 'rgb(var(--secondary) / <alpha-value>)',
+        'secondary-container':
+          'rgb(var(--secondary-container) / <alpha-value>)',
+        'on-secondary-container':
+          'rgb(var(--on-secondary-container) / <alpha-value>)',
+        tertiary: 'rgb(var(--tertiary) / <alpha-value>)',
+        'tertiary-container':
+          'rgb(var(--tertiary-container) / <alpha-value>)',
+        error: 'rgb(var(--error) / <alpha-value>)',
+        'error-container': 'rgb(var(--error-container) / <alpha-value>)',
+        outline: 'rgb(var(--outline) / <alpha-value>)',
+        'outline-variant': 'rgb(var(--outline-variant) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
