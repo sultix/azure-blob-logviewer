@@ -18,7 +18,9 @@
           {{ 'shell.appName' | translate }}
         </span>
         @if (appVersion(); as version) {
-          <span class="text-[11px] font-medium tracking-widest text-on-surface-variant">
+          <span
+            class="text-[11px] font-medium rounded-full bg-surface-container-highest px-2 py-0.5 tracking-widest"
+          >
             v{{ version }}
           </span>
         }

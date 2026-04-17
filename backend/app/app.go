@@ -39,7 +39,7 @@ func (a *App) Shutdown(ctx context.Context) {
 }
 
 func (a *App) GetVersion() string {
-	return "0.1.1"
+	return "1.0.0"
 }
 
 // --- Log entries ---------------------------------------------------------
