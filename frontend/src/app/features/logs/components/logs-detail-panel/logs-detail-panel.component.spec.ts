@@ -8,6 +8,7 @@ import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/tr
 import { SettingsService } from '@app/features/settings/services/settings.service';
 
 import type { LogFooterVm, LogLargeViewerVm, LogToolbarVm } from '../../models/logs-view.model';
+import { LOG_VIRTUAL_LINE_HEIGHT_PX } from '../../models/logs-viewer.constants';
 
 import { LogsDetailPanelComponent } from './logs-detail-panel.component';
 
@@ -294,7 +295,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(renderedLine.className).toContain('inline-block');
     expect(renderedLine.className).toContain('min-w-full');
     expect(renderedLine.className).toContain('whitespace-pre');
-    expect(renderedLine.className).toContain('leading-5');
+    expect(renderedLine.className).toContain('leading-[18px]');
     expect(renderedLine.className).not.toContain('whitespace-pre-wrap');
     expect(highlights).toHaveLength(2);
     expect(highlights[0]?.className).toContain('active-search-match');
@@ -326,7 +327,10 @@ describe('LogsDetailPanelComponent', () => {
     expect(largeSearchChanged).toHaveBeenCalledWith('warning');
     expect(previousLargeMatchRequested).toHaveBeenCalledOnce();
     expect(nextLargeMatchRequested).toHaveBeenCalledOnce();
-    expect(largeViewportChanged).toHaveBeenCalledWith({ startLine: 0, lineCount: 40 });
+    expect(largeViewportChanged).toHaveBeenCalledWith({
+      startLine: 0,
+      lineCount: Math.ceil(160 / LOG_VIRTUAL_LINE_HEIGHT_PX) + 32,
+    });
     expect(component.mobileActionItems()[1]?.disabled).toBe(true);
     expect(component.canToggleWordWrap()).toBe(false);
   });

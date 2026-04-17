@@ -27,6 +27,7 @@ import type {
   LogsStatus,
   LogToolbarVm,
 } from '../../models/logs-view.model';
+import { LOG_VIRTUAL_LINE_HEIGHT_PX } from '../../models/logs-viewer.constants';
 
 interface ContentSearchVm {
   readonly matchCount: number;
@@ -50,7 +51,6 @@ interface NormalizedToolbarVm {
 }
 
 const CONTENT_SEARCH_DELAY_MS = 120;
-const LARGE_VIEW_LINE_HEIGHT_PX = 20;
 const LARGE_VIEW_OVERSCAN_LINES = 16;
 const MIN_CONTENT_SEARCH_QUERY_LENGTH = 3;
 
@@ -112,7 +112,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.wordWrapEnabled() ? 'whitespace-pre-wrap break-all' : 'whitespace-pre',
   );
   readonly largeLineContentClass = computed(
-    () => 'inline-block min-w-full whitespace-pre leading-5',
+    () => 'inline-block min-w-full whitespace-pre leading-[18px]',
   );
   readonly canToggleWordWrap = computed(
     () => this.largeViewer() === null && !this.tailEnabled(),
@@ -305,7 +305,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
           largeViewer.requestedScrollLine !== this.lastRequestedLargeScrollLine
         ) {
           scrollContainer.scrollTo({
-            top: largeViewer.requestedScrollLine * LARGE_VIEW_LINE_HEIGHT_PX,
+            top: largeViewer.requestedScrollLine * LOG_VIRTUAL_LINE_HEIGHT_PX,
             behavior: 'auto',
           });
           this.lastRequestedLargeScrollLine = largeViewer.requestedScrollLine;
@@ -453,10 +453,10 @@ export class LogsDetailPanelComponent implements OnDestroy {
     }
 
     const visibleLineCount =
-      Math.ceil(scrollContainer.clientHeight / LARGE_VIEW_LINE_HEIGHT_PX) +
+      Math.ceil(scrollContainer.clientHeight / LOG_VIRTUAL_LINE_HEIGHT_PX) +
       LARGE_VIEW_OVERSCAN_LINES * 2;
     const startLine = Math.max(
-      Math.floor(scrollContainer.scrollTop / LARGE_VIEW_LINE_HEIGHT_PX) -
+      Math.floor(scrollContainer.scrollTop / LOG_VIRTUAL_LINE_HEIGHT_PX) -
         LARGE_VIEW_OVERSCAN_LINES,
       0,
     );

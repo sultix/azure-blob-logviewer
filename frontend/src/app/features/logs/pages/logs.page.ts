@@ -28,6 +28,7 @@ import type {
   LogLargeViewerVm,
   LogToolbarVm,
 } from '../models/logs-view.model';
+import { LOG_VIRTUAL_LINE_HEIGHT_PX } from '../models/logs-viewer.constants';
 import { LogSortBasis } from '../models/logs-view.model';
 import { LogsService, type LogSelectionUpdateResult } from '../services/logs.service';
 
@@ -51,7 +52,6 @@ interface SidebarConnectionFooterVm {
   readonly updatedText: string;
 }
 
-const LOG_VIRTUAL_LINE_HEIGHT_PX = 20;
 const MIN_CONTENT_SEARCH_QUERY_LENGTH = 3;
 
 @Component({
