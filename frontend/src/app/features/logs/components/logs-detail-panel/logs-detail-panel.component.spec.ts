@@ -157,6 +157,34 @@ describe('LogsDetailPanelComponent', () => {
     expect(refreshRequested).toHaveBeenCalledOnce();
   });
 
+  it('uses the compact 18px line height and disables wrapping in tail mode', () => {
+    settings.updateLogsPreferences({ wordWrapEnabled: true });
+
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '1.5 KB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('tailEnabled', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('content', 'tail line 1\ntail line 2');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'Word wrap is disabled while tail mode is active.',
+    );
+
+    const content = fixture.nativeElement.querySelector('pre') as HTMLPreElement;
+    expect(content.className).toContain('whitespace-pre');
+    expect(content.className).toContain('leading-[18px]');
+    expect(content.className).not.toContain('whitespace-pre-wrap');
+    expect(content.className).not.toContain('break-all');
+  });
+
   it('renders a real content error and hides content-based footer values', () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
@@ -383,6 +411,9 @@ describe('LogsDetailPanelComponent', () => {
       sizeLabel: '100.0 MB',
       created: '1 hr ago',
     };
+    const footer: LogFooterVm = {
+      lineCountLabel: 'Lines in excerpt: 200',
+    };
     const largeViewer: LogLargeViewerVm = {
       mode: 'tail',
       progressLabel: '4.0 MB / 100.0 MB loaded',
@@ -407,15 +438,275 @@ describe('LogsDetailPanelComponent', () => {
     fixture.componentRef.setInput('hasSelection', true);
     fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput('largeViewer', largeViewer);
+    fixture.componentRef.setInput('footer', footer);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain(
-      'Showing the newest lines first while the full file is loading.',
+      'Tail shows the newest lines immediately. Older parts of the file continue loading in the background.',
     );
     expect(fixture.nativeElement.textContent).toContain('tail error line');
+    expect(fixture.nativeElement.textContent).not.toContain('Earlier lines are still loading');
+    expect(fixture.nativeElement.textContent).not.toContain('Searching');
     const highlights = fixture.nativeElement.querySelectorAll('mark.log-search-match');
     expect(highlights).toHaveLength(1);
     expect(highlights[0]?.className).toContain('active-search-match');
+  });
+
+  it('scrolls to the bottom when tail mode becomes active', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('selectionKey', 'alpha');
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
+    fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 120,
+      scrollHeight: 480,
+      scrollTop: 0,
+    });
+
+    scrollToSpy.mockClear();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).toHaveBeenLastCalledWith({
+      top: 480,
+      behavior: 'auto',
+    });
+  });
+
+  it('keeps scrolling to the bottom during tail refresh while the user stays at the bottom', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('selectionKey', 'alpha');
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
+    fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 300,
+      scrollTop: 200,
+    });
+    await settleComponent(fixture);
+    component.onLargeViewerScroll();
+
+    scrollToSpy.mockClear();
+
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 360,
+      scrollTop: 200,
+    });
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        tailPreviewLines: ['line 1', 'line 2', 'line 3'],
+      }),
+    );
+    fixture.detectChanges();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).toHaveBeenLastCalledWith({
+      top: 360,
+      behavior: 'auto',
+    });
+  });
+
+  it('does not auto-scroll tail refreshes while the user is away from the bottom', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('selectionKey', 'alpha');
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
+    fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 300,
+      scrollTop: 150,
+    });
+    await settleComponent(fixture);
+    component.onLargeViewerScroll();
+
+    scrollToSpy.mockClear();
+
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 360,
+      scrollTop: 150,
+    });
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        tailPreviewLines: ['line 1', 'line 2', 'line 3'],
+      }),
+    );
+    fixture.detectChanges();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).not.toHaveBeenCalled();
+  });
+
+  it('re-enables tail auto-scroll after the user manually returns to the bottom', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('selectionKey', 'alpha');
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
+    fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 300,
+      scrollTop: 150,
+    });
+    await settleComponent(fixture);
+    component.onLargeViewerScroll();
+
+    scrollToSpy.mockClear();
+
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 360,
+      scrollTop: 256,
+    });
+    component.onLargeViewerScroll();
+
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 420,
+      scrollTop: 256,
+    });
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        tailPreviewLines: ['line 1', 'line 2', 'line 3', 'line 4'],
+      }),
+    );
+    fixture.detectChanges();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).toHaveBeenLastCalledWith({
+      top: 420,
+      behavior: 'auto',
+    });
+  });
+
+  it('uses explicit tail line navigation without sticky-bottom until the user returns to the bottom', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+    const largeScrollHandled = vi.fn<() => void>();
+    component.largeScrollHandled.subscribe(largeScrollHandled);
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('selectionKey', 'alpha');
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
+    fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 300,
+      scrollTop: 200,
+    });
+    await settleComponent(fixture);
+    component.onLargeViewerScroll();
+
+    scrollToSpy.mockClear();
+
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        requestedScrollLine: 5,
+      }),
+    );
+    fixture.detectChanges();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).toHaveBeenLastCalledWith({
+      top: 5 * LOG_VIRTUAL_LINE_HEIGHT_PX,
+      behavior: 'auto',
+    });
+    expect(largeScrollHandled).toHaveBeenCalledOnce();
+
+    scrollToSpy.mockClear();
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        requestedScrollLine: null,
+        tailPreviewLines: ['line 1', 'line 2', 'line 3'],
+      }),
+    );
+    fixture.detectChanges();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).not.toHaveBeenCalled();
+
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 360,
+      scrollTop: 260,
+    });
+    component.onLargeViewerScroll();
+
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        requestedScrollLine: null,
+        tailPreviewLines: ['line 1', 'line 2', 'line 3', 'line 4'],
+      }),
+    );
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 100,
+      scrollHeight: 420,
+      scrollTop: 260,
+    });
+    fixture.detectChanges();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).toHaveBeenLastCalledWith({
+      top: 420,
+      behavior: 'auto',
+    });
   });
 
   it('shows a placeholder while visible large-file lines are still being prepared', () => {
@@ -846,4 +1137,54 @@ function createDomRect(
     toJSON: () => ({}),
     ...overrides,
   } as DOMRect;
+}
+
+function createTailLargeViewer(
+  overrides: Partial<LogLargeViewerVm> = {},
+): LogLargeViewerVm {
+  return {
+    mode: 'tail',
+    progressLabel: '4.0 MB / 100.0 MB loaded',
+    statusLabel: 'Tail mode active',
+    searchStatusLabel: '',
+    searchQuery: '',
+    matchCount: 0,
+    activeMatchLineNumber: null,
+    requestedScrollLine: null,
+    topSpacerPx: 0,
+    bottomSpacerPx: 0,
+    lines: [],
+    totalLines: 0,
+    tailPreviewLines: ['line 1', 'line 2'],
+    pendingBeforeLabel: null,
+    pendingAfterLabel: null,
+    canEnableWordWrap: false,
+    downloadDisabled: true,
+    ...overrides,
+  };
+}
+
+function getScrollContainer(
+  fixture: ComponentFixture<LogsDetailPanelComponent>,
+): HTMLDivElement {
+  return fixture.nativeElement.querySelector('.overflow-auto') as HTMLDivElement;
+}
+
+function setScrollMetrics(
+  element: HTMLDivElement,
+  options: {
+    clientHeight: number;
+    scrollHeight: number;
+    scrollTop: number;
+  },
+): void {
+  Object.defineProperty(element, 'clientHeight', {
+    configurable: true,
+    value: options.clientHeight,
+  });
+  Object.defineProperty(element, 'scrollHeight', {
+    configurable: true,
+    value: options.scrollHeight,
+  });
+  element.scrollTop = options.scrollTop;
 }

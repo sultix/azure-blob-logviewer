@@ -147,6 +147,19 @@ func (a *App) GetBlobViewStatus(sessionID string) (*models.BlobViewSessionStatus
 	return a.blobView.GetStatus(sessionID)
 }
 
+func (a *App) SetBlobViewSessionMode(
+	sessionID string,
+	mode models.BlobViewMode,
+) (*models.BlobViewSessionStatus, error) {
+	if sessionID == "" {
+		return nil, fmt.Errorf("session id is required")
+	}
+	if mode == "" {
+		mode = models.BlobViewModeSnapshot
+	}
+	return a.blobView.SetSessionMode(sessionID, mode)
+}
+
 func (a *App) GetBlobViewLines(sessionID string, startLine, lineCount int64) (*models.BlobViewLinesResponse, error) {
 	if sessionID == "" {
 		return nil, fmt.Errorf("session id is required")

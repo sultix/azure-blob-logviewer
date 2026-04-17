@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/aleksandrsultanov/azure-blob-logviewer/backend/models"
 )
@@ -205,6 +207,103 @@ func TestBlobViewServiceFailSessionSanitizesErrorMessages(t *testing.T) {
 	}
 }
 
+func TestBlobViewServiceSetSessionModeReusesExistingSession(t *testing.T) {
+	service := NewBlobViewService(nil)
+	defer service.Shutdown()
+
+	client := newMemoryBlobViewClient(buildLargeBlobContent("prefix line\n", defaultBlobChunkSizeBytes+4_096))
+	service.createBlobClient = func(context.Context, string, string, string) (blobViewBlobClient, int64, string, error) {
+		return client, client.Size(), "text/plain", nil
+	}
+
+	status, err := service.OpenSession(context.Background(), models.OpenBlobViewSessionRequest{
+		AccountName:   "storage-a",
+		ContainerName: "logs",
+		BlobName:      "reused.log",
+		Mode:          models.BlobViewModeSnapshot,
+	})
+	if err != nil {
+		t.Fatalf("expected snapshot session to open successfully, got %v", err)
+	}
+
+	tailStatus, err := service.SetSessionMode(status.SessionID, models.BlobViewModeTail)
+	if err != nil {
+		t.Fatalf("expected mode switch to tail to succeed, got %v", err)
+	}
+	if tailStatus.SessionID != status.SessionID {
+		t.Fatalf("expected mode switch to reuse session %q, got %q", status.SessionID, tailStatus.SessionID)
+	}
+	if tailStatus.Mode != models.BlobViewModeTail {
+		t.Fatalf("expected tail mode after switch, got %q", tailStatus.Mode)
+	}
+
+	session, err := service.getSession(status.SessionID)
+	if err != nil {
+		t.Fatalf("expected reused session to exist, got %v", err)
+	}
+	if session.file == nil {
+		t.Fatal("expected tail mode to keep a temp file-backed session")
+	}
+
+	snapshotStatus, err := service.SetSessionMode(status.SessionID, models.BlobViewModeSnapshot)
+	if err != nil {
+		t.Fatalf("expected mode switch back to snapshot to succeed, got %v", err)
+	}
+	if snapshotStatus.SessionID != status.SessionID {
+		t.Fatalf("expected snapshot switch to keep session %q, got %q", status.SessionID, snapshotStatus.SessionID)
+	}
+	if snapshotStatus.Mode != models.BlobViewModeSnapshot {
+		t.Fatalf("expected snapshot mode after switch, got %q", snapshotStatus.Mode)
+	}
+}
+
+func TestBlobViewServiceTailSessionAppendsNewBytesWithoutReopen(t *testing.T) {
+	service := NewBlobViewService(nil)
+	defer service.Shutdown()
+
+	initialContent := buildLargeBlobContent("line before tail\n", defaultBlobChunkSizeBytes+8_192) + "tail line\n"
+	client := newMemoryBlobViewClient(initialContent)
+	service.createBlobClient = func(context.Context, string, string, string) (blobViewBlobClient, int64, string, error) {
+		return client, client.Size(), "text/plain", nil
+	}
+
+	status, err := service.OpenSession(context.Background(), models.OpenBlobViewSessionRequest{
+		AccountName:   "storage-a",
+		ContainerName: "logs",
+		BlobName:      "tail.log",
+		Mode:          models.BlobViewModeTail,
+	})
+	if err != nil {
+		t.Fatalf("expected tail session to open successfully, got %v", err)
+	}
+
+	waitForBlobViewCondition(t, 2*time.Second, func() bool {
+		nextStatus, statusErr := service.GetStatus(status.SessionID)
+		return statusErr == nil && nextStatus.IsComplete && len(nextStatus.TailPreviewLines) == 0
+	})
+
+	client.SetContent(initialContent + "new tail line\n")
+
+	updatedStatus, err := service.GetStatus(status.SessionID)
+	if err != nil {
+		t.Fatalf("expected appended tail status to load successfully, got %v", err)
+	}
+	if updatedStatus.SessionID != status.SessionID {
+		t.Fatalf("expected appended data to stay in session %q, got %q", status.SessionID, updatedStatus.SessionID)
+	}
+	if !updatedStatus.IsComplete {
+		t.Fatal("expected tail session to remain complete after syncing appended bytes")
+	}
+
+	lines, err := service.GetLines(updatedStatus.SessionID, updatedStatus.IndexedLineCount-1, 1)
+	if err != nil {
+		t.Fatalf("expected appended lines to load successfully, got %v", err)
+	}
+	if len(lines.Lines) != 1 || lines.Lines[0].Content != "new tail line" {
+		t.Fatalf("expected last line to contain appended tail content, got %+v", lines.Lines)
+	}
+}
+
 type fakeBlobViewClient struct{}
 
 func (fakeBlobViewClient) DownloadRange(context.Context, string, string, int64, int64) ([]byte, error) {
@@ -219,4 +318,59 @@ func collectLineStarts(content string) []int64 {
 		}
 	}
 	return lineStarts
+}
+
+type memoryBlobViewClient struct {
+	mu      sync.RWMutex
+	content []byte
+}
+
+func newMemoryBlobViewClient(content string) *memoryBlobViewClient {
+	return &memoryBlobViewClient{content: []byte(content)}
+}
+
+func (c *memoryBlobViewClient) DownloadRange(
+	_ context.Context,
+	_ string,
+	_ string,
+	offset int64,
+	count int64,
+) ([]byte, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	startOffset := maxInt64(0, minInt64(int64(len(c.content)), offset))
+	endOffset := minInt64(int64(len(c.content)), startOffset+count)
+	return append([]byte(nil), c.content[startOffset:endOffset]...), nil
+}
+
+func (c *memoryBlobViewClient) Size() int64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return int64(len(c.content))
+}
+
+func (c *memoryBlobViewClient) SetContent(content string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.content = []byte(content)
+}
+
+func buildLargeBlobContent(line string, targetBytes int64) string {
+	repetitions := int(targetBytes/int64(len(line))) + 1
+	return strings.Repeat(line, repetitions)
+}
+
+func waitForBlobViewCondition(t *testing.T, timeout time.Duration, condition func() bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatal("timed out waiting for blob view condition")
 }

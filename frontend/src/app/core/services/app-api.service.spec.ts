@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
 import type {
+  BlobViewMode,
   BlobViewLinesResponse,
   BlobViewSearchResponse,
   BlobViewSessionStatus,
@@ -60,6 +61,11 @@ interface MockBridge {
   >;
   GetBlobViewStatus: ReturnType<
     typeof vi.fn<(sessionId: string) => Promise<BlobViewSessionStatus | null>>
+  >;
+  SetBlobViewSessionMode: ReturnType<
+    typeof vi.fn<
+      (sessionId: string, mode: BlobViewMode) => Promise<BlobViewSessionStatus | null>
+    >
   >;
   GetBlobViewLines: ReturnType<
     typeof vi.fn<
@@ -249,6 +255,11 @@ describe('AppApiService', () => {
     bridge.ReadBlobTextChunk.mockResolvedValue(chunk);
     bridge.OpenBlobViewSession.mockResolvedValue(sessionStatus);
     bridge.GetBlobViewStatus.mockResolvedValue(sessionStatus);
+    bridge.SetBlobViewSessionMode.mockResolvedValue({
+      ...sessionStatus,
+      mode: 'tail',
+      focus: 'end',
+    });
     bridge.GetBlobViewLines.mockResolvedValue(linesResponse);
     bridge.SearchBlobView.mockResolvedValue(searchResponse);
     bridge.ExportBlobViewSession.mockResolvedValue({ cancelled: false });
@@ -281,6 +292,11 @@ describe('AppApiService', () => {
       }),
     ).resolves.toEqual(sessionStatus);
     await expect(service.getBlobViewStatus('session-1')).resolves.toEqual(sessionStatus);
+    await expect(service.setBlobViewSessionMode('session-1', 'tail')).resolves.toEqual({
+      ...sessionStatus,
+      mode: 'tail',
+      focus: 'end',
+    });
     await expect(service.getBlobViewLines('session-1', 0, 100)).resolves.toEqual(linesResponse);
     await expect(
       service.searchBlobView({ sessionId: 'session-1', query: 'line', cursor: 0 }),
@@ -310,6 +326,7 @@ describe('AppApiService', () => {
       mode: 'snapshot',
     });
     expect(bridge.GetBlobViewStatus).toHaveBeenCalledWith('session-1');
+    expect(bridge.SetBlobViewSessionMode).toHaveBeenCalledWith('session-1', 'tail');
     expect(bridge.GetBlobViewLines).toHaveBeenCalledWith('session-1', 0, 100);
     expect(bridge.SearchBlobView).toHaveBeenCalledWith({
       sessionId: 'session-1',
@@ -405,6 +422,7 @@ function createMockBridge(): MockBridge {
     ReadBlobTextChunk: vi.fn(),
     OpenBlobViewSession: vi.fn(),
     GetBlobViewStatus: vi.fn(),
+    SetBlobViewSessionMode: vi.fn(),
     GetBlobViewLines: vi.fn(),
     SearchBlobView: vi.fn(),
     ExportBlobViewSession: vi.fn(),

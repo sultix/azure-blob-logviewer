@@ -263,6 +263,10 @@ describe('LogsPage', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-16T12:00:00Z'));
+    Object.defineProperty(HTMLDivElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: vi.fn(),
+    });
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       writable: true,
@@ -1234,6 +1238,81 @@ describe('LogsPage', () => {
       typeLabel: 'text/plain',
       lineCountLabel: 'Lines: 1',
       lineEndingsLabel: 'None',
+    });
+  });
+
+  it('suppresses redundant pending and footer status text in tail mode', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
+    logs.statusState.set('success');
+    logs.entriesState.set([
+      createLogEntry({
+        id: 'entry-1',
+        blobName: 'alpha.log',
+        contentType: 'text/plain',
+      }),
+    ]);
+    logs.selectEntry('entry-1');
+    logs.largeViewerStatusState.set(
+      createLargeViewerStatus({
+        mode: 'tail',
+        isComplete: false,
+        indexedLineCount: 200,
+        hasPendingBefore: true,
+        hasPendingAfter: true,
+        tailPreviewLines: ['tail line 1', 'tail line 2'],
+      }),
+    );
+    logs.isTailModeState.set(true);
+
+    fixture.detectChanges();
+
+    expect(component.largeViewer()).toMatchObject({
+      mode: 'tail',
+      pendingBeforeLabel: null,
+      pendingAfterLabel: null,
+    });
+    expect(component.footer()).toEqual({
+      typeLabel: 'text/plain',
+      lineCountLabel: 'Lines in excerpt: 200',
+    });
+  });
+
+  it('keeps pending and footer loading text for non-tail large viewer states', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
+    logs.statusState.set('success');
+    logs.entriesState.set([
+      createLogEntry({
+        id: 'entry-1',
+        blobName: 'alpha.log',
+        contentType: 'text/plain',
+      }),
+    ]);
+    logs.selectEntry('entry-1');
+    logs.largeViewerStatusState.set(
+      createLargeViewerStatus({
+        mode: 'snapshot',
+        isComplete: false,
+        indexedLineCount: 200,
+        hasPendingBefore: true,
+        hasPendingAfter: true,
+      }),
+    );
+
+    fixture.detectChanges();
+
+    expect(component.largeViewer()).toMatchObject({
+      mode: 'snapshot',
+      pendingBeforeLabel: 'Earlier lines are still loading',
+      pendingAfterLabel: 'Later lines are still loading',
+    });
+    expect(component.footer()).toEqual({
+      typeLabel: 'text/plain',
+      lineCountLabel: 'Lines in excerpt: 200',
+      lineEndingsLabel: 'Searching',
     });
   });
 

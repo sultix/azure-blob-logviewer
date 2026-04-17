@@ -53,6 +53,7 @@ interface NormalizedToolbarVm {
 const CONTENT_SEARCH_DELAY_MS = 120;
 const LARGE_VIEW_OVERSCAN_LINES = 16;
 const MIN_CONTENT_SEARCH_QUERY_LENGTH = 3;
+const TAIL_AUTO_SCROLL_BOTTOM_TOLERANCE_PX = 4;
 
 @Component({
   selector: 'app-logs-detail-panel',
@@ -98,6 +99,8 @@ export class LogsDetailPanelComponent implements OnDestroy {
   private lastLargeViewportKey: string | null = null;
   private lastRequestedLargeScrollLine: number | null = null;
   private lastAppliedSelectionKey: string | null = null;
+  private lastTailContextKey: string | null = null;
+  private tailAutoScrollEnabled = false;
   private readonly contentElement = viewChild('contentElement', {
     read: ElementRef<HTMLPreElement>,
   });
@@ -108,9 +111,15 @@ export class LogsDetailPanelComponent implements OnDestroy {
   private readonly contentSearchQuery = signal('');
   private readonly requestedMatchIndex = signal(0);
   readonly wordWrapEnabled = computed(() => this.settings.logs().wordWrapEnabled);
-  readonly contentClass = computed(() =>
-    this.wordWrapEnabled() ? 'whitespace-pre-wrap break-all' : 'whitespace-pre',
-  );
+  readonly contentClass = computed(() => {
+    if (this.tailEnabled()) {
+      return 'whitespace-pre leading-[18px]';
+    }
+
+    return this.wordWrapEnabled()
+      ? 'whitespace-pre-wrap break-all'
+      : 'whitespace-pre';
+  });
   readonly largeLineContentClass = computed(
     () => 'inline-block min-w-full whitespace-pre leading-[18px]',
   );
@@ -291,6 +300,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
       this.lastAppliedSelectionKey = nextSelectionKey;
       this.resetContentSearchState();
+      this.resetTailScrollState();
     });
 
     afterRenderEffect(() => {
@@ -298,6 +308,16 @@ export class LogsDetailPanelComponent implements OnDestroy {
       const scrollContainer = this.contentScrollContainer()?.nativeElement;
 
       if (largeViewer && scrollContainer) {
+        if (largeViewer.mode === 'tail' && largeViewer.tailPreviewLines.length > 0) {
+          this.handleTailViewerRender(scrollContainer, largeViewer);
+          return;
+        }
+
+        if (largeViewer.mode === 'tail') {
+          this.initializeTailScrollContext(scrollContainer);
+        } else {
+          this.resetTailScrollState();
+        }
         this.emitLargeViewport(scrollContainer, largeViewer);
 
         if (
@@ -309,13 +329,21 @@ export class LogsDetailPanelComponent implements OnDestroy {
             behavior: 'auto',
           });
           this.lastRequestedLargeScrollLine = largeViewer.requestedScrollLine;
+          if (largeViewer.mode === 'tail') {
+            this.tailAutoScrollEnabled = false;
+          }
           this.largeScrollHandled.emit();
+        } else if (largeViewer.requestedScrollLine === null) {
+          this.lastRequestedLargeScrollLine = null;
+          if (largeViewer.mode === 'tail' && this.tailAutoScrollEnabled) {
+            this.scrollTailToBottom(scrollContainer);
+          }
         }
         return;
       }
 
       this.lastLargeViewportKey = null;
-      this.lastRequestedLargeScrollLine = null;
+      this.resetTailScrollState();
 
       if (this.contentLoading()) {
         this.lastActiveMatch = null;
@@ -437,6 +465,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
       return;
     }
 
+    if (largeViewer.mode === 'tail') {
+      this.tailAutoScrollEnabled = this.isNearBottom(scrollContainer);
+      if (largeViewer.tailPreviewLines.length > 0) {
+        return;
+      }
+    }
+
     this.emitLargeViewport(scrollContainer, largeViewer);
   }
 
@@ -520,6 +555,66 @@ export class LogsDetailPanelComponent implements OnDestroy {
     }
 
     this.tailToggled.emit(value);
+  }
+
+  private handleTailViewerRender(
+    scrollContainer: HTMLDivElement,
+    largeViewer: LogLargeViewerVm,
+  ): void {
+    this.initializeTailScrollContext(scrollContainer);
+
+    if (
+      largeViewer.requestedScrollLine !== null &&
+      largeViewer.requestedScrollLine !== this.lastRequestedLargeScrollLine
+    ) {
+      scrollContainer.scrollTo({
+        top: largeViewer.requestedScrollLine * LOG_VIRTUAL_LINE_HEIGHT_PX,
+        behavior: 'auto',
+      });
+      this.lastRequestedLargeScrollLine = largeViewer.requestedScrollLine;
+      this.tailAutoScrollEnabled = false;
+      this.largeScrollHandled.emit();
+      return;
+    }
+
+    if (largeViewer.requestedScrollLine === null) {
+      this.lastRequestedLargeScrollLine = null;
+    }
+
+    if (this.tailAutoScrollEnabled) {
+      this.scrollTailToBottom(scrollContainer);
+    }
+  }
+
+  private isNearBottom(scrollContainer: HTMLDivElement): boolean {
+    return (
+      scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight <=
+      TAIL_AUTO_SCROLL_BOTTOM_TOLERANCE_PX
+    );
+  }
+
+  private scrollTailToBottom(scrollContainer: HTMLDivElement): void {
+    scrollContainer.scrollTo({
+      top: scrollContainer.scrollHeight,
+      behavior: 'auto',
+    });
+  }
+
+  private resetTailScrollState(): void {
+    this.lastTailContextKey = null;
+    this.tailAutoScrollEnabled = false;
+    this.lastRequestedLargeScrollLine = null;
+  }
+
+  private initializeTailScrollContext(scrollContainer: HTMLDivElement): void {
+    const tailContextKey = this.selectionKey();
+    if (this.lastTailContextKey === tailContextKey) {
+      return;
+    }
+
+    this.lastTailContextKey = tailContextKey;
+    this.tailAutoScrollEnabled = true;
+    this.scrollTailToBottom(scrollContainer);
   }
 }
 

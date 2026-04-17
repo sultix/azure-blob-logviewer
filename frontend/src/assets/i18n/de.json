@@ -172,7 +172,7 @@
         "wordWrapUnavailable": "Zeilenumbruch ist für große Dateien nicht verfügbar, damit der Viewer flüssig bleibt.",
         "pendingBefore": "Frühere Zeilen werden noch geladen",
         "pendingAfter": "Spätere Zeilen werden noch geladen",
-        "tailPreview": "Es werden zuerst die neuesten Zeilen gezeigt, während die vollständige Datei geladen wird.",
+        "tailPreview": "Tail zeigt die neuesten Zeilen sofort an. Ältere Teile der Datei werden im Hintergrund nachgeladen.",
         "preparingLines": "Sichtbare Zeilen werden vorbereitet…",
         "matches": "{{count}} Treffer",
         "matchesPartial": "{{count}} Treffer bisher",

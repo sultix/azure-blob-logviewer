@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
 import type {
   BlobViewExportResult,
+  BlobViewMode,
   BlobViewLinesResponse,
   BlobViewSearchRequest,
   BlobViewSearchResponse,
@@ -44,6 +45,7 @@ export interface AppApi {
   readBlobTextChunk(request: AzureBlobTextChunkRequest): Promise<AzureBlobTextChunk>;
   openBlobViewSession(request: OpenBlobViewSessionRequest): Promise<BlobViewSessionStatus>;
   getBlobViewStatus(sessionId: string): Promise<BlobViewSessionStatus>;
+  setBlobViewSessionMode(sessionId: string, mode: BlobViewMode): Promise<BlobViewSessionStatus>;
   getBlobViewLines(sessionId: string, startLine: number, lineCount: number): Promise<BlobViewLinesResponse>;
   searchBlobView(request: BlobViewSearchRequest): Promise<BlobViewSearchResponse>;
   exportBlobViewSession(sessionId: string): Promise<BlobViewExportResult>;
@@ -67,6 +69,7 @@ interface WailsAppBridge {
   ReadBlobTextChunk(request: AzureBlobTextChunkRequest): Promise<AzureBlobTextChunk | null>;
   OpenBlobViewSession(request: OpenBlobViewSessionRequest): Promise<BlobViewSessionStatus | null>;
   GetBlobViewStatus(sessionId: string): Promise<BlobViewSessionStatus | null>;
+  SetBlobViewSessionMode(sessionId: string, mode: BlobViewMode): Promise<BlobViewSessionStatus | null>;
   GetBlobViewLines(sessionId: string, startLine: number, lineCount: number): Promise<BlobViewLinesResponse | null>;
   SearchBlobView(request: BlobViewSearchRequest): Promise<BlobViewSearchResponse | null>;
   ExportBlobViewSession(sessionId: string): Promise<BlobViewExportResult | null>;
@@ -160,6 +163,17 @@ export class AppApiService implements AppApi {
 
   async getBlobViewStatus(sessionId: string): Promise<BlobViewSessionStatus> {
     const result = await this.bridge().GetBlobViewStatus(sessionId);
+    if (!result) {
+      throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
+    }
+    return normalizeBlobViewSessionStatus(result);
+  }
+
+  async setBlobViewSessionMode(
+    sessionId: string,
+    mode: BlobViewMode,
+  ): Promise<BlobViewSessionStatus> {
+    const result = await this.bridge().SetBlobViewSessionMode(sessionId, mode);
     if (!result) {
       throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
     }

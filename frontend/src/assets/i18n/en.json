@@ -172,7 +172,7 @@
         "wordWrapUnavailable": "Word wrap is unavailable for large files to keep the viewer responsive.",
         "pendingBefore": "Earlier lines are still loading",
         "pendingAfter": "Later lines are still loading",
-        "tailPreview": "Showing the newest lines first while the full file is loading.",
+        "tailPreview": "Tail shows the newest lines immediately. Older parts of the file continue loading in the background.",
         "preparingLines": "Preparing visible lines…",
         "matches": "{{count}} matches",
         "matchesPartial": "{{count}} matches so far",

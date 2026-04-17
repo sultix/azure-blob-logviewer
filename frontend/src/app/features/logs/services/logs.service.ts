@@ -380,6 +380,56 @@ export class LogsService implements OnDestroy {
       return;
     }
 
+    const viewer = this.largeViewerState();
+    if (viewer?.entryId === entry.id) {
+      const status = await this.api.setBlobViewSessionMode(
+        viewer.sessionId,
+        enabled ? 'tail' : 'snapshot',
+      );
+      const targetScrollLine =
+        enabled && status.tailPreviewLines.length === 0 && status.indexedLineCount > 0
+          ? status.indexedLineCount - 1
+          : null;
+      const nextViewportStartLine =
+        targetScrollLine !== null
+          ? Math.max(targetScrollLine - Math.floor(viewer.viewportLineCount / 2), 0)
+          : viewer.viewportStartLine;
+
+      this.largeViewerState.update((current) => {
+        if (!current || current.sessionId !== viewer.sessionId) {
+          return current;
+        }
+
+        return {
+          ...current,
+          mode: status.mode,
+          status,
+          viewportStartLine: nextViewportStartLine,
+          requestedScrollLine: targetScrollLine,
+        };
+      });
+
+      if (status.mode === 'snapshot' && status.isComplete) {
+        this.stopStatusPolling();
+      } else {
+        this.startStatusPolling(viewer.sessionId, status.mode);
+      }
+
+      if (status.tailPreviewLines.length === 0 && status.indexedLineCount > 0) {
+        await this.updateLargeViewport(nextViewportStartLine, viewer.viewportLineCount);
+      }
+
+      const activeQuery = this.largeViewerSearchQuery().trim();
+      if (activeQuery.length > 0) {
+        if (status.tailPreviewLines.length > 0) {
+          this.applyTailPreviewSearch(viewer.sessionId, activeQuery, false);
+        } else {
+          await this.loadSearchResults(viewer.sessionId, activeQuery);
+        }
+      }
+      return;
+    }
+
     if (enabled) {
       await this.openLargeViewer(entry, 'tail', true);
       return;
@@ -394,7 +444,7 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (viewer.mode === 'tail') {
+    if (viewer.status.tailPreviewLines.length > 0) {
       return;
     }
 
@@ -457,7 +507,7 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (viewer.mode === 'tail' || viewer.status.tailPreviewLines.length > 0) {
+    if (viewer.status.tailPreviewLines.length > 0) {
       this.applyTailPreviewSearch(viewer.sessionId, normalizedQuery, false);
       return;
     }
@@ -575,7 +625,7 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (viewer.mode === 'tail' || viewer.status.tailPreviewLines.length > 0) {
+    if (viewer.status.tailPreviewLines.length > 0) {
       this.moveTailPreviewSearchMatch(viewer, direction);
       return;
     }
@@ -668,7 +718,14 @@ export class LogsService implements OnDestroy {
         return;
       }
 
-      const initialViewportStartLine = 0;
+      const initialScrollLine =
+        status.mode === 'tail' && status.tailPreviewLines.length === 0 && status.indexedLineCount > 0
+          ? status.indexedLineCount - 1
+          : null;
+      const initialViewportStartLine =
+        initialScrollLine !== null
+          ? Math.max(initialScrollLine - Math.floor(DEFAULT_LINE_WINDOW_SIZE / 2), 0)
+          : 0;
 
       this.largeViewerState.set({
         entryId: entry.id,
@@ -683,19 +740,12 @@ export class LogsService implements OnDestroy {
         searchNextCursor: 0,
         searchIsComplete: true,
         activeMatchIndex: -1,
-        requestedScrollLine:
-          status.mode === 'tail' && status.tailPreviewLines.length > 0
-            ? Math.max(status.tailPreviewLines.length - 1, 0)
-            : null,
+        requestedScrollLine: initialScrollLine,
       });
 
       this.startStatusPolling(status.sessionId, status.mode);
 
-      if (
-        status.mode === 'snapshot' &&
-        status.tailPreviewLines.length === 0 &&
-        status.indexedLineCount > 0
-      ) {
+      if (status.tailPreviewLines.length === 0 && status.indexedLineCount > 0) {
         await this.updateLargeViewport(initialViewportStartLine, DEFAULT_LINE_WINDOW_SIZE);
       }
     } catch {
@@ -712,15 +762,17 @@ export class LogsService implements OnDestroy {
 
   private async refreshLargeViewerStatus(sessionId: string): Promise<void> {
     const status = await this.api.getBlobViewStatus(sessionId);
-    const viewerMode = this.largeViewerState()?.sessionId === sessionId
-      ? this.largeViewerState()?.mode ?? status.mode
-      : status.mode;
+    const viewerMode =
+      this.largeViewerState()?.sessionId === sessionId
+        ? this.largeViewerState()?.mode ?? status.mode
+        : status.mode;
     const activeQuery = this.largeViewerSearchQuery().trim();
     const previousTailPreviewLength = this.largeViewerState()?.status.tailPreviewLines.length ?? 0;
 
     let needsViewportRefresh = false;
     let nextViewportStartLine = 0;
     let nextViewportLineCount = DEFAULT_LINE_WINDOW_SIZE;
+    let shouldScrollToBottom = false;
 
     this.largeViewerState.update((current) => {
       if (!current || current.sessionId !== sessionId) {
@@ -730,18 +782,26 @@ export class LogsService implements OnDestroy {
       needsViewportRefresh =
         current.status.indexedLineCount !== status.indexedLineCount ||
         current.status.isComplete !== status.isComplete;
-      nextViewportStartLine =
-        current.viewportStartLine;
+      shouldScrollToBottom =
+        status.mode === 'tail' &&
+        previousTailPreviewLength > 0 &&
+        status.tailPreviewLines.length === 0 &&
+        status.indexedLineCount > 0;
+      nextViewportStartLine = shouldScrollToBottom
+        ? Math.max(
+            status.indexedLineCount - Math.max(current.viewportLineCount, DEFAULT_LINE_WINDOW_SIZE),
+            0,
+          )
+        : current.viewportStartLine;
       nextViewportLineCount = current.viewportLineCount;
 
       return {
         ...current,
         mode: status.mode,
         status,
+        viewportStartLine: nextViewportStartLine,
         requestedScrollLine:
-          status.mode === 'tail' && current.requestedScrollLine === null && status.tailPreviewLines.length > 0
-            ? Math.max(status.tailPreviewLines.length - 1, 0)
-            : current.requestedScrollLine,
+          shouldScrollToBottom ? status.indexedLineCount - 1 : current.requestedScrollLine,
       };
     });
 
@@ -761,9 +821,8 @@ export class LogsService implements OnDestroy {
     }
 
     if (
-      viewerMode === 'snapshot' &&
       status.tailPreviewLines.length === 0 &&
-      (needsViewportRefresh || this.largeViewerLines().length === 0)
+      (needsViewportRefresh || shouldScrollToBottom || this.largeViewerLines().length === 0)
     ) {
       await this.updateLargeViewport(nextViewportStartLine, nextViewportLineCount);
     }
@@ -772,7 +831,7 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (viewerMode === 'tail' || status.tailPreviewLines.length > 0) {
+    if (status.tailPreviewLines.length > 0) {
       this.applyTailPreviewSearch(sessionId, activeQuery, true);
       return;
     }
@@ -906,7 +965,7 @@ export class LogsService implements OnDestroy {
         ...current,
         searchMatches: matches,
         searchNextCursor: 0,
-        searchIsComplete: current.mode === 'tail' || current.status.isComplete,
+        searchIsComplete: current.status.isComplete,
         activeMatchIndex,
         requestedScrollLine:
           activeMatchIndex >= 0

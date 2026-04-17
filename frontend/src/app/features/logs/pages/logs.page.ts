@@ -42,7 +42,7 @@ interface PreparedLogFileRowVm extends LogFileRowVm {
 
 interface ContentFooterStatsVm {
   readonly lineCountLabel: string;
-  readonly lineEndingsLabel: string;
+  readonly lineEndingsLabel: string | null;
 }
 
 interface SidebarConnectionFooterVm {
@@ -274,10 +274,10 @@ export class LogsPage implements OnInit {
       })),
       totalLines,
       tailPreviewLines: this.logs.largeViewerTailPreviewLines(),
-      pendingBeforeLabel: status.hasPendingBefore
+      pendingBeforeLabel: status.mode !== 'tail' && status.hasPendingBefore
         ? this.i18n.translate('logs.detail.viewer.pendingBefore')
         : null,
-      pendingAfterLabel: status.hasPendingAfter
+      pendingAfterLabel: status.mode !== 'tail' && status.hasPendingAfter
         ? this.i18n.translate('logs.detail.viewer.pendingAfter')
         : null,
       canEnableWordWrap: status.canEnableWordWrap,
@@ -298,9 +298,12 @@ export class LogsPage implements OnInit {
         lineCountLabel: this.i18n.translate('logs.detail.footer.linesWindow', {
           count: status.indexedLineCount,
         }),
-        lineEndingsLabel: status.isComplete
-          ? this.i18n.translate('logs.detail.footer.lineEndings.unknown')
-          : this.i18n.translate('logs.detail.footer.loadingSearch'),
+        lineEndingsLabel:
+          status.mode === 'tail'
+            ? null
+            : status.isComplete
+              ? this.i18n.translate('logs.detail.footer.lineEndings.unknown')
+              : this.i18n.translate('logs.detail.footer.loadingSearch'),
       };
     }
 
@@ -343,7 +346,9 @@ export class LogsPage implements OnInit {
     }
 
     footer.lineCountLabel = contentFooterStats.lineCountLabel;
-    footer.lineEndingsLabel = contentFooterStats.lineEndingsLabel;
+    if (contentFooterStats.lineEndingsLabel !== null) {
+      footer.lineEndingsLabel = contentFooterStats.lineEndingsLabel;
+    }
 
     return footer;
   });

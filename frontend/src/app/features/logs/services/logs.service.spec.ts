@@ -26,6 +26,9 @@ class AppApiServiceStub implements Partial<AppApiService> {
     (request: OpenBlobViewSessionRequest) => Promise<BlobViewSessionStatus>
   >();
   getBlobViewStatus = vi.fn<(sessionId: string) => Promise<BlobViewSessionStatus>>();
+  setBlobViewSessionMode = vi.fn<
+    (sessionId: string, mode: 'snapshot' | 'tail') => Promise<BlobViewSessionStatus>
+  >();
   getBlobViewLines = vi.fn<
     (sessionId: string, startLine: number, lineCount: number) => Promise<BlobViewLinesResponse>
   >();
@@ -348,6 +351,7 @@ describe('LogsService', () => {
     expect(service.hasNewerContent()).toBe(false);
     expect(service.largeViewerStatus()?.sessionId).toBe('session-1');
     expect(service.largeViewerTailPreviewLines()).toEqual(['tail line 1', 'tail line 2']);
+    expect(service.largeViewerRequestedScrollLine()).toBeNull();
     expect(service.contentWindow()).toEqual({
       startOffset: 0,
       endOffsetExclusive: 524_288,
@@ -362,6 +366,49 @@ describe('LogsService', () => {
       mode: 'snapshot',
     });
     expect(api.readBlobTextChunk).not.toHaveBeenCalled();
+  });
+
+  it('opens tail mode without creating an implicit scroll request', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        tailPreviewLines: ['tail line 1', 'tail line 2'],
+      }),
+    );
+    api.setBlobViewSessionMode.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        mode: 'tail',
+        tailPreviewLines: ['tail line 1', 'tail line 2'],
+      }),
+    );
+    api.closeBlobViewSession.mockResolvedValue(undefined);
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    await service.setTailMode(true);
+
+    expect(service.largeViewerMode()).toBe('tail');
+    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+    expect(api.openBlobViewSession).toHaveBeenCalledTimes(1);
+    expect(api.setBlobViewSessionMode).toHaveBeenCalledWith('session-snapshot', 'tail');
   });
 
   it('searches within tail preview lines locally without calling the backend search', async () => {
@@ -715,6 +762,111 @@ describe('LogsService', () => {
     expect(service.largeViewerRequestedScrollLine()).toBe(0);
   });
 
+  it('keeps requestedScrollLine empty during tail refreshes without explicit navigation', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        tailPreviewLines: ['tail line 1', 'tail line 2'],
+      }),
+    );
+    api.setBlobViewSessionMode.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        mode: 'tail',
+        tailPreviewLines: ['tail line 1', 'tail line 2'],
+      }),
+    );
+    api.getBlobViewStatus.mockResolvedValue(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: 1_048_576,
+        indexedLineCount: 24,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        mode: 'tail',
+        tailPreviewLines: ['tail line 2', 'tail line 3'],
+      }),
+    );
+    api.closeBlobViewSession.mockResolvedValue(undefined);
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+    await service.setTailMode(true);
+
+    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+
+    await service.refreshContent();
+
+    expect(api.getBlobViewStatus).toHaveBeenCalledWith('session-snapshot');
+    expect(service.largeViewerTailPreviewLines()).toEqual(['tail line 2', 'tail line 3']);
+    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+  });
+
+  it('updates requestedScrollLine when navigating between tail preview matches', async () => {
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        tailPreviewLines: ['info line', 'first error line', 'second ERROR line'],
+      }),
+    );
+    api.setBlobViewSessionMode.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 12,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        mode: 'tail',
+        tailPreviewLines: ['info line', 'first error line', 'second ERROR line'],
+      }),
+    );
+    api.closeBlobViewSession.mockResolvedValue(undefined);
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+    await service.setTailMode(true);
+    await service.updateLargeSearchQuery('error');
+
+    expect(service.largeViewerRequestedScrollLine()).toBe(1);
+
+    await service.selectNextSearchMatch();
+    expect(service.largeViewerRequestedScrollLine()).toBe(2);
+
+    await service.selectPreviousSearchMatch();
+    expect(service.largeViewerRequestedScrollLine()).toBe(1);
+  });
+
   it('switches from local tail preview search to backend search after the preview phase ends', async () => {
     api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValue(
@@ -823,6 +975,7 @@ describe('LogsService', () => {
     expect(service.selectedContent()).toBe('');
     expect(service.largeViewerStatus()?.sessionId).toBe('session-2');
     expect(service.largeViewerTailPreviewLines()).toEqual(['tail refreshed']);
+    expect(service.largeViewerRequestedScrollLine()).toBeNull();
     expect(api.openBlobViewSession).toHaveBeenCalledTimes(2);
     expect(api.closeBlobViewSession).toHaveBeenCalledWith('session-1');
   });

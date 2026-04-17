@@ -120,6 +120,17 @@ describe('SettingsPage', () => {
     expect(connections.load).toHaveBeenCalledOnce();
   });
 
+  it('uses the same outer content width as the dashboard page', () => {
+    fixture.detectChanges();
+
+    const contentWrapper = fixture.nativeElement.querySelector(
+      'section > div.mx-auto',
+    ) as HTMLDivElement | null;
+
+    expect(contentWrapper).not.toBeNull();
+    expect(contentWrapper?.className).toContain('max-w-6xl');
+  });
+
   it('loads and renders the app version in the app info section', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
