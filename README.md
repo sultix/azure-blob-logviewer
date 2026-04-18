@@ -103,3 +103,7 @@ Optional:
   `wails build -platform windows/amd64 -clean -o logviewer`
 - Build for Windows on ARM:
   `wails build -platform windows/arm64 -clean`
+
+## Icons Generator
+
+<https://webutils.io/tool/electron-icon-generator>
