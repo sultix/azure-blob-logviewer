@@ -30,6 +30,7 @@ export interface AppConfig {
 
 export interface LogsPreferences {
   wordWrapEnabled: boolean;
+  logLevelHighlightingEnabled: boolean;
   tailRefreshIntervalSeconds: TailRefreshIntervalSeconds;
   sortBasis: LogSortBasis;
 }
@@ -51,6 +52,7 @@ export function createDefaultAppConfig(language = detectPreferredLanguage()): Ap
     },
     logs: {
       wordWrapEnabled: false,
+      logLevelHighlightingEnabled: true,
       tailRefreshIntervalSeconds: 10,
       sortBasis: LogSortBasis.LastModified,
     },

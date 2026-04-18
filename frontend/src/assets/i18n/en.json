@@ -251,6 +251,12 @@
         "seconds": "{{count}}s",
         "minute": "60s"
       },
+      "logLevelHighlighting": {
+        "title": "Log Level Highlighting",
+        "description": "Colorize bracketed log levels like [INFO], [WARN], and [ERROR] in the viewer.",
+        "on": "On",
+        "off": "Off"
+      },
       "refreshInterval": {
         "title": "Auto-refresh Interval",
         "description": "How often the log viewer polls for new blobs.",

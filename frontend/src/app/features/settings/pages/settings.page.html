@@ -143,6 +143,39 @@
         </div>
       </div>
 
+      <div class="flex items-center justify-between gap-6">
+        <div class="flex items-start gap-3">
+          <span
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-tertiary"
+          >
+            <i class="pi pi-palette text-sm"></i>
+          </span>
+          <div class="flex flex-col">
+            <span class="text-sm font-semibold text-on-surface">
+              {{ 'settings.page.logLevelHighlighting.title' | translate }}
+            </span>
+            <span class="text-[11px] text-on-surface-variant">
+              {{ 'settings.page.logLevelHighlighting.description' | translate }}
+            </span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1">
+          @for (opt of logLevelHighlightingOptions; track opt) {
+          <button
+            type="button"
+            (click)="setLogLevelHighlightingEnabled(opt)"
+            class="rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors"
+            [class.bg-surface-container-highest]="logs().logLevelHighlightingEnabled === opt"
+            [class.text-on-surface]="logs().logLevelHighlightingEnabled === opt"
+            [class.text-on-surface-variant]="logs().logLevelHighlightingEnabled !== opt"
+          >
+            {{ (opt ? 'settings.page.logLevelHighlighting.on' :
+            'settings.page.logLevelHighlighting.off' ) | translate }}
+          </button>
+          }
+        </div>
+      </div>
+
       <div class="flex justify-end pt-2">
         <button
           type="button"

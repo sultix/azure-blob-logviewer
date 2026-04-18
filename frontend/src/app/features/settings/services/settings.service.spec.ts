@@ -69,6 +69,7 @@ describe('SettingsService', () => {
     });
     expect(service.logs()).toEqual({
       wordWrapEnabled: true,
+      logLevelHighlightingEnabled: true,
       tailRefreshIntervalSeconds: 10,
       sortBasis: LogSortBasis.LastModified,
     });
@@ -107,6 +108,7 @@ describe('SettingsService', () => {
     });
     service.updateLogsPreferences({
       wordWrapEnabled: true,
+      logLevelHighlightingEnabled: false,
       sortBasis: LogSortBasis.Created,
     });
 
@@ -123,6 +125,7 @@ describe('SettingsService', () => {
     });
     expect(service.logs()).toEqual({
       wordWrapEnabled: true,
+      logLevelHighlightingEnabled: false,
       tailRefreshIntervalSeconds: 10,
       sortBasis: LogSortBasis.Created,
     });

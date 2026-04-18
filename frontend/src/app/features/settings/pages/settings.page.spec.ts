@@ -38,6 +38,7 @@ class SettingsServiceStub implements Partial<SettingsService> {
   });
   readonly logs = signal<LogsPreferences>({
     wordWrapEnabled: false,
+    logLevelHighlightingEnabled: true,
     tailRefreshIntervalSeconds: 10,
     sortBasis: LogSortBasis.LastModified,
   });
@@ -67,17 +68,17 @@ class ConnectionsServiceStub implements Partial<ConnectionsService> {
 
 class AppApiServiceStub implements Partial<AppApiService> {
   getVersion = vi.fn<() => Promise<string>>(async () => '0.1.1');
-  importConnectionsFile = vi.fn<
-    () => Promise<{ cancelled: boolean; content: string }>
-  >(async () => ({
-    cancelled: false,
-    content: '[{"id":"conn-2"}]',
-  }));
-  exportConnectionsFile = vi.fn<
-    (content: string) => Promise<{ cancelled: boolean }>
-  >(async () => ({
-    cancelled: false,
-  }));
+  importConnectionsFile = vi.fn<() => Promise<{ cancelled: boolean; content: string }>>(
+    async () => ({
+      cancelled: false,
+      content: '[{"id":"conn-2"}]',
+    }),
+  );
+  exportConnectionsFile = vi.fn<(content: string) => Promise<{ cancelled: boolean }>>(
+    async () => ({
+      cancelled: false,
+    }),
+  );
 }
 
 class MessageServiceStub implements Partial<MessageService> {
@@ -128,7 +129,7 @@ describe('SettingsPage', () => {
     ) as HTMLDivElement | null;
 
     expect(contentWrapper).not.toBeNull();
-    expect(contentWrapper?.className).toContain('max-w-6xl');
+    expect(contentWrapper?.className).toContain('max-w-[62rem]');
   });
 
   it('loads and renders the app version in the app info section', async () => {
@@ -176,6 +177,19 @@ describe('SettingsPage', () => {
     });
   });
 
+  it('renders and updates the log level highlighting preference', () => {
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Log Level Highlighting');
+    const offButton = getButtonByText(fixture, 'Off');
+    offButton.click();
+
+    const settings = TestBed.inject(SettingsService) as unknown as SettingsServiceStub;
+    expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
+      logLevelHighlightingEnabled: false,
+    });
+  });
+
   it('renders and updates the appearance preference', () => {
     fixture.detectChanges();
 
@@ -216,9 +230,7 @@ describe('SettingsPage', () => {
     await fixture.whenStable();
 
     expect(api.importConnectionsFile).toHaveBeenCalledOnce();
-    expect(connections.importFromJson).toHaveBeenCalledWith(
-      '[{"id":"conn-2"}]',
-    );
+    expect(connections.importFromJson).toHaveBeenCalledWith('[{"id":"conn-2"}]');
     expect(messageService.add).toHaveBeenCalledWith(
       expect.objectContaining({ severity: 'success' }),
     );

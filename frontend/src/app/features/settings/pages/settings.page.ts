@@ -63,13 +63,15 @@ export class SettingsPage implements OnInit {
         value < 60
           ? this.i18n.translate('settings.page.refreshInterval.minutes', { count: value })
           : this.i18n.translate('settings.page.refreshInterval.hour'),
-    }))
+    })),
   );
-  readonly retentionOptions = computed<{ value: RetentionPolicy; label: string }[]>(() => [
-    { value: '30d', label: this.i18n.translate('settings.page.retention.30d') },
-    { value: '90d', label: this.i18n.translate('settings.page.retention.90d') },
-    { value: 'manual', label: this.i18n.translate('settings.page.retention.manual') },
-  ]);
+  readonly retentionOptions = computed<{ value: RetentionPolicy; label: string }[]>(
+    () => [
+      { value: '30d', label: this.i18n.translate('settings.page.retention.30d') },
+      { value: '90d', label: this.i18n.translate('settings.page.retention.90d') },
+      { value: 'manual', label: this.i18n.translate('settings.page.retention.manual') },
+    ],
+  );
   readonly languageOptions = computed<{ value: AppLanguage; label: string }[]>(() => [
     { value: 'en', label: this.i18n.translate('common.languageNames.en') },
     { value: 'de', label: this.i18n.translate('common.languageNames.de') },
@@ -77,18 +79,32 @@ export class SettingsPage implements OnInit {
   readonly tailRefreshIntervalOptions = computed<
     { value: TailRefreshIntervalSeconds; label: string }[]
   >(() => [
-    { value: 5, label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', { count: 5 }) },
-    { value: 10, label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', { count: 10 }) },
-    { value: 30, label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', { count: 30 }) },
+    {
+      value: 5,
+      label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', {
+        count: 5,
+      }),
+    },
+    {
+      value: 10,
+      label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', {
+        count: 10,
+      }),
+    },
+    {
+      value: 30,
+      label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', {
+        count: 30,
+      }),
+    },
     { value: 60, label: this.i18n.translate('settings.page.tailRefreshInterval.minute') },
   ]);
-  readonly appearanceOptions = computed<
-    { value: AppAppearance; label: string }[]
-  >(() => [
+  readonly appearanceOptions = computed<{ value: AppAppearance; label: string }[]>(() => [
     { value: 'system', label: this.i18n.translate('settings.page.appearance.system') },
     { value: 'dark', label: this.i18n.translate('settings.page.appearance.dark') },
     { value: 'light', label: this.i18n.translate('settings.page.appearance.light') },
   ]);
+  readonly logLevelHighlightingOptions = [true, false] as const;
   readonly savedConnectionsCount = computed(() => this.connections.connections().length);
   readonly hasSavedConnections = computed(() => this.savedConnectionsCount() > 0);
   readonly appVersion = signal<string | null>(null);
@@ -154,6 +170,10 @@ export class SettingsPage implements OnInit {
     this.settings.updateLogsPreferences({ tailRefreshIntervalSeconds: value });
   }
 
+  setLogLevelHighlightingEnabled(value: boolean): void {
+    this.settings.updateLogsPreferences({ logLevelHighlightingEnabled: value });
+  }
+
   resetSettings(): void {
     this.settings.reset();
     void this.i18n.setLanguage(this.general().language);
@@ -167,10 +187,15 @@ export class SettingsPage implements OnInit {
       const importedCount = this.connections.importFromJson(result.content);
       this.messageService.add({
         severity: 'success',
-        summary: this.i18n.translate('settings.page.savedConnections.toasts.importSuccessTitle'),
-        detail: this.i18n.translate('settings.page.savedConnections.toasts.importSuccessDetail', {
-          count: importedCount,
-        }),
+        summary: this.i18n.translate(
+          'settings.page.savedConnections.toasts.importSuccessTitle',
+        ),
+        detail: this.i18n.translate(
+          'settings.page.savedConnections.toasts.importSuccessDetail',
+          {
+            count: importedCount,
+          },
+        ),
       });
     } catch (error) {
       this.showImportError(error);
@@ -182,22 +207,31 @@ export class SettingsPage implements OnInit {
 
     try {
       const result: ConnectionsExportResult = await this.api.exportConnectionsFile(
-        this.connections.exportJson()
+        this.connections.exportJson(),
       );
       if (result.cancelled) return;
 
       this.messageService.add({
         severity: 'success',
-        summary: this.i18n.translate('settings.page.savedConnections.toasts.exportSuccessTitle'),
-        detail: this.i18n.translate('settings.page.savedConnections.toasts.exportSuccessDetail', {
-          count: this.savedConnectionsCount(),
-        }),
+        summary: this.i18n.translate(
+          'settings.page.savedConnections.toasts.exportSuccessTitle',
+        ),
+        detail: this.i18n.translate(
+          'settings.page.savedConnections.toasts.exportSuccessDetail',
+          {
+            count: this.savedConnectionsCount(),
+          },
+        ),
       });
     } catch {
       this.messageService.add({
         severity: 'error',
-        summary: this.i18n.translate('settings.page.savedConnections.toasts.exportFileErrorTitle'),
-        detail: this.i18n.translate('settings.page.savedConnections.toasts.exportFileErrorDetail'),
+        summary: this.i18n.translate(
+          'settings.page.savedConnections.toasts.exportFileErrorTitle',
+        ),
+        detail: this.i18n.translate(
+          'settings.page.savedConnections.toasts.exportFileErrorDetail',
+        ),
       });
     }
   }
@@ -219,8 +253,12 @@ export class SettingsPage implements OnInit {
 
     this.messageService.add({
       severity: 'error',
-      summary: this.i18n.translate('settings.page.savedConnections.toasts.importFileErrorTitle'),
-      detail: this.i18n.translate('settings.page.savedConnections.toasts.importFileErrorDetail'),
+      summary: this.i18n.translate(
+        'settings.page.savedConnections.toasts.importFileErrorTitle',
+      ),
+      detail: this.i18n.translate(
+        'settings.page.savedConnections.toasts.importFileErrorDetail',
+      ),
     });
   }
 

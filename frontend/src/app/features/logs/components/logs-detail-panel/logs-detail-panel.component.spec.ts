@@ -4,10 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 import { Tooltip } from 'primeng/tooltip';
 
-import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
+import {
+  initializeI18nForTests,
+  provideTranslateTesting,
+} from '@app/testing/translate-testing';
 import { SettingsService } from '@app/features/settings/services/settings.service';
 
-import type { LogFooterVm, LogLargeViewerVm, LogToolbarVm } from '../../models/logs-view.model';
+import type {
+  LogFooterVm,
+  LogLargeViewerVm,
+  LogToolbarVm,
+} from '../../models/logs-view.model';
 import { LOG_VIRTUAL_LINE_HEIGHT_PX } from '../../models/logs-viewer.constants';
 
 import { LogsDetailPanelComponent } from './logs-detail-panel.component';
@@ -57,7 +64,9 @@ describe('LogsDetailPanelComponent', () => {
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', false);
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Select a log file to view its contents');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Select a log file to view its contents',
+    );
   });
 
   it('renders toolbar metadata and content', () => {
@@ -88,7 +97,9 @@ describe('LogsDetailPanelComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('storage-a/logs/alpha.log');
     expect(fixture.nativeElement.textContent).toContain('Size 1.5 KB');
     expect(fixture.nativeElement.textContent).toContain('Created Apr 13, 2026, 11:00 AM');
-    expect(fixture.nativeElement.textContent).toContain('Modified Apr 13, 2026, 11:30 AM');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Modified Apr 13, 2026, 11:30 AM',
+    );
     expect(fixture.nativeElement.textContent).toContain('line 1');
     expect(fixture.nativeElement.textContent).toContain('Lines 2');
     expect(fixture.nativeElement.textContent).toContain('Type text/plain');
@@ -99,7 +110,9 @@ describe('LogsDetailPanelComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Word Wrap');
     expect(fixture.nativeElement.querySelector('p-toggleswitch')).not.toBeNull();
     expect(
-      fixture.nativeElement.querySelector('input[aria-label="Search within log content"]'),
+      fixture.nativeElement.querySelector(
+        'input[aria-label="Search within log content"]',
+      ),
     ).not.toBeNull();
     expect(
       fixture.nativeElement.querySelector('button[aria-label="More actions"]'),
@@ -199,11 +212,16 @@ describe('LogsDetailPanelComponent', () => {
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
     fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('contentErrorMessage', 'Error loading content: network failed');
+    fixture.componentRef.setInput(
+      'contentErrorMessage',
+      'Error loading content: network failed',
+    );
     fixture.componentRef.setInput('footer', footer);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Error loading content: network failed');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Error loading content: network failed',
+    );
     expect(fixture.nativeElement.textContent).toContain('Type application/json');
     expect(fixture.nativeElement.textContent).not.toContain('Lines ');
     expect(fixture.nativeElement.textContent).not.toContain('Line endings ');
@@ -283,9 +301,8 @@ describe('LogsDetailPanelComponent', () => {
     const largeSearchChanged = vi.fn<(value: string) => void>();
     const previousLargeMatchRequested = vi.fn<() => void>();
     const nextLargeMatchRequested = vi.fn<() => void>();
-    const largeViewportChanged = vi.fn<
-      (value: { startLine: number; lineCount: number }) => void
-    >();
+    const largeViewportChanged =
+      vi.fn<(value: { startLine: number; lineCount: number }) => void>();
     component.downloadRequested.subscribe(downloadRequested);
     component.largeSearchChanged.subscribe(largeSearchChanged);
     component.previousLargeMatchRequested.subscribe(previousLargeMatchRequested);
@@ -300,7 +317,9 @@ describe('LogsDetailPanelComponent', () => {
     fixture.detectChanges();
     await settleComponent();
 
-    const scrollContainer = fixture.nativeElement.querySelector('.overflow-auto') as HTMLDivElement;
+    const scrollContainer = fixture.nativeElement.querySelector(
+      '.overflow-auto',
+    ) as HTMLDivElement;
     Object.defineProperty(scrollContainer, 'clientHeight', {
       configurable: true,
       value: 160,
@@ -309,12 +328,16 @@ describe('LogsDetailPanelComponent', () => {
     component.onLargeViewerScroll();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('File is loading in the background');
+    expect(fixture.nativeElement.textContent).toContain(
+      'File is loading in the background',
+    );
     expect(fixture.nativeElement.textContent).toContain('4.0 MB / 100.0 MB loaded');
     expect(fixture.nativeElement.textContent).toContain(
       'Word wrap is unavailable for large files to keep the viewer responsive.',
     );
-    expect(fixture.nativeElement.textContent).toContain('Earlier lines are still loading');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Earlier lines are still loading',
+    );
     expect(fixture.nativeElement.textContent).toContain('Later lines are still loading');
     expect(fixture.nativeElement.textContent).toContain('error on current line');
     const highlights = fixture.nativeElement.querySelectorAll('mark.log-search-match');
@@ -400,8 +423,90 @@ describe('LogsDetailPanelComponent', () => {
     expect(fixture.nativeElement.textContent).toContain(
       'Word wrap is unavailable for large files to keep the viewer responsive.',
     );
-    expect(fixture.nativeElement.querySelectorAll('mark.log-search-match')).toHaveLength(0);
+    expect(fixture.nativeElement.querySelectorAll('mark.log-search-match')).toHaveLength(
+      0,
+    );
     expect(component.canToggleWordWrap()).toBe(false);
+  });
+
+  it('marks bracketed log levels in the normal content view', () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '1.5 KB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('content', '[INFO] ok\n[error] bad\n[Warn] caution');
+    fixture.detectChanges();
+
+    const tokens = getLogLevelTokens(fixture);
+    expect(tokens).toHaveLength(3);
+    expect(tokens[0]?.textContent).toBe('[INFO]');
+    expect(tokens[0]?.className).toContain('log-level-token--info');
+    expect(tokens[0]?.className).toContain('text-primary');
+    expect(tokens[1]?.className).toContain('log-level-token--error');
+    expect(tokens[1]?.className).toContain('text-error');
+    expect(tokens[2]?.className).toContain('log-level-token--warn');
+    expect(tokens[2]?.className).toContain('text-tertiary');
+  });
+
+  it('does not mark unbracketed log levels', () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '1.5 KB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('content', 'INFO ERROR WARN');
+    fixture.detectChanges();
+
+    expect(getLogLevelTokens(fixture)).toHaveLength(0);
+  });
+
+  it('marks bracketed log levels in large viewer lines', () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+    const largeViewer: LogLargeViewerVm = {
+      mode: 'snapshot',
+      progressLabel: '100.0 MB / 100.0 MB loaded',
+      statusLabel: 'File fully loaded',
+      searchStatusLabel: '',
+      searchQuery: '',
+      matchCount: 0,
+      activeMatchLineNumber: null,
+      requestedScrollLine: null,
+      topSpacerPx: 0,
+      bottomSpacerPx: 0,
+      lines: [{ lineNumber: 7, content: '[ERROR] failure' }],
+      totalLines: 1,
+      tailPreviewLines: [],
+      pendingBeforeLabel: null,
+      pendingAfterLabel: null,
+      canEnableWordWrap: true,
+      downloadDisabled: false,
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', largeViewer);
+    fixture.detectChanges();
+
+    const tokens = getLogLevelTokens(fixture);
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]?.className).toContain('log-level-token--error');
   });
 
   it('renders tail preview lines with precomputed html', () => {
@@ -445,11 +550,52 @@ describe('LogsDetailPanelComponent', () => {
       'Tail shows the newest lines immediately. Older parts of the file continue loading in the background.',
     );
     expect(fixture.nativeElement.textContent).toContain('tail error line');
-    expect(fixture.nativeElement.textContent).not.toContain('Earlier lines are still loading');
+    expect(fixture.nativeElement.textContent).not.toContain(
+      'Earlier lines are still loading',
+    );
     expect(fixture.nativeElement.textContent).not.toContain('Searching');
     const highlights = fixture.nativeElement.querySelectorAll('mark.log-search-match');
     expect(highlights).toHaveLength(1);
     expect(highlights[0]?.className).toContain('active-search-match');
+  });
+
+  it('marks bracketed log levels in tail preview lines', () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+    const largeViewer: LogLargeViewerVm = {
+      mode: 'tail',
+      progressLabel: '4.0 MB / 100.0 MB loaded',
+      statusLabel: 'Tail mode active',
+      searchStatusLabel: '',
+      searchQuery: '',
+      matchCount: 0,
+      activeMatchLineNumber: null,
+      requestedScrollLine: null,
+      topSpacerPx: 0,
+      bottomSpacerPx: 0,
+      lines: [],
+      totalLines: 0,
+      tailPreviewLines: ['[WARN] tail line', '[info] another line'],
+      pendingBeforeLabel: null,
+      pendingAfterLabel: null,
+      canEnableWordWrap: false,
+      downloadDisabled: true,
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('largeViewer', largeViewer);
+    fixture.detectChanges();
+
+    const tokens = getLogLevelTokens(fixture);
+    expect(tokens).toHaveLength(2);
+    expect(tokens[0]?.className).toContain('log-level-token--warn');
+    expect(tokens[1]?.className).toContain('log-level-token--info');
   });
 
   it('scrolls to the bottom when tail mode becomes active', async () => {
@@ -769,7 +915,9 @@ describe('LogsDetailPanelComponent', () => {
     expect(content.className).toContain('whitespace-pre-wrap');
     expect(content.className).toContain('break-all');
     expect(settings.logs().wordWrapEnabled).toBe(true);
-    expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toContain('"wordWrapEnabled":true');
+    expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toContain(
+      '"wordWrapEnabled":true',
+    );
   });
 
   it('does not toggle word wrap for fully loaded large files', () => {
@@ -828,6 +976,7 @@ describe('LogsDetailPanelComponent', () => {
         },
         logs: {
           wordWrapEnabled: true,
+          logLevelHighlightingEnabled: true,
           tailRefreshIntervalSeconds: 10,
         },
       }),
@@ -888,6 +1037,50 @@ describe('LogsDetailPanelComponent', () => {
     expect(highlights[1]?.textContent).toBe('ERROR');
     expect(highlights[0]?.className).toContain('active-search-match');
     expect(highlights[1]?.className).not.toContain('active-search-match');
+  });
+
+  it('lets search highlighting take precedence over log level coloring', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '1.5 KB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('content', 'prefix [ERROR] suffix');
+    fixture.detectChanges();
+
+    const searchInput = fixture.nativeElement.querySelector(
+      'input[aria-label="Search within log content"]',
+    ) as HTMLInputElement;
+    await runContentSearch(fixture, searchInput, '[error]');
+
+    const highlights = fixture.nativeElement.querySelectorAll('mark.log-search-match');
+    expect(highlights).toHaveLength(1);
+    expect(highlights[0]?.textContent).toBe('[ERROR]');
+    expect(getLogLevelTokens(fixture)).toHaveLength(0);
+  });
+
+  it('disables log level coloring when the setting is off', () => {
+    settings.updateLogsPreferences({ logLevelHighlightingEnabled: false });
+
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '1.5 KB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('content', '[ERROR] failure');
+    fixture.detectChanges();
+
+    expect(getLogLevelTokens(fixture)).toHaveLength(0);
   });
 
   it('does not start inline content search before three characters', async () => {
@@ -1039,7 +1232,9 @@ describe('LogsDetailPanelComponent', () => {
     ) as HTMLInputElement;
     await runContentSearch(fixture, searchInput, 'error');
 
-    const scrollContainer = fixture.nativeElement.querySelector('.overflow-auto') as HTMLDivElement;
+    const scrollContainer = fixture.nativeElement.querySelector(
+      '.overflow-auto',
+    ) as HTMLDivElement;
     Object.defineProperty(scrollContainer, 'clientHeight', {
       configurable: true,
       value: 100,
@@ -1162,6 +1357,14 @@ function createTailLargeViewer(
     downloadDisabled: true,
     ...overrides,
   };
+}
+
+function getLogLevelTokens(
+  fixture: ComponentFixture<LogsDetailPanelComponent>,
+): HTMLSpanElement[] {
+  return Array.from(
+    fixture.nativeElement.querySelectorAll('span.log-level-token'),
+  ) as HTMLSpanElement[];
 }
 
 function getScrollContainer(

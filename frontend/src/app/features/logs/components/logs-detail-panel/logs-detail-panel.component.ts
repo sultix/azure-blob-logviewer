@@ -50,8 +50,11 @@ interface NormalizedToolbarVm {
   readonly metaBadges: string[];
 }
 
+type LogLevelTone = 'info' | 'error' | 'warn';
+
 const CONTENT_SEARCH_DELAY_MS = 120;
 const LARGE_VIEW_OVERSCAN_LINES = 16;
+const LOG_LEVEL_TOKEN_PATTERN = /\[(info|(error|eror)|warn)\]/gi;
 const MIN_CONTENT_SEARCH_QUERY_LENGTH = 3;
 const TAIL_AUTO_SCROLL_BOTTOM_TOLERANCE_PX = 4;
 
@@ -111,14 +114,15 @@ export class LogsDetailPanelComponent implements OnDestroy {
   private readonly contentSearchQuery = signal('');
   private readonly requestedMatchIndex = signal(0);
   readonly wordWrapEnabled = computed(() => this.settings.logs().wordWrapEnabled);
+  readonly logLevelHighlightingEnabled = computed(
+    () => this.settings.logs().logLevelHighlightingEnabled,
+  );
   readonly contentClass = computed(() => {
     if (this.tailEnabled()) {
       return 'whitespace-pre leading-[18px]';
     }
 
-    return this.wordWrapEnabled()
-      ? 'whitespace-pre-wrap break-all'
-      : 'whitespace-pre';
+    return this.wordWrapEnabled() ? 'whitespace-pre-wrap break-all' : 'whitespace-pre';
   });
   readonly largeLineContentClass = computed(
     () => 'inline-block min-w-full whitespace-pre leading-[18px]',
@@ -178,12 +182,14 @@ export class LogsDetailPanelComponent implements OnDestroy {
     }
 
     const query = largeViewer.searchQuery.trim();
+    const logLevelHighlightingEnabled = this.logLevelHighlightingEnabled();
     return largeViewer.tailPreviewLines.map((content, index) => ({
       lineNumber: index,
       html: renderLargeLineHtml(
         content,
         query,
         largeViewer.activeMatchLineNumber === index,
+        logLevelHighlightingEnabled,
       ),
     }));
   });
@@ -194,12 +200,14 @@ export class LogsDetailPanelComponent implements OnDestroy {
     }
 
     const query = largeViewer.searchQuery.trim();
+    const logLevelHighlightingEnabled = this.logLevelHighlightingEnabled();
     return largeViewer.lines.map((line) => ({
       lineNumber: line.lineNumber,
       html: renderLargeLineHtml(
         line.content,
         query,
         largeViewer.activeMatchLineNumber === line.lineNumber,
+        logLevelHighlightingEnabled,
       ),
     }));
   });
@@ -211,7 +219,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
     return matchCount === 0 ? -1 : Math.min(this.requestedMatchIndex(), matchCount - 1);
   });
   readonly contentSearch = computed<ContentSearchVm>(() =>
-    buildContentSearch(this.contentSearchBase(), 0),
+    buildContentSearch(this.contentSearchBase(), 0, this.logLevelHighlightingEnabled()),
   );
   readonly hasContentSearchMatches = computed(() => {
     const largeViewer = this.largeViewer();
@@ -588,7 +596,9 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
   private isNearBottom(scrollContainer: HTMLDivElement): boolean {
     return (
-      scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight <=
+      scrollContainer.scrollHeight -
+        scrollContainer.scrollTop -
+        scrollContainer.clientHeight <=
       TAIL_AUTO_SCROLL_BOTTOM_TOLERANCE_PX
     );
   }
@@ -626,10 +636,7 @@ interface ContentSearchBase {
 }
 
 function buildContentSearchBase(content: string, query: string): ContentSearchBase {
-  if (
-    query.length < MIN_CONTENT_SEARCH_QUERY_LENGTH ||
-    content.length === 0
-  ) {
+  if (query.length < MIN_CONTENT_SEARCH_QUERY_LENGTH || content.length === 0) {
     return {
       content,
       matchCount: 0,
@@ -665,12 +672,13 @@ function buildContentSearchBase(content: string, query: string): ContentSearchBa
 function buildContentSearch(
   searchBase: ContentSearchBase,
   initialActiveMatchIndex: number,
+  logLevelHighlightingEnabled: boolean,
 ): ContentSearchVm {
   const { content, matchCount, matchIndices, queryLength } = searchBase;
   if (matchCount === 0 || queryLength === 0) {
     return {
       matchCount,
-      html: escapeHtml(content),
+      html: renderLogContentHtml(content, logLevelHighlightingEnabled),
     };
   }
 
@@ -681,7 +689,10 @@ function buildContentSearch(
 
   for (const matchIndex of matchIndices) {
     if (matchIndex > searchStart) {
-      html += escapeHtml(content.slice(searchStart, matchIndex));
+      html += renderLogContentHtml(
+        content.slice(searchStart, matchIndex),
+        logLevelHighlightingEnabled,
+      );
     }
 
     html += `<mark class="log-search-match ${
@@ -695,7 +706,7 @@ function buildContentSearch(
   }
 
   if (searchStart < content.length) {
-    html += escapeHtml(content.slice(searchStart));
+    html += renderLogContentHtml(content.slice(searchStart), logLevelHighlightingEnabled);
   }
 
   return {
@@ -704,32 +715,104 @@ function buildContentSearch(
   };
 }
 
-function highlightContent(content: string, query: string, isActive: boolean): string {
+function highlightContent(
+  content: string,
+  query: string,
+  isActive: boolean,
+  logLevelHighlightingEnabled: boolean,
+): string {
   if (query.length === 0 || content.length === 0) {
-    return escapeHtml(content);
+    return renderLogContentHtml(content, logLevelHighlightingEnabled);
   }
 
   const normalizedContent = content.toLowerCase();
   const normalizedQuery = query.toLowerCase();
   const matchIndex = normalizedContent.indexOf(normalizedQuery);
   if (matchIndex === -1) {
-    return escapeHtml(content);
+    return renderLogContentHtml(content, logLevelHighlightingEnabled);
   }
 
-  const before = escapeHtml(content.slice(0, matchIndex));
+  const before = renderLogContentHtml(
+    content.slice(0, matchIndex),
+    logLevelHighlightingEnabled,
+  );
   const match = escapeHtml(content.slice(matchIndex, matchIndex + query.length));
-  const after = escapeHtml(content.slice(matchIndex + query.length));
+  const after = renderLogContentHtml(
+    content.slice(matchIndex + query.length),
+    logLevelHighlightingEnabled,
+  );
   const activeClass = isActive ? ' active-search-match' : '';
 
   return `${before}<mark class="log-search-match${activeClass} bg-primary-container/20 text-on-surface">${match}</mark>${after}`;
 }
 
-function renderLargeLineHtml(content: string, query: string, isActive: boolean): string {
+function renderLargeLineHtml(
+  content: string,
+  query: string,
+  isActive: boolean,
+  logLevelHighlightingEnabled: boolean,
+): string {
   if (query.length === 0) {
+    return renderLogContentHtml(content, logLevelHighlightingEnabled);
+  }
+
+  return highlightContent(content, query, isActive, logLevelHighlightingEnabled);
+}
+
+function renderLogContentHtml(
+  content: string,
+  logLevelHighlightingEnabled: boolean,
+): string {
+  if (!logLevelHighlightingEnabled || content.length === 0) {
     return escapeHtml(content);
   }
 
-  return highlightContent(content, query, isActive);
+  let html = '';
+  let searchStart = 0;
+  LOG_LEVEL_TOKEN_PATTERN.lastIndex = 0;
+
+  for (const match of content.matchAll(LOG_LEVEL_TOKEN_PATTERN)) {
+    const matchedText = match[0];
+    const matchIndex = match.index;
+
+    if (matchIndex === undefined) {
+      continue;
+    }
+
+    if (matchIndex > searchStart) {
+      html += escapeHtml(content.slice(searchStart, matchIndex));
+    }
+
+    let tone = match[1].toLowerCase() as LogLevelTone;
+    if (tone.includes('eror')) {
+      tone = 'error';
+    }
+    html += `<span class="log-level-token log-level-token--${tone} ${getLogLevelTokenClass(tone)}">${escapeHtml(matchedText)}</span>`;
+    searchStart = matchIndex + matchedText.length;
+  }
+
+  if (searchStart === 0) {
+    return escapeHtml(content);
+  }
+
+  if (searchStart < content.length) {
+    html += escapeHtml(content.slice(searchStart));
+  }
+
+  return html;
+}
+
+function getLogLevelTokenClass(level: LogLevelTone): string {
+  switch (level) {
+    case 'info':
+      return 'text-primary';
+    case 'error':
+      return 'text-error';
+    case 'warn':
+      return 'text-tertiary';
+    default:
+      return 'text-on-surface';
+  }
 }
 
 function scrollMatchIntoView(

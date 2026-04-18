@@ -251,6 +251,12 @@
         "seconds": "{{count}}s",
         "minute": "60s"
       },
+      "logLevelHighlighting": {
+        "title": "Log-Level-Einfärbung",
+        "description": "Färbt Log-Level in eckigen Klammern wie [INFO], [WARN] und [ERROR] im Viewer ein.",
+        "on": "An",
+        "off": "Aus"
+      },
       "refreshInterval": {
         "title": "Automatisches Aktualisierungsintervall",
         "description": "Wie oft der Log-Viewer nach neuen Blobs sucht.",

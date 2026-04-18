@@ -13,7 +13,10 @@ import type { LogEntry } from '@app/features/logs/models/log-entry.model';
 import { LogSortBasis } from '@app/features/logs/models/logs-view.model';
 import type { LogsPreferences } from '@app/features/settings/models/app-config.model';
 import { SettingsService } from '@app/features/settings/services/settings.service';
-import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
+import {
+  initializeI18nForTests,
+  provideTranslateTesting,
+} from '@app/testing/translate-testing';
 
 import { LogsService } from '../services/logs.service';
 
@@ -43,7 +46,9 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly largeViewerViewportLineCountState = signal(120);
   readonly largeViewerTotalLinesState = signal(0);
   readonly largeViewerSearchQueryState = signal('');
-  readonly largeViewerSearchMatchesState = signal<{ lineNumber: number; preview: string }[]>([]);
+  readonly largeViewerSearchMatchesState = signal<
+    { lineNumber: number; preview: string }[]
+  >([]);
   readonly largeViewerSearchIsCompleteState = signal(true);
   readonly largeViewerRequestedScrollLineState = signal<number | null>(null);
   readonly largeViewerActiveMatchLineState = signal<number | null>(null);
@@ -84,21 +89,37 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly isLargeBlob = computed(() => this.isLargeBlobState());
   readonly largeViewerStatus = computed(() => this.largeViewerStatusState());
   readonly largeViewerLines = computed(() => this.largeViewerLinesState());
-  readonly largeViewerViewportStartLine = computed(() => this.largeViewerViewportStartLineState());
-  readonly largeViewerViewportLineCount = computed(() => this.largeViewerViewportLineCountState());
+  readonly largeViewerViewportStartLine = computed(() =>
+    this.largeViewerViewportStartLineState(),
+  );
+  readonly largeViewerViewportLineCount = computed(() =>
+    this.largeViewerViewportLineCountState(),
+  );
   readonly largeViewerTotalLines = computed(() => this.largeViewerTotalLinesState());
   readonly largeViewerSearchQuery = computed(() => this.largeViewerSearchQueryState());
-  readonly largeViewerSearchMatches = computed(() => this.largeViewerSearchMatchesState());
-  readonly largeViewerSearchIsComplete = computed(() => this.largeViewerSearchIsCompleteState());
-  readonly largeViewerRequestedScrollLine = computed(() => this.largeViewerRequestedScrollLineState());
-  readonly largeViewerActiveMatchLine = computed(() => this.largeViewerActiveMatchLineState());
-  readonly largeViewerTailPreviewLines = computed(() => this.largeViewerTailPreviewLinesState());
-  readonly largeViewerCanEnableWordWrap = computed(() => this.largeViewerCanEnableWordWrapState());
+  readonly largeViewerSearchMatches = computed(() =>
+    this.largeViewerSearchMatchesState(),
+  );
+  readonly largeViewerSearchIsComplete = computed(() =>
+    this.largeViewerSearchIsCompleteState(),
+  );
+  readonly largeViewerRequestedScrollLine = computed(() =>
+    this.largeViewerRequestedScrollLineState(),
+  );
+  readonly largeViewerActiveMatchLine = computed(() =>
+    this.largeViewerActiveMatchLineState(),
+  );
+  readonly largeViewerTailPreviewLines = computed(() =>
+    this.largeViewerTailPreviewLinesState(),
+  );
+  readonly largeViewerCanEnableWordWrap = computed(() =>
+    this.largeViewerCanEnableWordWrapState(),
+  );
   readonly isTailMode = computed(() => this.isTailModeState());
 
-  readonly loadForConnection = vi.fn<(accountName: string, containerName: string) => Promise<void>>(
-    async () => undefined,
-  );
+  readonly loadForConnection = vi.fn<
+    (accountName: string, containerName: string) => Promise<void>
+  >(async () => undefined);
   readonly refreshEntriesForConnection = vi.fn<
     (accountName: string, containerName: string) => Promise<boolean>
   >(async () => true);
@@ -132,10 +153,12 @@ class LogsServiceStub implements Partial<LogsService> {
     return { kind: 'updated' };
   });
   readonly refreshContent = vi.fn<() => Promise<void>>(async () => undefined);
-  readonly updateLargeViewport = vi.fn<(startLine: number, lineCount: number) => Promise<void>>(
+  readonly updateLargeViewport = vi.fn<
+    (startLine: number, lineCount: number) => Promise<void>
+  >(async () => undefined);
+  readonly updateLargeSearchQuery = vi.fn<(query: string) => Promise<void>>(
     async () => undefined,
   );
-  readonly updateLargeSearchQuery = vi.fn<(query: string) => Promise<void>>(async () => undefined);
   readonly selectPreviousSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly selectNextSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly exportLargeViewer = vi.fn<() => Promise<boolean>>(async () => false);
@@ -230,12 +253,14 @@ class ConnectionsServiceStub implements Partial<ConnectionsService> {
 }
 
 class MessageServiceStub implements Partial<MessageService> {
-  readonly add = vi.fn<(message: { severity?: string; summary?: string; detail?: string }) => void>();
+  readonly add =
+    vi.fn<(message: { severity?: string; summary?: string; detail?: string }) => void>();
 }
 
 class SettingsServiceStub implements Partial<SettingsService> {
   readonly logsState = signal<LogsPreferences>({
     wordWrapEnabled: false,
+    logLevelHighlightingEnabled: true,
     tailRefreshIntervalSeconds: 10,
     sortBasis: LogSortBasis.Created,
   });
@@ -369,10 +394,12 @@ describe('LogsPage', () => {
     );
     expect(component.sidebarConnectionFooter()?.updatedText).toMatch(/\d/);
     expect(
-      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')
+        ?.textContent,
     ).toContain('prod-storage');
     expect(
-      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')
+        ?.textContent,
     ).toContain('Updated');
   });
 
@@ -383,7 +410,9 @@ describe('LogsPage', () => {
     expect(connections.load).not.toHaveBeenCalled();
     expect(logs.loadForConnection).not.toHaveBeenCalled();
     expect(component.sidebarConnectionFooter()).toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]'),
+    ).toBeNull();
   });
 
   it('does not load logs when the connection is incomplete', async () => {
@@ -398,9 +427,13 @@ describe('LogsPage', () => {
 
     expect(connections.load).toHaveBeenCalledOnce();
     expect(logs.loadForConnection).not.toHaveBeenCalled();
-    expect(logs.setError).toHaveBeenCalledWith('The selected storage connection is incomplete.');
+    expect(logs.setError).toHaveBeenCalledWith(
+      'The selected storage connection is incomplete.',
+    );
     expect(component.sidebarConnectionFooter()).toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]'),
+    ).toBeNull();
   });
 
   it('reloads when the route connection changes and resets filters and stale content immediately', async () => {
@@ -500,7 +533,8 @@ describe('LogsPage', () => {
       }),
     );
     expect(
-      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')
+        ?.textContent,
     ).toContain('prod-storage');
   });
 
@@ -517,7 +551,9 @@ describe('LogsPage', () => {
       'The selected storage connection could not be found.',
     );
     expect(component.sidebarConnectionFooter()).toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]'),
+    ).toBeNull();
   });
 
   it('filters, sorts, and maps toolbar data for the visible list', async () => {
@@ -840,14 +876,13 @@ describe('LogsPage', () => {
   it('refreshes the log list for the active connection without reloading the selected content', async () => {
     setRouteConnectionId('conn-1', routeParamMap$);
     connections.getById.mockReturnValue(createConnection());
-    logs.loadForConnection
-      .mockImplementationOnce(async () => {
-        logs.statusState.set('success');
-        logs.entriesState.set([
-          createLogEntry({ id: 'entry-1', blobName: 'alpha.log' }),
-          createLogEntry({ id: 'entry-2', blobName: 'beta.log' }),
-        ]);
-      });
+    logs.loadForConnection.mockImplementationOnce(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([
+        createLogEntry({ id: 'entry-1', blobName: 'alpha.log' }),
+        createLogEntry({ id: 'entry-2', blobName: 'beta.log' }),
+      ]);
+    });
     logs.refreshEntriesForConnection.mockImplementationOnce(async () => {
       logs.statusState.set('success');
       logs.entriesState.set([
@@ -937,7 +972,9 @@ describe('LogsPage', () => {
       logs.statusState.set('success');
       logs.entriesState.set([createLogEntry({ id: 'entry-1', blobName: 'alpha.log' })]);
     });
-    logs.refreshEntriesForConnection.mockImplementationOnce(() => refreshDeferred.promise);
+    logs.refreshEntriesForConnection.mockImplementationOnce(
+      () => refreshDeferred.promise,
+    );
 
     fixture.detectChanges();
     await flushAsync();
@@ -1129,7 +1166,8 @@ describe('LogsPage', () => {
       }),
     );
     expect(
-      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')
+        ?.textContent,
     ).toContain('Connection');
 
     setRouteConnectionId('conn-2', routeParamMap$);
@@ -1147,7 +1185,8 @@ describe('LogsPage', () => {
       }),
     );
     expect(
-      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')?.textContent,
+      fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')
+        ?.textContent,
     ).toContain('archive-storage');
   });
 
@@ -1334,8 +1373,12 @@ describe('LogsPage', () => {
     logs.errorState.set(null);
     logs.selectedEntryIdsState.set([]);
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('No blobs found in this container.');
-    expect(fixture.nativeElement.textContent).toContain('Select a log file to view its contents');
+    expect(fixture.nativeElement.textContent).toContain(
+      'No blobs found in this container.',
+    );
+    expect(fixture.nativeElement.textContent).toContain(
+      'Select a log file to view its contents',
+    );
 
     logs.entriesState.set([createLogEntry({ id: 'entry-1', blobName: 'alpha.log' })]);
     logs.selectEntry('entry-1');
