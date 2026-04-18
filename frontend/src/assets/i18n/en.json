@@ -240,7 +240,7 @@
         "light": "Light"
       },
       "appInfo": "Application Information",
-      "appInfoDescription": "Azure Blob Log Viewer connects to Azure Blob Storage, helps you browse saved logs, and opens large log files efficiently on desktop.",
+      "appInfoDescription": "Azure Blob Logviewer connects to Azure Blob Storage, helps you quickly inspect stored logs, and keeps even larger log files readable and efficient on desktop. The application is designed to make container contents easier to browse, highlight relevant entries faster, and support common analysis and monitoring tasks in a focused local workflow.",
       "language": {
         "title": "Language",
         "description": "Choose the frontend language for labels, messages, and date formatting."
