@@ -20,7 +20,7 @@ import {
 } from 'primeng/dynamicdialog';
 import { InputText } from 'primeng/inputtext';
 
-import { AzureResourcePickerComponent } from '@app/features/settings/components/azure-resource-picker/azure-resource-picker.component';
+import { AzureResourcePickerComponent } from '../azure-resource-picker/azure-resource-picker.component';
 import { AzureService } from '@app/features/settings/services/azure.service';
 import type {
   AzureContainer,

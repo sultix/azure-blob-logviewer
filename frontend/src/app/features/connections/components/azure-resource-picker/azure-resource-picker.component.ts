@@ -13,7 +13,7 @@ import type {
   AzureContainer,
   AzureStorageAccount,
   AzureSubscription,
-} from '../../models/azure.model';
+} from '@app/features/settings/models/azure.model';
 
 @Component({
   selector: 'app-azure-resource-picker',
