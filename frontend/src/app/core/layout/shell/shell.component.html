@@ -6,7 +6,7 @@
     (dblclick)="onToggleMaximize()"
   >
     <div class="flex min-w-0 flex-1 items-center gap-0">
-      <div class="flex w-[var(--layout-sidebar-width)] shrink-0 items-center gap-2.5">
+      <div class="flex shrink-0 items-center gap-2.5 2xl:w-[var(--layout-sidebar-width)]">
         <span class="flex h-6 w-6 items-center justify-center text-on-primary">
           <img
             src="/assets/branding/app-icon.png"
@@ -26,16 +26,23 @@
         }
       </div>
 
+      @if (showBackButton()) {
+        <nav class="no-drag flex items-center gap-1 ms-3 2xl:ms-0">
+          <a
+            routerLink="/connections"
+            routerLinkActive="text-on-surface border-primary"
+            [routerLinkActiveOptions]="{ exact: false }"
+            class="flex items-center gap-2 border-b-2 border-transparent pe-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
+          >
+            <i class="pi pi-arrow-left text-[13px]"></i>
+            {{ 'shell.navigation.back' | translate }}
+          </a>
+        </nav>
+      }
+    </div>
+
+    <div class="no-drag flex h-full items-stretch">
       <nav class="no-drag flex items-center gap-1">
-        <a
-          routerLink="/connections"
-          routerLinkActive="text-on-surface border-primary"
-          [routerLinkActiveOptions]="{ exact: false }"
-          class="flex items-center gap-2 border-b-2 border-transparent pe-3 py-3 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors hover:text-on-surface"
-        >
-          <i class="pi pi-th-large text-[13px]"></i>
-          {{ 'shell.navigation.dashboard' | translate }}
-        </a>
         <a
           routerLink="/settings"
           routerLinkActive="text-on-surface border-primary"
@@ -45,9 +52,6 @@
           {{ 'shell.navigation.settings' | translate }}
         </a>
       </nav>
-    </div>
-
-    <div class="no-drag flex h-full items-stretch">
       <button
         type="button"
         (click)="onMinimize()"

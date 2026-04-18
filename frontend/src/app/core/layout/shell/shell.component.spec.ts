@@ -1,6 +1,6 @@
-import { signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
@@ -22,10 +22,17 @@ class AppApiServiceStub implements Partial<AppApiService> {
   getVersion = vi.fn<() => Promise<string>>().mockResolvedValue('0.1.1');
 }
 
+@Component({
+  standalone: true,
+  template: '',
+})
+class TestRouteComponent {}
+
 describe('ShellComponent', () => {
   let fixture: ComponentFixture<ShellComponent>;
   let controls: WindowControlsServiceStub;
   let appApi: AppApiServiceStub;
+  let router: Router;
 
   beforeEach(async () => {
     controls = new WindowControlsServiceStub();
@@ -34,7 +41,12 @@ describe('ShellComponent', () => {
     await TestBed.configureTestingModule({
       imports: [ShellComponent],
       providers: [
-        provideRouter([]),
+        provideRouter([
+          { path: 'connections', component: TestRouteComponent },
+          { path: 'logs', component: TestRouteComponent },
+          { path: 'logs/:connectionId', component: TestRouteComponent },
+          { path: 'settings', component: TestRouteComponent },
+        ]),
         provideTranslateTesting(),
         MessageService,
         { provide: AppApiService, useValue: appApi },
@@ -43,6 +55,7 @@ describe('ShellComponent', () => {
     }).compileComponents();
 
     await initializeI18nForTests();
+    router = TestBed.inject(Router);
     fixture = TestBed.createComponent(ShellComponent);
     fixture.detectChanges();
   });
@@ -79,6 +92,30 @@ describe('ShellComponent', () => {
     expect(maximizeButton.getAttribute('aria-label')).toBe('Restore window');
     expect(maximizeIconPaths).toHaveLength(2);
   });
+
+  it('shows the back link on the logs overview route', async () => {
+    await navigateTo('/logs', fixture, router);
+
+    expect(getBackLink(fixture)?.getAttribute('href')).toBe('/connections');
+  });
+
+  it('shows the back link on the logs detail route', async () => {
+    await navigateTo('/logs/connection-1', fixture, router);
+
+    expect(getBackLink(fixture)?.getAttribute('href')).toBe('/connections');
+  });
+
+  it('shows the back link on the settings route', async () => {
+    await navigateTo('/settings', fixture, router);
+
+    expect(getBackLink(fixture)?.getAttribute('href')).toBe('/connections');
+  });
+
+  it('hides the back link on the connections route', async () => {
+    await navigateTo('/connections', fixture, router);
+
+    expect(getBackLink(fixture)).toBeNull();
+  });
 });
 
 function getMaximizeButton(fixture: ComponentFixture<ShellComponent>): HTMLButtonElement {
@@ -90,4 +127,22 @@ function getBrandingBlock(fixture: ComponentFixture<ShellComponent>): HTMLDivEle
   return fixture.nativeElement.querySelector(
     '.w-\\[var\\(--layout-sidebar-width\\)\\]',
   ) as HTMLDivElement;
+}
+
+function getBackLink(fixture: ComponentFixture<ShellComponent>): HTMLAnchorElement | null {
+  const icon = fixture.nativeElement.querySelector(
+    'nav.no-drag a[href="/connections"] .pi-arrow-left',
+  ) as HTMLElement | null;
+
+  return (icon?.parentElement as HTMLAnchorElement | null) ?? null;
+}
+
+async function navigateTo(
+  url: string,
+  fixture: ComponentFixture<ShellComponent>,
+  router: Router,
+): Promise<void> {
+  await router.navigateByUrl(url);
+  await fixture.whenStable();
+  fixture.detectChanges();
 }

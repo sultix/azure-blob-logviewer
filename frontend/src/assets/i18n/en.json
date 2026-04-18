@@ -44,7 +44,8 @@
     "appName": "Azure Blob Log Viewer",
     "navigation": {
       "dashboard": "Dashboard",
-      "settings": "Settings"
+      "settings": "Settings",
+      "back": "Back"
     },
     "window": {
       "minimize": "Minimize window",
