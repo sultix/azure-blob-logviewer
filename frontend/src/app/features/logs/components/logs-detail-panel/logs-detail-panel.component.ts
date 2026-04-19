@@ -805,11 +805,11 @@ function renderLogContentHtml(
 function getLogLevelTokenClass(level: LogLevelTone): string {
   switch (level) {
     case 'info':
-      return 'text-primary';
+      return 'font-semibold text-primary';
     case 'error':
-      return 'text-error';
+      return 'font-semibold text-error';
     case 'warn':
-      return 'text-tertiary';
+      return 'font-semibold text-tertiary';
     default:
       return 'text-on-surface';
   }

@@ -450,8 +450,22 @@ describe('LogsDetailPanelComponent', () => {
     expect(tokens[0]?.className).toContain('text-primary');
     expect(tokens[1]?.className).toContain('log-level-token--error');
     expect(tokens[1]?.className).toContain('text-error');
+    expect(tokens[1]?.className).toContain('rounded-sm');
+    expect(tokens[1]?.className).toContain('px-1');
+    expect(tokens[1]?.className).toContain('font-semibold');
+    expect(tokens[1]?.className).toContain('bg-error/12');
+    expect(tokens[1]?.className).toContain('ring-1');
+    expect(tokens[1]?.className).toContain('ring-inset');
+    expect(tokens[1]?.className).toContain('ring-error/20');
     expect(tokens[2]?.className).toContain('log-level-token--warn');
     expect(tokens[2]?.className).toContain('text-tertiary');
+    expect(tokens[2]?.className).toContain('rounded-sm');
+    expect(tokens[2]?.className).toContain('px-1');
+    expect(tokens[2]?.className).toContain('font-medium');
+    expect(tokens[2]?.className).toContain('bg-tertiary/10');
+    expect(tokens[2]?.className).toContain('ring-1');
+    expect(tokens[2]?.className).toContain('ring-inset');
+    expect(tokens[2]?.className).toContain('ring-tertiary/15');
   });
 
   it('does not mark unbracketed log levels', () => {
@@ -469,6 +483,30 @@ describe('LogsDetailPanelComponent', () => {
     fixture.detectChanges();
 
     expect(getLogLevelTokens(fixture)).toHaveLength(0);
+  });
+
+  it('maps the [EROR] alias to the error token styling', () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '1.5 KB',
+      created: '1 hr ago',
+    };
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('content', '[EROR] broken');
+    fixture.detectChanges();
+
+    const tokens = getLogLevelTokens(fixture);
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]?.textContent).toBe('[EROR]');
+    expect(tokens[0]?.className).toContain('log-level-token--error');
+    expect(tokens[0]?.className).toContain('text-error');
+    expect(tokens[0]?.className).toContain('font-semibold');
+    expect(tokens[0]?.className).toContain('bg-error/12');
+    expect(tokens[0]?.className).toContain('ring-error/20');
   });
 
   it('marks bracketed log levels in large viewer lines', () => {
@@ -507,6 +545,9 @@ describe('LogsDetailPanelComponent', () => {
     const tokens = getLogLevelTokens(fixture);
     expect(tokens).toHaveLength(1);
     expect(tokens[0]?.className).toContain('log-level-token--error');
+    expect(tokens[0]?.className).toContain('font-semibold');
+    expect(tokens[0]?.className).toContain('bg-error/12');
+    expect(tokens[0]?.className).toContain('ring-error/20');
   });
 
   it('renders tail preview lines with precomputed html', () => {
@@ -595,6 +636,9 @@ describe('LogsDetailPanelComponent', () => {
     const tokens = getLogLevelTokens(fixture);
     expect(tokens).toHaveLength(2);
     expect(tokens[0]?.className).toContain('log-level-token--warn');
+    expect(tokens[0]?.className).toContain('font-medium');
+    expect(tokens[0]?.className).toContain('bg-tertiary/10');
+    expect(tokens[0]?.className).toContain('ring-tertiary/15');
     expect(tokens[1]?.className).toContain('log-level-token--info');
   });
 
