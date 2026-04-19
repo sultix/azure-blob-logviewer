@@ -29,7 +29,6 @@ class AppApiServiceStub implements Partial<AppApiService> {
 class TestRouteComponent {}
 
 describe('ShellComponent', () => {
-  let fixture: ComponentFixture<ShellComponent>;
   let controls: WindowControlsServiceStub;
   let appApi: AppApiServiceStub;
   let router: Router;
@@ -56,11 +55,10 @@ describe('ShellComponent', () => {
 
     await initializeI18nForTests();
     router = TestBed.inject(Router);
-    fixture = TestBed.createComponent(ShellComponent);
-    fixture.detectChanges();
   });
 
   it('renders the maximize icon and label in the normal window state', () => {
+    const fixture = createFixture();
     const branding = getBrandingBlock(fixture);
     const maximizeButton = getMaximizeButton(fixture);
     const maximizeIcon = maximizeButton.querySelector('rect');
@@ -73,6 +71,7 @@ describe('ShellComponent', () => {
   });
 
   it('loads and renders the version from the app bridge', async () => {
+    const fixture = createFixture();
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -83,6 +82,7 @@ describe('ShellComponent', () => {
   });
 
   it('renders the restore icon and label in the maximized window state', () => {
+    const fixture = createFixture();
     controls.isMaximized.set(true);
     fixture.detectChanges();
 
@@ -94,29 +94,116 @@ describe('ShellComponent', () => {
   });
 
   it('shows the back link on the logs overview route', async () => {
+    const fixture = createFixture();
     await navigateTo('/logs', fixture, router);
 
-    expect(getBackLink(fixture)?.getAttribute('href')).toBe('/connections');
+    expect(getBackButton(fixture)).not.toBeNull();
   });
 
   it('shows the back link on the logs detail route', async () => {
+    const fixture = createFixture();
     await navigateTo('/logs/connection-1', fixture, router);
 
-    expect(getBackLink(fixture)?.getAttribute('href')).toBe('/connections');
+    expect(getBackButton(fixture)).not.toBeNull();
   });
 
   it('shows the back link on the settings route', async () => {
+    const fixture = createFixture();
     await navigateTo('/settings', fixture, router);
 
-    expect(getBackLink(fixture)?.getAttribute('href')).toBe('/connections');
+    expect(getBackButton(fixture)).not.toBeNull();
   });
 
   it('hides the back link on the connections route', async () => {
+    const fixture = createFixture();
     await navigateTo('/connections', fixture, router);
 
-    expect(getBackLink(fixture)).toBeNull();
+    expect(getBackButton(fixture)).toBeNull();
+  });
+
+  it('navigates back to connections from logs detail', async () => {
+    const fixture = createFixture();
+    await navigateTo('/connections', fixture, router);
+    await navigateTo('/logs/connection-1', fixture, router);
+
+    await clickBackButton(fixture);
+
+    expect(router.url).toBe('/connections');
+  });
+
+  it('navigates back to the previous in-app route from settings', async () => {
+    const fixture = createFixture();
+    await navigateTo('/connections', fixture, router);
+    await navigateTo('/logs/connection-1', fixture, router);
+    await navigateTo('/settings', fixture, router);
+
+    await clickBackButton(fixture);
+
+    expect(router.url).toBe('/logs/connection-1');
+  });
+
+  it('navigates back across multiple pages without bouncing forward again', async () => {
+    const fixture = createFixture();
+    await navigateTo('/connections', fixture, router);
+    await navigateTo('/logs/connection-1', fixture, router);
+    await navigateTo('/settings', fixture, router);
+
+    await clickBackButton(fixture);
+    expect(router.url).toBe('/logs/connection-1');
+
+    await clickBackButton(fixture);
+    expect(router.url).toBe('/connections');
+  });
+
+  it('navigates back across logs overview and settings to connections', async () => {
+    const fixture = createFixture();
+    await navigateTo('/connections', fixture, router);
+    await navigateTo('/logs', fixture, router);
+    await navigateTo('/settings', fixture, router);
+
+    await clickBackButton(fixture);
+    expect(router.url).toBe('/logs');
+
+    await clickBackButton(fixture);
+    expect(router.url).toBe('/connections');
+  });
+
+  it('falls back to connections when logs detail is the initial route', async () => {
+    await router.navigateByUrl('/logs/connection-1');
+    const fixture = createFixture();
+
+    await clickBackButton(fixture);
+
+    expect(router.url).toBe('/connections');
+  });
+
+  it('falls back to connections when settings is the initial route', async () => {
+    await router.navigateByUrl('/settings');
+    const fixture = createFixture();
+
+    await clickBackButton(fixture);
+
+    expect(router.url).toBe('/connections');
+  });
+
+  it('does not create duplicate history entries for the same route', async () => {
+    const fixture = createFixture();
+    await navigateTo('/connections', fixture, router);
+    await navigateTo('/logs/connection-1', fixture, router);
+    await navigateTo('/settings', fixture, router);
+    await navigateTo('/settings', fixture, router);
+
+    await clickBackButton(fixture);
+
+    expect(router.url).toBe('/logs/connection-1');
   });
 });
+
+function createFixture(): ComponentFixture<ShellComponent> {
+  const fixture = TestBed.createComponent(ShellComponent);
+  fixture.detectChanges();
+  return fixture;
+}
 
 function getMaximizeButton(fixture: ComponentFixture<ShellComponent>): HTMLButtonElement {
   const buttons = fixture.nativeElement.querySelectorAll('button');
@@ -124,17 +211,19 @@ function getMaximizeButton(fixture: ComponentFixture<ShellComponent>): HTMLButto
 }
 
 function getBrandingBlock(fixture: ComponentFixture<ShellComponent>): HTMLDivElement {
-  return fixture.nativeElement.querySelector(
-    '.w-\\[var\\(--layout-sidebar-width\\)\\]',
-  ) as HTMLDivElement;
+  const title = [...fixture.nativeElement.querySelectorAll('span')].find((element) =>
+    element.textContent?.includes('Azure Blob Log Viewer'),
+  ) as HTMLSpanElement | undefined;
+
+  return title?.parentElement as HTMLDivElement;
 }
 
-function getBackLink(fixture: ComponentFixture<ShellComponent>): HTMLAnchorElement | null {
+function getBackButton(fixture: ComponentFixture<ShellComponent>): HTMLButtonElement | null {
   const icon = fixture.nativeElement.querySelector(
-    'nav.no-drag a[href="/connections"] .pi-arrow-left',
+    'nav.no-drag button .pi-arrow-left',
   ) as HTMLElement | null;
 
-  return (icon?.parentElement as HTMLAnchorElement | null) ?? null;
+  return (icon?.parentElement as HTMLButtonElement | null) ?? null;
 }
 
 async function navigateTo(
@@ -143,6 +232,12 @@ async function navigateTo(
   router: Router,
 ): Promise<void> {
   await router.navigateByUrl(url);
+  await fixture.whenStable();
+  fixture.detectChanges();
+}
+
+async function clickBackButton(fixture: ComponentFixture<ShellComponent>): Promise<void> {
+  getBackButton(fixture)?.click();
   await fixture.whenStable();
   fixture.detectChanges();
 }

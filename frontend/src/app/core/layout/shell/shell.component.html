@@ -28,15 +28,14 @@
 
       @if (showBackButton()) {
         <nav class="no-drag flex items-center gap-1 ms-3 2xl:ms-0">
-          <a
-            routerLink="/connections"
-            routerLinkActive="text-on-surface border-primary"
-            [routerLinkActiveOptions]="{ exact: false }"
+          <button
+            type="button"
+            (click)="onBack()"
             class="flex items-center gap-2 border-b-2 border-transparent p-2 text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-colors rounded-md hover:text-on-surface hover:bg-surface-container-highest"
           >
             <i class="pi pi-arrow-left text-[13px]"></i>
             {{ 'shell.navigation.back' | translate }}
-          </a>
+          </button>
         </nav>
       }
     </div>

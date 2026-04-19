@@ -2,18 +2,24 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   inject,
   signal,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { OnInit } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Toast } from 'primeng/toast';
-import { filter, map, startWith } from 'rxjs';
+import { filter } from 'rxjs';
 
 import { AppApiService } from '@app/core/services/app-api.service';
 import { WindowControlsService } from '@app/core/services/window-controls.service';
+
+interface NavigationHistoryState {
+  readonly history: string[];
+  readonly pendingBackTarget: string | null;
+}
 
 @Component({
   selector: 'app-shell',
@@ -23,19 +29,14 @@ import { WindowControlsService } from '@app/core/services/window-controls.servic
 })
 export class ShellComponent implements OnInit {
   private readonly appApi = inject(AppApiService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
-  private readonly currentUrl = toSignal(
-    this.router.events.pipe(
-      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
-      map((event) => event.urlAfterRedirects),
-      startWith(this.router.url),
-    ),
-    { initialValue: this.router.url },
-  );
+  private readonly navigationHistory = signal(this.initialNavigationHistoryState());
   protected readonly controls = inject(WindowControlsService);
   protected readonly appLogoPath = 'assets/branding/app-logo-80.png';
   protected readonly appVersion = signal<string | null>(null);
   protected readonly isMaximized = computed(() => this.controls.isMaximized());
+  protected readonly currentUrl = computed(() => this.navigationHistory().history.at(-1) ?? '');
   protected readonly showBackButton = computed(() =>
     this.isBackButtonRoute(this.currentUrl()),
   );
@@ -46,6 +47,7 @@ export class ShellComponent implements OnInit {
   );
 
   ngOnInit(): void {
+    this.trackNavigationHistory();
     void this.loadVersion();
   }
 
@@ -59,6 +61,26 @@ export class ShellComponent implements OnInit {
 
   protected onClose(): void {
     this.controls.close();
+  }
+
+  protected onBack(): void {
+    const history = this.navigationHistory().history;
+    if (history.length > 1) {
+      const nextHistory = history.slice(0, -1);
+      const targetUrl = nextHistory.at(-1) ?? '/connections';
+      this.navigationHistory.set({
+        history: nextHistory,
+        pendingBackTarget: targetUrl,
+      });
+      void this.router.navigateByUrl(targetUrl);
+      return;
+    }
+
+    this.navigationHistory.set({
+      history: ['/connections'],
+      pendingBackTarget: '/connections',
+    });
+    void this.router.navigateByUrl('/connections');
   }
 
   private isBackButtonRoute(url: string): boolean {
@@ -78,5 +100,50 @@ export class ShellComponent implements OnInit {
     } catch {
       this.appVersion.set(null);
     }
+  }
+
+  private trackNavigationHistory(): void {
+    this.router.events
+      .pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((event) => {
+        this.updateNavigationHistory(event.urlAfterRedirects);
+      });
+  }
+
+  private updateNavigationHistory(url: string): void {
+    const state = this.navigationHistory();
+    const currentUrl = state.history.at(-1) ?? null;
+    if (url === currentUrl) {
+      if (state.pendingBackTarget !== null) {
+        this.navigationHistory.set({
+          ...state,
+          pendingBackTarget: null,
+        });
+      }
+      return;
+    }
+
+    if (state.pendingBackTarget !== null) {
+      this.navigationHistory.set({
+        history: state.history,
+        pendingBackTarget: null,
+      });
+      return;
+    }
+
+    this.navigationHistory.set({
+      history: [...state.history, url],
+      pendingBackTarget: null,
+    });
+  }
+
+  private initialNavigationHistoryState(): NavigationHistoryState {
+    return {
+      history: [this.router.url],
+      pendingBackTarget: null,
+    };
   }
 }
