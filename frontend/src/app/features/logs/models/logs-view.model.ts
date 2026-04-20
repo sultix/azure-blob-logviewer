@@ -48,6 +48,10 @@ export interface LogVirtualLineVm {
   content: string;
 }
 
+export type LogLargeViewerScrollCommand =
+  | { kind: 'line'; lineNumber: number; requestId: number }
+  | { kind: 'bottom'; requestId: number };
+
 export interface LogLargeViewerVm {
   mode: 'snapshot' | 'tail';
   progressLabel: string;
@@ -56,7 +60,7 @@ export interface LogLargeViewerVm {
   searchQuery: string;
   matchCount: number;
   activeMatchLineNumber: number | null;
-  requestedScrollLine: number | null;
+  scrollCommand: LogLargeViewerScrollCommand | null;
   topSpacerPx: number;
   bottomSpacerPx: number;
   lines: LogVirtualLineVm[];

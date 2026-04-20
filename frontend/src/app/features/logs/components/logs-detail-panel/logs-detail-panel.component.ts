@@ -56,7 +56,7 @@ const CONTENT_SEARCH_DELAY_MS = 120;
 const LARGE_VIEW_OVERSCAN_LINES = 16;
 const LOG_LEVEL_TOKEN_PATTERN = /\[(info|(error|eror)|warn)\]/gi;
 const MIN_CONTENT_SEARCH_QUERY_LENGTH = 3;
-const TAIL_AUTO_SCROLL_BOTTOM_TOLERANCE_PX = 4;
+const TAIL_AUTO_SCROLL_BOTTOM_TOLERANCE_PX = 50;
 
 @Component({
   selector: 'app-logs-detail-panel',
@@ -92,7 +92,11 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly largeSearchChanged = output<string>();
   readonly previousLargeMatchRequested = output<void>();
   readonly nextLargeMatchRequested = output<void>();
-  readonly largeViewportChanged = output<{ startLine: number; lineCount: number }>();
+  readonly largeViewportChanged = output<{
+    startLine: number;
+    lineCount: number;
+    nearBottom: boolean;
+  }>();
   readonly largeScrollHandled = output<void>();
   readonly tailToggled = output<boolean>();
 
@@ -100,10 +104,8 @@ export class LogsDetailPanelComponent implements OnDestroy {
   private lastScrolledMatchKey: string | null = null;
   private lastActiveMatch: HTMLElement | null = null;
   private lastLargeViewportKey: string | null = null;
-  private lastRequestedLargeScrollLine: number | null = null;
+  private lastHandledLargeScrollCommandId: number | null = null;
   private lastAppliedSelectionKey: string | null = null;
-  private lastTailContextKey: string | null = null;
-  private tailAutoScrollEnabled = false;
   private readonly contentElement = viewChild('contentElement', {
     read: ElementRef<HTMLPreElement>,
   });
@@ -308,7 +310,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
       this.lastAppliedSelectionKey = nextSelectionKey;
       this.resetContentSearchState();
-      this.resetTailScrollState();
+      this.lastHandledLargeScrollCommandId = null;
     });
 
     afterRenderEffect(() => {
@@ -316,42 +318,24 @@ export class LogsDetailPanelComponent implements OnDestroy {
       const scrollContainer = this.contentScrollContainer()?.nativeElement;
 
       if (largeViewer && scrollContainer) {
-        if (largeViewer.mode === 'tail' && largeViewer.tailPreviewLines.length > 0) {
-          this.handleTailViewerRender(scrollContainer, largeViewer);
-          return;
-        }
-
-        if (largeViewer.mode === 'tail') {
-          this.initializeTailScrollContext(scrollContainer);
-        } else {
-          this.resetTailScrollState();
-        }
-        this.emitLargeViewport(scrollContainer, largeViewer);
-
+        const scrollCommandRequestId = largeViewer.scrollCommand?.requestId ?? null;
         if (
-          largeViewer.requestedScrollLine !== null &&
-          largeViewer.requestedScrollLine !== this.lastRequestedLargeScrollLine
+          scrollCommandRequestId !== null &&
+          scrollCommandRequestId !== this.lastHandledLargeScrollCommandId
         ) {
-          scrollContainer.scrollTo({
-            top: largeViewer.requestedScrollLine * LOG_VIRTUAL_LINE_HEIGHT_PX,
-            behavior: 'auto',
-          });
-          this.lastRequestedLargeScrollLine = largeViewer.requestedScrollLine;
-          if (largeViewer.mode === 'tail') {
-            this.tailAutoScrollEnabled = false;
-          }
+          this.executeLargeViewerScrollCommand(scrollContainer, largeViewer);
+          this.lastHandledLargeScrollCommandId = scrollCommandRequestId;
           this.largeScrollHandled.emit();
-        } else if (largeViewer.requestedScrollLine === null) {
-          this.lastRequestedLargeScrollLine = null;
-          if (largeViewer.mode === 'tail' && this.tailAutoScrollEnabled) {
-            this.scrollTailToBottom(scrollContainer);
-          }
+        } else if (scrollCommandRequestId === null) {
+          this.lastHandledLargeScrollCommandId = null;
         }
+
+        this.emitLargeViewport(scrollContainer, largeViewer);
         return;
       }
 
       this.lastLargeViewportKey = null;
-      this.resetTailScrollState();
+      this.lastHandledLargeScrollCommandId = null;
 
       if (this.contentLoading()) {
         this.lastActiveMatch = null;
@@ -473,13 +457,6 @@ export class LogsDetailPanelComponent implements OnDestroy {
       return;
     }
 
-    if (largeViewer.mode === 'tail') {
-      this.tailAutoScrollEnabled = this.isNearBottom(scrollContainer);
-      if (largeViewer.tailPreviewLines.length > 0) {
-        return;
-      }
-    }
-
     this.emitLargeViewport(scrollContainer, largeViewer);
   }
 
@@ -491,7 +468,20 @@ export class LogsDetailPanelComponent implements OnDestroy {
     scrollContainer: HTMLDivElement,
     largeViewer: LogLargeViewerVm,
   ): void {
-    if (largeViewer.tailPreviewLines.length > 0) {
+    const nearBottom = this.isNearBottom(scrollContainer);
+    const isTailPreview = largeViewer.mode === 'tail' && largeViewer.tailPreviewLines.length > 0;
+    if (isTailPreview) {
+      const viewportKey = `preview:${nearBottom}:${largeViewer.tailPreviewLines.length}`;
+      if (this.lastLargeViewportKey === viewportKey) {
+        return;
+      }
+
+      this.lastLargeViewportKey = viewportKey;
+      this.largeViewportChanged.emit({
+        startLine: 0,
+        lineCount: 0,
+        nearBottom,
+      });
       return;
     }
 
@@ -503,7 +493,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
         LARGE_VIEW_OVERSCAN_LINES,
       0,
     );
-    const viewportKey = `${startLine}:${visibleLineCount}:${largeViewer.totalLines}`;
+    const viewportKey = `${startLine}:${visibleLineCount}:${largeViewer.totalLines}:${nearBottom}`;
     const shouldRetryEmptyViewport =
       largeViewer.tailPreviewLines.length === 0 &&
       largeViewer.lines.length === 0 &&
@@ -516,6 +506,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.largeViewportChanged.emit({
       startLine,
       lineCount: visibleLineCount,
+      nearBottom,
     });
   }
 
@@ -565,35 +556,6 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.tailToggled.emit(value);
   }
 
-  private handleTailViewerRender(
-    scrollContainer: HTMLDivElement,
-    largeViewer: LogLargeViewerVm,
-  ): void {
-    this.initializeTailScrollContext(scrollContainer);
-
-    if (
-      largeViewer.requestedScrollLine !== null &&
-      largeViewer.requestedScrollLine !== this.lastRequestedLargeScrollLine
-    ) {
-      scrollContainer.scrollTo({
-        top: largeViewer.requestedScrollLine * LOG_VIRTUAL_LINE_HEIGHT_PX,
-        behavior: 'auto',
-      });
-      this.lastRequestedLargeScrollLine = largeViewer.requestedScrollLine;
-      this.tailAutoScrollEnabled = false;
-      this.largeScrollHandled.emit();
-      return;
-    }
-
-    if (largeViewer.requestedScrollLine === null) {
-      this.lastRequestedLargeScrollLine = null;
-    }
-
-    if (this.tailAutoScrollEnabled) {
-      this.scrollTailToBottom(scrollContainer);
-    }
-  }
-
   private isNearBottom(scrollContainer: HTMLDivElement): boolean {
     return (
       scrollContainer.scrollHeight -
@@ -603,28 +565,22 @@ export class LogsDetailPanelComponent implements OnDestroy {
     );
   }
 
-  private scrollTailToBottom(scrollContainer: HTMLDivElement): void {
-    scrollContainer.scrollTo({
-      top: scrollContainer.scrollHeight,
-      behavior: 'auto',
-    });
-  }
-
-  private resetTailScrollState(): void {
-    this.lastTailContextKey = null;
-    this.tailAutoScrollEnabled = false;
-    this.lastRequestedLargeScrollLine = null;
-  }
-
-  private initializeTailScrollContext(scrollContainer: HTMLDivElement): void {
-    const tailContextKey = this.selectionKey();
-    if (this.lastTailContextKey === tailContextKey) {
+  private executeLargeViewerScrollCommand(
+    scrollContainer: HTMLDivElement,
+    largeViewer: LogLargeViewerVm,
+  ): void {
+    const scrollCommand = largeViewer.scrollCommand;
+    if (!scrollCommand) {
       return;
     }
 
-    this.lastTailContextKey = tailContextKey;
-    this.tailAutoScrollEnabled = true;
-    this.scrollTailToBottom(scrollContainer);
+    scrollContainer.scrollTo({
+      top:
+        scrollCommand.kind === 'bottom'
+          ? scrollContainer.scrollHeight
+          : scrollCommand.lineNumber * LOG_VIRTUAL_LINE_HEIGHT_PX,
+      behavior: 'auto',
+    });
   }
 }
 
@@ -805,11 +761,11 @@ function renderLogContentHtml(
 function getLogLevelTokenClass(level: LogLevelTone): string {
   switch (level) {
     case 'info':
-      return 'font-semibold text-primary';
+      return 'font-medium text-primary';
     case 'error':
-      return 'font-semibold text-error';
+      return 'font-medium text-error';
     case 'warn':
-      return 'font-semibold text-tertiary';
+      return 'font-medium text-tertiary';
     default:
       return 'text-on-surface';
   }

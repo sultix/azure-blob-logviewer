@@ -12,6 +12,7 @@ import { SettingsService } from '@app/features/settings/services/settings.servic
 
 import type {
   LogFooterVm,
+  LogLargeViewerScrollCommand,
   LogLargeViewerVm,
   LogToolbarVm,
 } from '../../models/logs-view.model';
@@ -283,7 +284,7 @@ describe('LogsDetailPanelComponent', () => {
       searchQuery: 'error',
       matchCount: 2,
       activeMatchLineNumber: 18,
-      requestedScrollLine: 18,
+      scrollCommand: createLineScrollCommand(18),
       topSpacerPx: 0,
       bottomSpacerPx: 800,
       lines: [
@@ -302,7 +303,9 @@ describe('LogsDetailPanelComponent', () => {
     const previousLargeMatchRequested = vi.fn<() => void>();
     const nextLargeMatchRequested = vi.fn<() => void>();
     const largeViewportChanged =
-      vi.fn<(value: { startLine: number; lineCount: number }) => void>();
+      vi.fn<
+        (value: { startLine: number; lineCount: number; nearBottom: boolean }) => void
+      >();
     component.downloadRequested.subscribe(downloadRequested);
     component.largeSearchChanged.subscribe(largeSearchChanged);
     component.previousLargeMatchRequested.subscribe(previousLargeMatchRequested);
@@ -323,6 +326,10 @@ describe('LogsDetailPanelComponent', () => {
     Object.defineProperty(scrollContainer, 'clientHeight', {
       configurable: true,
       value: 160,
+    });
+    Object.defineProperty(scrollContainer, 'scrollHeight', {
+      configurable: true,
+      value: 800,
     });
     scrollContainer.scrollTop = 0;
     component.onLargeViewerScroll();
@@ -381,6 +388,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(largeViewportChanged).toHaveBeenCalledWith({
       startLine: 0,
       lineCount: Math.ceil(160 / LOG_VIRTUAL_LINE_HEIGHT_PX) + 32,
+      nearBottom: false,
     });
     expect(component.mobileActionItems()[1]?.disabled).toBe(true);
     expect(component.canToggleWordWrap()).toBe(false);
@@ -401,7 +409,7 @@ describe('LogsDetailPanelComponent', () => {
       searchQuery: '',
       matchCount: 0,
       activeMatchLineNumber: null,
-      requestedScrollLine: null,
+      scrollCommand: null,
       topSpacerPx: 0,
       bottomSpacerPx: 0,
       lines: [{ lineNumber: 7, content: 'plain line content' }],
@@ -524,7 +532,7 @@ describe('LogsDetailPanelComponent', () => {
       searchQuery: '',
       matchCount: 0,
       activeMatchLineNumber: null,
-      requestedScrollLine: null,
+      scrollCommand: null,
       topSpacerPx: 0,
       bottomSpacerPx: 0,
       lines: [{ lineNumber: 7, content: '[ERROR] failure' }],
@@ -568,7 +576,7 @@ describe('LogsDetailPanelComponent', () => {
       searchQuery: 'error',
       matchCount: 1,
       activeMatchLineNumber: 0,
-      requestedScrollLine: null,
+      scrollCommand: null,
       topSpacerPx: 0,
       bottomSpacerPx: 0,
       lines: [],
@@ -615,7 +623,7 @@ describe('LogsDetailPanelComponent', () => {
       searchQuery: '',
       matchCount: 0,
       activeMatchLineNumber: null,
-      requestedScrollLine: null,
+      scrollCommand: null,
       topSpacerPx: 0,
       bottomSpacerPx: 0,
       lines: [],
@@ -642,19 +650,25 @@ describe('LogsDetailPanelComponent', () => {
     expect(tokens[1]?.className).toContain('log-level-token--info');
   });
 
-  it('scrolls to the bottom when tail mode becomes active', async () => {
+  it('executes a bottom scroll command for tail viewer rendering', async () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
       sizeLabel: '100.0 MB',
       created: '1 hr ago',
     };
+    const largeScrollHandled = vi.fn<() => void>();
+    component.largeScrollHandled.subscribe(largeScrollHandled);
 
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('selectionKey', 'alpha');
     fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        scrollCommand: createBottomScrollCommand(1),
+      }),
+    );
     fixture.detectChanges();
 
     const scrollContainer = getScrollContainer(fixture);
@@ -671,9 +685,10 @@ describe('LogsDetailPanelComponent', () => {
       top: 480,
       behavior: 'auto',
     });
+    expect(largeScrollHandled).toHaveBeenCalledOnce();
   });
 
-  it('keeps scrolling to the bottom during tail refresh while the user stays at the bottom', async () => {
+  it('re-executes a bottom scroll command when tail preview lines refresh with the same size', async () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -683,43 +698,44 @@ describe('LogsDetailPanelComponent', () => {
 
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('selectionKey', 'alpha');
     fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        scrollCommand: createBottomScrollCommand(1),
+        tailPreviewLines: ['line 1', 'line 2'],
+      }),
+    );
     fixture.detectChanges();
 
     const scrollContainer = getScrollContainer(fixture);
     setScrollMetrics(scrollContainer, {
-      clientHeight: 100,
-      scrollHeight: 300,
-      scrollTop: 200,
+      clientHeight: 120,
+      scrollHeight: 480,
+      scrollTop: 0,
     });
+
     await settleComponent(fixture);
-    component.onLargeViewerScroll();
 
     scrollToSpy.mockClear();
-
-    setScrollMetrics(scrollContainer, {
-      clientHeight: 100,
-      scrollHeight: 360,
-      scrollTop: 200,
-    });
     fixture.componentRef.setInput(
       'largeViewer',
       createTailLargeViewer({
-        tailPreviewLines: ['line 1', 'line 2', 'line 3'],
+        scrollCommand: createBottomScrollCommand(2),
+        tailPreviewLines: ['line 2', 'line 3'],
       }),
     );
     fixture.detectChanges();
     await settleComponent(fixture);
 
+    expect(scrollToSpy).toHaveBeenCalledOnce();
     expect(scrollToSpy).toHaveBeenLastCalledWith({
-      top: 360,
+      top: 480,
       behavior: 'auto',
     });
   });
 
-  it('does not auto-scroll tail refreshes while the user is away from the bottom', async () => {
+  it('re-executes a bottom scroll command when indexed tail content grows', async () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -729,93 +745,53 @@ describe('LogsDetailPanelComponent', () => {
 
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('selectionKey', 'alpha');
     fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        scrollCommand: createBottomScrollCommand(1),
+        totalLines: 100,
+        tailPreviewLines: [],
+        lines: [{ lineNumber: 99, content: 'line 100' }],
+      }),
+    );
     fixture.detectChanges();
 
     const scrollContainer = getScrollContainer(fixture);
     setScrollMetrics(scrollContainer, {
-      clientHeight: 100,
-      scrollHeight: 300,
-      scrollTop: 150,
+      clientHeight: 120,
+      scrollHeight: 1800,
+      scrollTop: 0,
     });
+
     await settleComponent(fixture);
-    component.onLargeViewerScroll();
 
     scrollToSpy.mockClear();
-
     setScrollMetrics(scrollContainer, {
-      clientHeight: 100,
-      scrollHeight: 360,
-      scrollTop: 150,
+      clientHeight: 120,
+      scrollHeight: 2160,
+      scrollTop: 1680,
     });
     fixture.componentRef.setInput(
       'largeViewer',
       createTailLargeViewer({
-        tailPreviewLines: ['line 1', 'line 2', 'line 3'],
+        scrollCommand: createBottomScrollCommand(2),
+        totalLines: 120,
+        tailPreviewLines: [],
+        lines: [{ lineNumber: 119, content: 'line 120' }],
       }),
     );
     fixture.detectChanges();
     await settleComponent(fixture);
 
-    expect(scrollToSpy).not.toHaveBeenCalled();
-  });
-
-  it('re-enables tail auto-scroll after the user manually returns to the bottom', async () => {
-    const toolbar: LogToolbarVm = {
-      blobName: 'alpha.log',
-      path: 'storage-a/logs/alpha.log',
-      sizeLabel: '100.0 MB',
-      created: '1 hr ago',
-    };
-
-    fixture.componentRef.setInput('status', 'success');
-    fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('selectionKey', 'alpha');
-    fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
-    fixture.detectChanges();
-
-    const scrollContainer = getScrollContainer(fixture);
-    setScrollMetrics(scrollContainer, {
-      clientHeight: 100,
-      scrollHeight: 300,
-      scrollTop: 150,
-    });
-    await settleComponent(fixture);
-    component.onLargeViewerScroll();
-
-    scrollToSpy.mockClear();
-
-    setScrollMetrics(scrollContainer, {
-      clientHeight: 100,
-      scrollHeight: 360,
-      scrollTop: 256,
-    });
-    component.onLargeViewerScroll();
-
-    setScrollMetrics(scrollContainer, {
-      clientHeight: 100,
-      scrollHeight: 420,
-      scrollTop: 256,
-    });
-    fixture.componentRef.setInput(
-      'largeViewer',
-      createTailLargeViewer({
-        tailPreviewLines: ['line 1', 'line 2', 'line 3', 'line 4'],
-      }),
-    );
-    fixture.detectChanges();
-    await settleComponent(fixture);
-
+    expect(scrollToSpy).toHaveBeenCalledOnce();
     expect(scrollToSpy).toHaveBeenLastCalledWith({
-      top: 420,
+      top: 2160,
       behavior: 'auto',
     });
   });
 
-  it('uses explicit tail line navigation without sticky-bottom until the user returns to the bottom', async () => {
+  it('executes a line scroll command for indexed large viewer rendering', async () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -827,7 +803,49 @@ describe('LogsDetailPanelComponent', () => {
 
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('selectionKey', 'alpha');
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createTailLargeViewer({
+        scrollCommand: createLineScrollCommand(99),
+        totalLines: 100,
+        tailPreviewLines: [],
+      }),
+    );
+    fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 180,
+      scrollHeight: 1800,
+      scrollTop: 0,
+    });
+
+    scrollToSpy.mockClear();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).toHaveBeenLastCalledWith({
+      top: 99 * LOG_VIRTUAL_LINE_HEIGHT_PX,
+      behavior: 'auto',
+    });
+    expect(largeScrollHandled).toHaveBeenCalledOnce();
+  });
+
+  it('emits preview viewport updates with nearBottom for tail preview mode', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+    const largeViewportChanged =
+      vi.fn<
+        (event: { startLine: number; lineCount: number; nearBottom: boolean }) => void
+      >();
+    component.largeViewportChanged.subscribe(largeViewportChanged);
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
     fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
     fixture.detectChanges();
@@ -836,66 +854,82 @@ describe('LogsDetailPanelComponent', () => {
     setScrollMetrics(scrollContainer, {
       clientHeight: 100,
       scrollHeight: 300,
-      scrollTop: 200,
+      scrollTop: 149,
     });
     await settleComponent(fixture);
-    component.onLargeViewerScroll();
 
-    scrollToSpy.mockClear();
-
-    fixture.componentRef.setInput(
-      'largeViewer',
-      createTailLargeViewer({
-        requestedScrollLine: 5,
-      }),
-    );
-    fixture.detectChanges();
-    await settleComponent(fixture);
-
-    expect(scrollToSpy).toHaveBeenLastCalledWith({
-      top: 5 * LOG_VIRTUAL_LINE_HEIGHT_PX,
-      behavior: 'auto',
+    expect(largeViewportChanged).toHaveBeenLastCalledWith({
+      startLine: 0,
+      lineCount: 0,
+      nearBottom: false,
     });
-    expect(largeScrollHandled).toHaveBeenCalledOnce();
 
-    scrollToSpy.mockClear();
-    fixture.componentRef.setInput(
-      'largeViewer',
-      createTailLargeViewer({
-        requestedScrollLine: null,
-        tailPreviewLines: ['line 1', 'line 2', 'line 3'],
-      }),
-    );
-    fixture.detectChanges();
-    await settleComponent(fixture);
-
-    expect(scrollToSpy).not.toHaveBeenCalled();
-
+    largeViewportChanged.mockClear();
     setScrollMetrics(scrollContainer, {
       clientHeight: 100,
-      scrollHeight: 360,
-      scrollTop: 260,
+      scrollHeight: 300,
+      scrollTop: 250,
     });
     component.onLargeViewerScroll();
 
+    expect(largeViewportChanged).toHaveBeenLastCalledWith({
+      startLine: 0,
+      lineCount: 0,
+      nearBottom: true,
+    });
+  });
+
+  it('emits indexed viewport updates with nearBottom for large viewer scrolling', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+    const largeViewportChanged =
+      vi.fn<
+        (event: { startLine: number; lineCount: number; nearBottom: boolean }) => void
+      >();
+    component.largeViewportChanged.subscribe(largeViewportChanged);
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput(
       'largeViewer',
       createTailLargeViewer({
-        requestedScrollLine: null,
-        tailPreviewLines: ['line 1', 'line 2', 'line 3', 'line 4'],
+        totalLines: 120,
+        tailPreviewLines: [],
       }),
     );
-    setScrollMetrics(scrollContainer, {
-      clientHeight: 100,
-      scrollHeight: 420,
-      scrollTop: 260,
-    });
     fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 180,
+      scrollHeight: 2160,
+      scrollTop: 1620,
+    });
     await settleComponent(fixture);
 
-    expect(scrollToSpy).toHaveBeenLastCalledWith({
-      top: 420,
-      behavior: 'auto',
+    expect(largeViewportChanged).toHaveBeenLastCalledWith({
+      startLine: 74,
+      lineCount: 42,
+      nearBottom: false,
+    });
+
+    largeViewportChanged.mockClear();
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 180,
+      scrollHeight: 2160,
+      scrollTop: 1980,
+    });
+    component.onLargeViewerScroll();
+
+    expect(largeViewportChanged).toHaveBeenLastCalledWith({
+      startLine: 94,
+      lineCount: 42,
+      nearBottom: true,
     });
   });
 
@@ -914,7 +948,7 @@ describe('LogsDetailPanelComponent', () => {
       searchQuery: '',
       matchCount: 0,
       activeMatchLineNumber: null,
-      requestedScrollLine: null,
+      scrollCommand: null,
       topSpacerPx: 0,
       bottomSpacerPx: 0,
       lines: [],
@@ -979,7 +1013,7 @@ describe('LogsDetailPanelComponent', () => {
       searchQuery: '',
       matchCount: 0,
       activeMatchLineNumber: null,
-      requestedScrollLine: null,
+      scrollCommand: null,
       topSpacerPx: 0,
       bottomSpacerPx: 0,
       lines: [{ lineNumber: 7, content: 'plain line content' }],
@@ -1389,7 +1423,7 @@ function createTailLargeViewer(
     searchQuery: '',
     matchCount: 0,
     activeMatchLineNumber: null,
-    requestedScrollLine: null,
+    scrollCommand: null,
     topSpacerPx: 0,
     bottomSpacerPx: 0,
     lines: [],
@@ -1400,6 +1434,24 @@ function createTailLargeViewer(
     canEnableWordWrap: false,
     downloadDisabled: true,
     ...overrides,
+  };
+}
+
+function createBottomScrollCommand(requestId: number): LogLargeViewerScrollCommand {
+  return {
+    kind: 'bottom',
+    requestId,
+  };
+}
+
+function createLineScrollCommand(
+  lineNumber: number,
+  requestId = 1,
+): LogLargeViewerScrollCommand {
+  return {
+    kind: 'line',
+    lineNumber,
+    requestId,
   };
 }
 

@@ -15,6 +15,7 @@ import type {
   AzureBlobTextChunk,
   AzureBlobTextChunkRequest,
 } from '@app/features/settings/models/azure.model';
+import type { LogLargeViewerScrollCommand } from '@app/features/logs/models/logs-view.model';
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { LogsService } from './logs.service';
@@ -351,7 +352,7 @@ describe('LogsService', () => {
     expect(service.hasNewerContent()).toBe(false);
     expect(service.largeViewerStatus()?.sessionId).toBe('session-1');
     expect(service.largeViewerTailPreviewLines()).toEqual(['tail line 1', 'tail line 2']);
-    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+    expect(service.largeViewerScrollCommand()).toBeNull();
     expect(service.contentWindow()).toEqual({
       startOffset: 0,
       endOffsetExclusive: 524_288,
@@ -368,7 +369,7 @@ describe('LogsService', () => {
     expect(api.readBlobTextChunk).not.toHaveBeenCalled();
   });
 
-  it('opens tail mode without creating an implicit scroll request', async () => {
+  it('opens tail mode in preview phase with follow mode enabled', async () => {
     api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValueOnce(
       createSessionStatus({
@@ -406,7 +407,9 @@ describe('LogsService', () => {
     await service.setTailMode(true);
 
     expect(service.largeViewerMode()).toBe('tail');
-    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+    expect(service.largeViewerTailPhase()).toBe('preview');
+    expect(service.largeViewerTailFollowMode()).toBe('following');
+    expectBottomScrollCommand(service.largeViewerScrollCommand());
     expect(api.openBlobViewSession).toHaveBeenCalledTimes(1);
     expect(api.setBlobViewSessionMode).toHaveBeenCalledWith('session-snapshot', 'tail');
   });
@@ -440,7 +443,7 @@ describe('LogsService', () => {
       { lineNumber: 2, preview: 'second ERROR line' },
     ]);
     expect(service.largeViewerSearchIsComplete()).toBe(false);
-    expect(service.largeViewerRequestedScrollLine()).toBe(1);
+    expectLineScrollCommand(service.largeViewerScrollCommand(), 1);
     expect(service.largeViewerActiveMatchLine()).toBe(1);
   });
 
@@ -475,7 +478,7 @@ describe('LogsService', () => {
     expect(api.searchBlobView).not.toHaveBeenCalled();
     expect(service.largeViewerSearchQuery()).toBe('er');
     expect(service.largeViewerSearchMatches()).toEqual([]);
-    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+    expect(service.largeViewerScrollCommand()).toBeNull();
     expect(service.largeViewerActiveMatchLine()).toBeNull();
   });
 
@@ -503,12 +506,12 @@ describe('LogsService', () => {
     await service.selectNextSearchMatch();
 
     expect(api.searchBlobView).not.toHaveBeenCalled();
-    expect(service.largeViewerRequestedScrollLine()).toBe(2);
+    expectLineScrollCommand(service.largeViewerScrollCommand(), 2);
     expect(service.largeViewerActiveMatchLine()).toBe(2);
 
     await service.selectPreviousSearchMatch();
 
-    expect(service.largeViewerRequestedScrollLine()).toBe(0);
+    expectLineScrollCommand(service.largeViewerScrollCommand(), 0);
     expect(service.largeViewerActiveMatchLine()).toBe(0);
   });
 
@@ -567,7 +570,7 @@ describe('LogsService', () => {
       { lineNumber: 2_500, preview: 'later error line' },
     ]);
     expect(service.largeViewerSearchIsComplete()).toBe(true);
-    expect(service.largeViewerRequestedScrollLine()).toBe(2_500);
+    expectLineScrollCommand(service.largeViewerScrollCommand(), 2_500);
     expect(service.largeViewerActiveMatchLine()).toBe(2_500);
   });
 
@@ -632,7 +635,7 @@ describe('LogsService', () => {
       { lineNumber: 3_100, preview: 'late indexed error line' },
     ]);
     expect(service.largeViewerSearchIsComplete()).toBe(false);
-    expect(service.largeViewerRequestedScrollLine()).toBe(3_100);
+    expectLineScrollCommand(service.largeViewerScrollCommand(), 3_100);
     expect(service.largeViewerActiveMatchLine()).toBe(3_100);
   });
 
@@ -708,10 +711,100 @@ describe('LogsService', () => {
 
     expect(service.largeViewerLines()).toEqual([]);
 
-    await service.updateLargeViewport(0, 120);
+    await service.updateLargeViewport(0, 120, false);
 
     expect(api.getBlobViewLines).toHaveBeenCalledTimes(2);
     expect(service.largeViewerLines()).toEqual([{ lineNumber: 0, content: 'line 1' }]);
+  });
+
+  it('keeps rendering the loaded tail viewport until the next viewport response arrives', async () => {
+    const initialTailViewportStartLine = 880;
+    const nextTailViewportStartLine = 820;
+    const nextViewportResponse = createDeferred<BlobViewLinesResponse>();
+
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 1_000,
+        isComplete: false,
+        hasPendingBefore: false,
+        hasPendingAfter: true,
+        tailPreviewLines: [],
+      }),
+    );
+    api.setBlobViewSessionMode.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 1_000,
+        isComplete: false,
+        hasPendingBefore: false,
+        hasPendingAfter: true,
+        mode: 'tail',
+        tailPreviewLines: [],
+      }),
+    );
+    api.getBlobViewLines
+      .mockResolvedValueOnce({
+        startLine: 0,
+        totalLines: 1_000,
+        isComplete: false,
+        lines: [{ lineNumber: 0, content: 'snapshot top line' }],
+      })
+      .mockResolvedValueOnce({
+        startLine: initialTailViewportStartLine,
+        totalLines: 1_000,
+        isComplete: false,
+        lines: [{ lineNumber: 999, content: 'latest tail line' }],
+      })
+      .mockImplementationOnce(() => nextViewportResponse.promise);
+    api.closeBlobViewSession.mockResolvedValue(undefined);
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+    await service.setTailMode(true);
+
+    expect(service.largeViewerViewportStartLine()).toBe(initialTailViewportStartLine);
+    expect(service.largeViewerLines()).toEqual([
+      { lineNumber: 999, content: 'latest tail line' },
+    ]);
+
+    const updateViewportPromise = service.updateLargeViewport(
+      nextTailViewportStartLine,
+      120,
+      false,
+    );
+    await flushAsync();
+
+    expect(api.getBlobViewLines).toHaveBeenLastCalledWith(
+      'session-snapshot',
+      nextTailViewportStartLine,
+      120,
+    );
+    expect(service.largeViewerViewportStartLine()).toBe(initialTailViewportStartLine);
+    expect(service.largeViewerLines()).toEqual([
+      { lineNumber: 999, content: 'latest tail line' },
+    ]);
+
+    nextViewportResponse.resolve({
+      startLine: nextTailViewportStartLine,
+      totalLines: 1_000,
+      isComplete: false,
+      lines: [{ lineNumber: 940, content: 'older tail line' }],
+    });
+    await updateViewportPromise;
+
+    expect(service.largeViewerViewportStartLine()).toBe(nextTailViewportStartLine);
+    expect(service.largeViewerLines()).toEqual([
+      { lineNumber: 940, content: 'older tail line' },
+    ]);
   });
 
   it('recomputes tail preview matches locally during status refresh', async () => {
@@ -759,10 +852,10 @@ describe('LogsService', () => {
       { lineNumber: 0, preview: 'first error line' },
       { lineNumber: 1, preview: 'another ERROR line' },
     ]);
-    expect(service.largeViewerRequestedScrollLine()).toBe(0);
+    expectLineScrollCommand(service.largeViewerScrollCommand(), 0);
   });
 
-  it('keeps requestedScrollLine empty during tail refreshes without explicit navigation', async () => {
+  it('keeps issuing a bottom scroll command during tail preview refreshes while following', async () => {
     api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValueOnce(
       createSessionStatus({
@@ -812,16 +905,270 @@ describe('LogsService', () => {
     await flushAsync();
     await service.setTailMode(true);
 
-    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+    expect(service.largeViewerTailPhase()).toBe('preview');
+    expect(service.largeViewerTailFollowMode()).toBe('following');
+    const initialCommand = service.largeViewerScrollCommand();
+    expectBottomScrollCommand(initialCommand);
 
     await service.refreshContent();
 
     expect(api.getBlobViewStatus).toHaveBeenCalledWith('session-snapshot');
     expect(service.largeViewerTailPreviewLines()).toEqual(['tail line 2', 'tail line 3']);
-    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+    expect(service.largeViewerTailPhase()).toBe('preview');
+    expect(service.largeViewerTailFollowMode()).toBe('following');
+    const refreshedCommand = service.largeViewerScrollCommand();
+    expectBottomScrollCommand(refreshedCommand);
+    expect(refreshedCommand.requestId).toBeGreaterThan(initialCommand.requestId);
   });
 
-  it('updates requestedScrollLine when navigating between tail preview matches', async () => {
+  it('reissues a bottom scroll command after indexed tail lines are reloaded while following', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES }),
+    ]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 100,
+        isComplete: false,
+        hasPendingBefore: false,
+        hasPendingAfter: true,
+        tailPreviewLines: [],
+      }),
+    );
+    api.setBlobViewSessionMode.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 100,
+        isComplete: false,
+        hasPendingBefore: false,
+        hasPendingAfter: true,
+        mode: 'tail',
+        tailPreviewLines: [],
+      }),
+    );
+    api.getBlobViewLines
+      .mockResolvedValueOnce({
+        startLine: 0,
+        totalLines: 100,
+        isComplete: false,
+        lines: [{ lineNumber: 0, content: 'initial indexed line' }],
+      })
+      .mockResolvedValueOnce({
+        startLine: 0,
+        totalLines: 120,
+        isComplete: false,
+        lines: [{ lineNumber: 0, content: 'reloaded indexed line' }],
+      });
+    api.getBlobViewStatus.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 120,
+        isComplete: false,
+        hasPendingBefore: false,
+        hasPendingAfter: true,
+        mode: 'tail',
+        tailPreviewLines: [],
+      }),
+    );
+    api.closeBlobViewSession.mockResolvedValue(undefined);
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+    await service.setTailMode(true);
+
+    expect(service.largeViewerTailPhase()).toBe('indexed');
+    expect(service.largeViewerTailFollowMode()).toBe('following');
+    const initialCommand = service.largeViewerScrollCommand();
+    expectBottomScrollCommand(initialCommand);
+
+    service.clearLargeViewerScrollCommand();
+    expect(service.largeViewerScrollCommand()).toBeNull();
+
+    await service['refreshLargeViewerStatus']('session-snapshot');
+
+    expect(api.getBlobViewLines).toHaveBeenLastCalledWith('session-snapshot', 0, 120);
+    expect(service.largeViewerLines()).toEqual([
+      { lineNumber: 0, content: 'reloaded indexed line' },
+    ]);
+    const refreshedCommand = service.largeViewerScrollCommand();
+    expectBottomScrollCommand(refreshedCommand);
+    expect(refreshedCommand.requestId).toBeGreaterThan(initialCommand.requestId);
+  });
+
+  it('replaces a stale top snapshot window with the bottom indexed tail window after enabling tail mode', async () => {
+    const bottomViewportStartLine = 880;
+    const bottomViewportResponse = createDeferred<BlobViewLinesResponse>();
+
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 1_000,
+        isComplete: true,
+        hasPendingBefore: false,
+        hasPendingAfter: false,
+        tailPreviewLines: [],
+      }),
+    );
+    api.getBlobViewLines
+      .mockResolvedValueOnce({
+        startLine: 0,
+        totalLines: 1_000,
+        isComplete: true,
+        lines: [{ lineNumber: 0, content: 'snapshot top line' }],
+      })
+      .mockImplementationOnce(() => bottomViewportResponse.promise);
+    api.setBlobViewSessionMode.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 1_000,
+        isComplete: false,
+        hasPendingBefore: false,
+        hasPendingAfter: true,
+        mode: 'tail',
+        tailPreviewLines: [],
+      }),
+    );
+    api.closeBlobViewSession.mockResolvedValue(undefined);
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    expect(service.largeViewerLines()).toEqual([
+      { lineNumber: 0, content: 'snapshot top line' },
+    ]);
+
+    const tailPromise = service.setTailMode(true);
+    await flushAsync();
+
+    expect(api.getBlobViewLines).toHaveBeenLastCalledWith(
+      'session-snapshot',
+      bottomViewportStartLine,
+      120,
+    );
+    expect(service.largeViewerLines()).toEqual([]);
+    expectBottomScrollCommand(service.largeViewerScrollCommand());
+
+    bottomViewportResponse.resolve({
+      startLine: bottomViewportStartLine,
+      totalLines: 1_000,
+      isComplete: false,
+      lines: [{ lineNumber: 999, content: 'latest tail line' }],
+    });
+    await tailPromise;
+
+    expect(service.largeViewerLines()).toEqual([
+      { lineNumber: 999, content: 'latest tail line' },
+    ]);
+    expect(service.largeViewerViewportStartLine()).toBe(bottomViewportStartLine);
+  });
+
+  it('clears stale snapshot lines before the preview-to-indexed tail handoff loads the bottom window', async () => {
+    const bottomViewportStartLine = 880;
+    const indexedViewportResponse = createDeferred<BlobViewLinesResponse>();
+
+    api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 1_000,
+        isComplete: true,
+        hasPendingBefore: false,
+        hasPendingAfter: false,
+        tailPreviewLines: [],
+      }),
+    );
+    api.getBlobViewLines
+      .mockResolvedValueOnce({
+        startLine: 0,
+        totalLines: 1_000,
+        isComplete: true,
+        lines: [{ lineNumber: 0, content: 'snapshot top line' }],
+      })
+      .mockImplementationOnce(() => indexedViewportResponse.promise);
+    api.setBlobViewSessionMode.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: 524_288,
+        indexedLineCount: 1_000,
+        isComplete: false,
+        hasPendingBefore: true,
+        hasPendingAfter: false,
+        mode: 'tail',
+        tailPreviewLines: ['tail line 1', 'tail line 2'],
+      }),
+    );
+    api.getBlobViewStatus.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 1_000,
+        isComplete: false,
+        hasPendingBefore: false,
+        hasPendingAfter: true,
+        mode: 'tail',
+        tailPreviewLines: [],
+      }),
+    );
+    api.closeBlobViewSession.mockResolvedValue(undefined);
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+    await service.setTailMode(true);
+
+    expect(service.largeViewerTailPhase()).toBe('preview');
+    expect(service.largeViewerTailPreviewLines()).toEqual(['tail line 1', 'tail line 2']);
+
+    const refreshPromise = service['refreshLargeViewerStatus']('session-snapshot');
+    await flushAsync();
+
+    expect(api.getBlobViewLines).toHaveBeenLastCalledWith(
+      'session-snapshot',
+      bottomViewportStartLine,
+      120,
+    );
+    expect(service.largeViewerTailPhase()).toBe('indexed');
+    expect(service.largeViewerLines()).toEqual([]);
+
+    indexedViewportResponse.resolve({
+      startLine: bottomViewportStartLine,
+      totalLines: 1_000,
+      isComplete: false,
+      lines: [{ lineNumber: 999, content: 'indexed latest line' }],
+    });
+    await refreshPromise;
+
+    expect(service.largeViewerLines()).toEqual([
+      { lineNumber: 999, content: 'indexed latest line' },
+    ]);
+  });
+
+  it('pauses follow mode when navigating between tail preview matches', async () => {
     api.listBlobs.mockResolvedValue([createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES })]);
     api.openBlobViewSession.mockResolvedValueOnce(
       createSessionStatus({
@@ -858,13 +1205,19 @@ describe('LogsService', () => {
     await service.setTailMode(true);
     await service.updateLargeSearchQuery('error');
 
-    expect(service.largeViewerRequestedScrollLine()).toBe(1);
+    expect(service.largeViewerTailFollowMode()).toBe('paused-by-navigation');
+    const firstCommand = service.largeViewerScrollCommand();
+    expectLineScrollCommand(firstCommand, 1);
 
     await service.selectNextSearchMatch();
-    expect(service.largeViewerRequestedScrollLine()).toBe(2);
+    const secondCommand = service.largeViewerScrollCommand();
+    expectLineScrollCommand(secondCommand, 2);
+    expect(secondCommand.requestId).toBeGreaterThan(firstCommand.requestId);
 
     await service.selectPreviousSearchMatch();
-    expect(service.largeViewerRequestedScrollLine()).toBe(1);
+    const thirdCommand = service.largeViewerScrollCommand();
+    expectLineScrollCommand(thirdCommand, 1);
+    expect(thirdCommand.requestId).toBeGreaterThan(secondCommand.requestId);
   });
 
   it('switches from local tail preview search to backend search after the preview phase ends', async () => {
@@ -932,7 +1285,7 @@ describe('LogsService', () => {
     expect(service.largeViewerSearchMatches()).toEqual([
       { lineNumber: 42, preview: 'indexed error line' },
     ]);
-    expect(service.largeViewerRequestedScrollLine()).toBe(42);
+    expectLineScrollCommand(service.largeViewerScrollCommand(), 42);
   });
 
   it('refreshes large blobs by reopening the viewer session', async () => {
@@ -975,7 +1328,7 @@ describe('LogsService', () => {
     expect(service.selectedContent()).toBe('');
     expect(service.largeViewerStatus()?.sessionId).toBe('session-2');
     expect(service.largeViewerTailPreviewLines()).toEqual(['tail refreshed']);
-    expect(service.largeViewerRequestedScrollLine()).toBeNull();
+    expect(service.largeViewerScrollCommand()).toBeNull();
     expect(api.openBlobViewSession).toHaveBeenCalledTimes(2);
     expect(api.closeBlobViewSession).toHaveBeenCalledWith('session-1');
   });
@@ -1210,6 +1563,30 @@ function createBlob(overrides: Partial<AzureBlobItem> = {}): AzureBlobItem {
     blobType: 'BlockBlob',
     ...overrides,
   };
+}
+
+function expectBottomScrollCommand(
+  command: LogLargeViewerScrollCommand | null,
+): asserts command is Extract<LogLargeViewerScrollCommand, { kind: 'bottom' }> {
+  expect(command).toEqual(
+    expect.objectContaining({
+      kind: 'bottom',
+      requestId: expect.any(Number),
+    }),
+  );
+}
+
+function expectLineScrollCommand(
+  command: LogLargeViewerScrollCommand | null,
+  lineNumber: number,
+): asserts command is Extract<LogLargeViewerScrollCommand, { kind: 'line' }> {
+  expect(command).toEqual(
+    expect.objectContaining({
+      kind: 'line',
+      lineNumber,
+      requestId: expect.any(Number),
+    }),
+  );
 }
 
 function createChunk(overrides: Partial<AzureBlobTextChunk> = {}): AzureBlobTextChunk {

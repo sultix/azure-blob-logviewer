@@ -10,6 +10,7 @@ import type { StorageConnection } from '@app/features/connections/models/storage
 import type { BlobViewSessionStatus } from '@app/features/logs/models/blob-view.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
+import type { LogLargeViewerScrollCommand } from '@app/features/logs/models/logs-view.model';
 import { LogSortBasis } from '@app/features/logs/models/logs-view.model';
 import type { LogsPreferences } from '@app/features/settings/models/app-config.model';
 import { SettingsService } from '@app/features/settings/services/settings.service';
@@ -50,7 +51,8 @@ class LogsServiceStub implements Partial<LogsService> {
     { lineNumber: number; preview: string }[]
   >([]);
   readonly largeViewerSearchIsCompleteState = signal(true);
-  readonly largeViewerRequestedScrollLineState = signal<number | null>(null);
+  readonly largeViewerScrollCommandState =
+    signal<LogLargeViewerScrollCommand | null>(null);
   readonly largeViewerActiveMatchLineState = signal<number | null>(null);
   readonly largeViewerTailPreviewLinesState = signal<string[]>([]);
   readonly largeViewerCanEnableWordWrapState = signal(true);
@@ -103,8 +105,8 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly largeViewerSearchIsComplete = computed(() =>
     this.largeViewerSearchIsCompleteState(),
   );
-  readonly largeViewerRequestedScrollLine = computed(() =>
-    this.largeViewerRequestedScrollLineState(),
+  readonly largeViewerScrollCommand = computed(() =>
+    this.largeViewerScrollCommandState(),
   );
   readonly largeViewerActiveMatchLine = computed(() =>
     this.largeViewerActiveMatchLineState(),
@@ -154,7 +156,7 @@ class LogsServiceStub implements Partial<LogsService> {
   });
   readonly refreshContent = vi.fn<() => Promise<void>>(async () => undefined);
   readonly updateLargeViewport = vi.fn<
-    (startLine: number, lineCount: number) => Promise<void>
+    (startLine: number, lineCount: number, nearBottom: boolean) => Promise<void>
   >(async () => undefined);
   readonly updateLargeSearchQuery = vi.fn<(query: string) => Promise<void>>(
     async () => undefined,
@@ -165,8 +167,8 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly setTailMode = vi.fn<(enabled: boolean) => Promise<void>>(async (enabled) => {
     this.isTailModeState.set(enabled);
   });
-  readonly clearRequestedScrollLine = vi.fn<() => void>(() => {
-    this.largeViewerRequestedScrollLineState.set(null);
+  readonly clearLargeViewerScrollCommand = vi.fn<() => void>(() => {
+    this.largeViewerScrollCommandState.set(null);
   });
   readonly reset = vi.fn<() => void>(() => {
     this.statusState.set('idle');
@@ -188,7 +190,7 @@ class LogsServiceStub implements Partial<LogsService> {
     this.largeViewerSearchQueryState.set('');
     this.largeViewerSearchMatchesState.set([]);
     this.largeViewerSearchIsCompleteState.set(true);
-    this.largeViewerRequestedScrollLineState.set(null);
+    this.largeViewerScrollCommandState.set(null);
     this.largeViewerActiveMatchLineState.set(null);
     this.largeViewerTailPreviewLinesState.set([]);
     this.largeViewerCanEnableWordWrapState.set(true);
@@ -214,7 +216,7 @@ class LogsServiceStub implements Partial<LogsService> {
     this.largeViewerSearchQueryState.set('');
     this.largeViewerSearchMatchesState.set([]);
     this.largeViewerSearchIsCompleteState.set(true);
-    this.largeViewerRequestedScrollLineState.set(null);
+    this.largeViewerScrollCommandState.set(null);
     this.largeViewerActiveMatchLineState.set(null);
     this.largeViewerTailPreviewLinesState.set([]);
     this.largeViewerCanEnableWordWrapState.set(true);

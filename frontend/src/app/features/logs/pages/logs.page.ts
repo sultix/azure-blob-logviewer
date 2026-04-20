@@ -265,7 +265,7 @@ export class LogsPage implements OnInit {
       searchQuery: this.logs.largeViewerSearchQuery(),
       matchCount: this.logs.largeViewerSearchMatches().length,
       activeMatchLineNumber: this.logs.largeViewerActiveMatchLine(),
-      requestedScrollLine: this.logs.largeViewerRequestedScrollLine(),
+      scrollCommand: this.logs.largeViewerScrollCommand(),
       topSpacerPx,
       bottomSpacerPx,
       lines: lines.map((line) => ({
@@ -436,8 +436,16 @@ export class LogsPage implements OnInit {
     }
   }
 
-  onLargeViewportChange(event: { startLine: number; lineCount: number }): void {
-    void this.logs.updateLargeViewport(event.startLine, event.lineCount);
+  onLargeViewportChange(event: {
+    startLine: number;
+    lineCount: number;
+    nearBottom: boolean;
+  }): void {
+    void this.logs.updateLargeViewport(
+      event.startLine,
+      event.lineCount,
+      event.nearBottom,
+    );
   }
 
   onLargeSearchChange(query: string): void {
@@ -453,7 +461,7 @@ export class LogsPage implements OnInit {
   }
 
   onLargeScrollHandled(): void {
-    this.logs.clearRequestedScrollLine();
+    this.logs.clearLargeViewerScrollCommand();
   }
 
   onTailToggled(enabled: boolean): void {
