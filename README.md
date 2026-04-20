@@ -81,7 +81,7 @@ wails build -platform windows/amd64 -clean
 ```
 
 The resulting executable is written to:
-[build/bin/azure-blob-logviewer.exe](build/bin/azure-blob-logviewer.exe)
+[build/bin/Azure Blob Logviewer.exe](build/bin/Azure Blob Logviewer.exe)
 
 This is the correct build path for this repository because
 [wails.json](./wails.json) already wires up `npm install` and `npm run build`
@@ -95,7 +95,9 @@ go install github.com/wailsapp/wails/v2/cmd/wails@latest
 The Windows EXE icon is regenerated from the icon master during the build, so
 no manual icon copy step is required.
 
-Optional:
+This command is suitable for local testing. Do not publish the raw unsigned EXE.
+
+Optional for local builds:
 
 - Generate an installer instead of only a `.exe`:
   `wails build -platform windows/amd64 -clean -nsis`
@@ -103,6 +105,90 @@ Optional:
   `wails build -platform windows/amd64 -clean -o logviewer`
 - Build for Windows on ARM:
   `wails build -platform windows/arm64 -clean`
+
+## Windows release flow
+
+Use the Windows release script for public builds. It enforces this order:
+
+1. clean Wails build
+2. sign the app EXE
+3. build the NSIS installer from the signed EXE
+4. sign installer and embedded uninstaller via NSIS finalizers
+5. verify Authenticode signatures for the EXE and installer
+6. write SHA-256 hashes to `SHA256SUMS.txt`
+7. copy release artifacts into `release/windows/<version>/`
+
+Prerequisites on Windows:
+
+- Wails CLI in `PATH`
+- NSIS `makensis.exe` in `PATH`
+- `signtool.exe` in `PATH` or passed explicitly via `-SignToolPath`
+- one signing identity:
+  - certificate thumbprint in the Windows certificate store, or
+  - certificate subject name in the Windows certificate store, or
+  - a `.pfx` file plus a password in an environment variable
+
+Examples:
+
+```powershell
+# Sign with a certificate already installed in the user store
+.\scripts\release-windows.ps1 -CertificateThumbprint '0123456789ABCDEF0123456789ABCDEF01234567'
+
+# Sign with a PFX file
+$env:WINDOWS_SIGN_PFX_PASSWORD = 'change-me'
+.\scripts\release-windows.ps1 -PfxPath 'C:\certs\publisher-code-signing.pfx'
+```
+
+Useful options:
+
+- `-Arch amd64|arm64`
+- `-TimestampUrl https://timestamp.example`
+- `-SignToolPath 'C:\Program Files (x86)\Windows Kits\10\bin\...\signtool.exe'`
+- `-CertificateSubjectName 'Publisher Name'`
+- `-CertificateStore My`
+- `-UseMachineCertificateStore`
+
+Release outputs:
+
+- `release/windows/<version>/Azure Blob Logviewer.exe`
+- `release/windows/<version>/Azure Blob Logviewer-<arch>-installer.exe`
+- `release/windows/<version>/SHA256SUMS.txt`
+
+## Defender false-positive runbook
+
+If Windows Defender or Microsoft Defender for Endpoint flags a signed build, do
+not publish it yet.
+
+Capture this evidence first:
+
+- detection name, for example `Trojan:Script/Wacatac.C!ml`
+- SHA-256 of the flagged file from `SHA256SUMS.txt`
+- Windows version and build
+- Defender engine/security intelligence version
+- exact file path that was quarantined or blocked
+- whether the hit was on the EXE, the installer, or both
+
+Then follow this process:
+
+1. Reproduce on a clean Windows 11 machine with current Defender signatures.
+2. Confirm the EXE and installer signatures are valid with `Get-AuthenticodeSignature`.
+3. Submit the signed EXE and signed installer to Microsoft Security Intelligence as a false positive together with the evidence above.
+4. Wait for Microsoft to clear the detection or update signatures.
+5. Re-scan the exact release artifacts on a clean machine before publishing.
+
+Recommended local verification commands:
+
+```powershell
+Get-AuthenticodeSignature '.\release\windows\1.0.0\Azure Blob Logviewer.exe'
+Get-AuthenticodeSignature '.\release\windows\1.0.0\Azure Blob Logviewer-amd64-installer.exe'
+```
+
+The uninstaller is signed during NSIS packaging. Verify its signature after a
+test install by checking:
+
+```powershell
+Get-AuthenticodeSignature "$env:LOCALAPPDATA\Programs\Azure Blob Logviewer\uninstall.exe"
+```
 
 ## Icons Generator
 

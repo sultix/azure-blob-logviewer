@@ -15,15 +15,20 @@ import (
 var assetsFS embed.FS
 
 func main() {
+	info, err := loadBuildInfo()
+	if err != nil {
+		log.Fatalf("failed to load build metadata: %v", err)
+	}
+
 	dist, err := fs.Sub(assetsFS, "frontend/dist/browser")
 	if err != nil {
 		log.Fatalf("failed to locate frontend assets: %v", err)
 	}
 
-	application := app.New()
+	application := app.New(info.ProductVersion)
 
 	err = wails.Run(&options.App{
-		Title:     "Azure Blob Log Viewer",
+		Title:     info.ProductName,
 		Width:     1280,
 		Height:    800,
 		MinWidth:  1280,

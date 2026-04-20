@@ -11,6 +11,7 @@ import (
 
 type App struct {
 	ctx       context.Context
+	version   string
 	logs      *services.LogsService
 	azureAuth *services.AzureAuthService
 	azureRes  *services.AzureResourceService
@@ -18,9 +19,10 @@ type App struct {
 	files     *services.ConnectionsFileService
 }
 
-func New() *App {
+func New(version string) *App {
 	authSvc := services.NewAzureAuthService()
 	return &App{
+		version:   version,
 		logs:      services.NewLogsService(),
 		azureAuth: authSvc,
 		azureRes:  services.NewAzureResourceService(authSvc),
@@ -39,7 +41,7 @@ func (a *App) Shutdown(ctx context.Context) {
 }
 
 func (a *App) GetVersion() string {
-	return "1.0.0"
+	return a.version
 }
 
 // --- Log entries ---------------------------------------------------------
