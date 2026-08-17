@@ -183,6 +183,10 @@ export class ConnectionsPage implements OnInit {
   }
 
   openLogs(card: ConnectionCardVm): void {
+    if (!this.isAuthenticated()) {
+      return;
+    }
+
     this.connectionsService.select(card.id);
     void this.router.navigate(['/logs', card.id]);
   }

@@ -1,12 +1,13 @@
 import type { BlobFailureReason } from '@app/features/settings/models/azure.model';
 
 export type BlobViewFocus = 'start' | 'end';
-export type BlobViewMode = 'snapshot' | 'tail';
+export type BlobViewMode = 'snapshot' | 'live';
 
 export interface OpenBlobViewSessionRequest {
   accountName: string;
   containerName: string;
   blobName: string;
+  versionId?: string;
   mode: BlobViewMode;
 }
 
@@ -19,14 +20,13 @@ export interface BlobViewSessionStatus {
   indexedLineCount: number;
   indexedThrough: number;
   isComplete: boolean;
-  canEnableWordWrap: boolean;
   hasPendingBefore: boolean;
   hasPendingAfter: boolean;
   errorMessage?: string;
   failureReason?: BlobFailureReason;
   mode: BlobViewMode;
   focus: BlobViewFocus;
-  tailPreviewLines: string[];
+  livePreviewLines: string[];
 }
 
 export interface BlobViewLine {

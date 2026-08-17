@@ -8,7 +8,7 @@ const (
 	BlobViewFocusEnd   BlobViewFocus = "end"
 
 	BlobViewModeSnapshot BlobViewMode = "snapshot"
-	BlobViewModeTail     BlobViewMode = "tail"
+	BlobViewModeLive     BlobViewMode = "live"
 )
 
 // OpenBlobViewSessionRequest starts a progressive viewer session for a blob.
@@ -16,27 +16,27 @@ type OpenBlobViewSessionRequest struct {
 	AccountName   string       `json:"accountName"`
 	ContainerName string       `json:"containerName"`
 	BlobName      string       `json:"blobName"`
+	VersionID     string       `json:"versionId,omitempty"`
 	Mode          BlobViewMode `json:"mode"`
 }
 
 // BlobViewSessionStatus describes the current session progress and available content.
 type BlobViewSessionStatus struct {
-	SessionID         string        `json:"sessionId"`
-	BlobName          string        `json:"blobName"`
-	BlobSize          int64         `json:"blobSize"`
-	ContentType       string        `json:"contentType"`
-	BytesDownloaded   int64         `json:"bytesDownloaded"`
-	IndexedLineCount  int64         `json:"indexedLineCount"`
-	IndexedThrough    int64         `json:"indexedThrough"`
-	IsComplete        bool          `json:"isComplete"`
-	CanEnableWordWrap bool          `json:"canEnableWordWrap"`
-	HasPendingBefore  bool          `json:"hasPendingBefore"`
-	HasPendingAfter   bool          `json:"hasPendingAfter"`
-	ErrorMessage      string        `json:"errorMessage,omitempty"`
-	FailureReason     string        `json:"failureReason,omitempty"`
-	Mode              BlobViewMode  `json:"mode"`
-	Focus             BlobViewFocus `json:"focus"`
-	TailPreviewLines  []string      `json:"tailPreviewLines"`
+	SessionID        string        `json:"sessionId"`
+	BlobName         string        `json:"blobName"`
+	BlobSize         int64         `json:"blobSize"`
+	ContentType      string        `json:"contentType"`
+	BytesDownloaded  int64         `json:"bytesDownloaded"`
+	IndexedLineCount int64         `json:"indexedLineCount"`
+	IndexedThrough   int64         `json:"indexedThrough"`
+	IsComplete       bool          `json:"isComplete"`
+	HasPendingBefore bool          `json:"hasPendingBefore"`
+	HasPendingAfter  bool          `json:"hasPendingAfter"`
+	ErrorMessage     string        `json:"errorMessage,omitempty"`
+	FailureReason    string        `json:"failureReason,omitempty"`
+	Mode             BlobViewMode  `json:"mode"`
+	Focus            BlobViewFocus `json:"focus"`
+	LivePreviewLines []string      `json:"livePreviewLines"`
 }
 
 // BlobViewLine is a single logical line from the progressive viewer.

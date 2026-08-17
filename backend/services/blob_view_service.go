@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -9,16 +10,20 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/aleksandrsultanov/azure-blob-logviewer/backend/models"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const (
-	blobViewTailPreviewLineLimit        = 200
+	blobViewLivePreviewLineLimit        = 200
 	blobViewSearchBatchSize             = 100
 	blobViewSearchScanLineLimit         = 2_000
+	blobViewSearchReadBlockLines        = 512
 	blobViewSessionTTL                  = 10 * time.Minute
 	blobViewMaxBlobBytes                = 256 * 1024 * 1024
 	blobViewMaxConcurrentSessions       = 3
@@ -31,11 +36,12 @@ type blobViewBlobClient interface {
 }
 
 type BlobViewService struct {
-	auth             *AzureAuthService
-	saveFileDialog   func(context.Context, wruntime.SaveDialogOptions) (string, error)
-	openTempFile     func() (*os.File, error)
-	now              func() time.Time
-	createBlobClient func(context.Context, string, string, string) (blobViewBlobClient, int64, string, error)
+	auth                      *AzureAuthService
+	saveFileDialog            func(context.Context, wruntime.SaveDialogOptions) (string, error)
+	openTempFile              func() (*os.File, error)
+	now                       func() time.Time
+	createBlobClient          func(context.Context, string, string, string) (blobViewBlobClient, int64, string, error)
+	createVersionedBlobClient func(context.Context, string, string, string, string) (blobViewBlobClient, int64, string, error)
 
 	mu                  sync.RWMutex
 	sessions            map[string]*blobViewSession
@@ -51,6 +57,7 @@ type blobViewSession struct {
 	accountName   string
 	containerName string
 	blobName      string
+	versionID     string
 	mode          models.BlobViewMode
 	focus         models.BlobViewFocus
 	filePath      string
@@ -67,8 +74,8 @@ type blobViewSession struct {
 	lineStarts       []int64
 	isComplete       bool
 	errorMessage     string
-	tailPreviewLines []string
-	tailPreviewStart int64
+	livePreviewLines []string
+	livePreviewStart int64
 	downloadRunning  bool
 
 	lastAccess time.Time
@@ -88,6 +95,7 @@ func NewBlobViewService(auth *AzureAuthService) *BlobViewService {
 		stopCh:           make(chan struct{}),
 	}
 	service.createBlobClient = service.newBlobClient
+	service.createVersionedBlobClient = service.newVersionedBlobClient
 
 	go service.cleanupLoop()
 
@@ -115,21 +123,16 @@ func (s *BlobViewService) CloseAllSessions() {
 
 func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBlobViewSessionRequest) (*models.BlobViewSessionStatus, error) {
 	mode := request.Mode
-	if mode != models.BlobViewModeTail {
+	if mode != models.BlobViewModeLive || request.VersionID != "" {
 		mode = models.BlobViewModeSnapshot
 	}
 
 	focus := models.BlobViewFocusStart
-	if mode == models.BlobViewModeTail {
+	if mode == models.BlobViewModeLive {
 		focus = models.BlobViewFocusEnd
 	}
 
-	blobClient, blobSize, contentType, err := s.createBlobClient(
-		ctx,
-		request.AccountName,
-		request.ContainerName,
-		request.BlobName,
-	)
+	blobClient, blobSize, contentType, err := s.createRequestedBlobClient(ctx, request)
 	if err != nil {
 		logDetailedError("open blob view session metadata failed", err)
 		return buildBlobViewFailureStatus(request.BlobName, mode, focus, blobFailureReasonFromError(err)), nil
@@ -165,6 +168,7 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 		accountName:      request.AccountName,
 		containerName:    request.ContainerName,
 		blobName:         request.BlobName,
+		versionID:        request.VersionID,
 		mode:             mode,
 		focus:            focus,
 		file:             tempFile,
@@ -174,8 +178,8 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 		cancel:           cancel,
 		lineStarts:       makeInitialLineStarts(blobSize),
 		lastAccess:       s.now(),
-		tailPreviewLines: nil,
-		tailPreviewStart: blobSize,
+		livePreviewLines: nil,
+		livePreviewStart: blobSize,
 	}
 	session.filePath = tempFile.Name()
 	session.reservedBytes = blobSize
@@ -184,44 +188,44 @@ func (s *BlobViewService) OpenSession(ctx context.Context, request models.OpenBl
 		session.indexedBytes = 0
 		session.bytesDownloaded = 0
 		session.isComplete = true
-	} else if mode == models.BlobViewModeTail {
-		if err := s.refreshTailSession(session); err != nil {
+	} else if mode == models.BlobViewModeLive {
+		if err := s.refreshLiveSession(session); err != nil {
 			s.releasePendingSessionCapacity(blobSize)
 			cancel()
 			_ = tempFile.Close()
 			_ = os.Remove(session.filePath)
-			logDetailedError("download blob tail session failed", err)
+			logDetailedError("download blob live session failed", err)
 			return buildBlobViewFailureStatus(request.BlobName, mode, focus, blobFailureReasonFromError(err)), nil
 		}
 	} else if focus == models.BlobViewFocusEnd && blobSize > largeBlobThresholdBytes {
-		tailStart := maxInt64(blobSize-defaultBlobChunkSizeBytes, 0)
-		tailData, err := blobClient.DownloadRange(
+		liveStart := maxInt64(blobSize-defaultBlobChunkSizeBytes, 0)
+		liveData, err := blobClient.DownloadRange(
 			downloadCtx,
 			request.ContainerName,
 			request.BlobName,
-			tailStart,
-			blobSize-tailStart,
+			liveStart,
+			blobSize-liveStart,
 		)
 		if err != nil {
 			s.releasePendingSessionCapacity(blobSize)
 			cancel()
 			_ = tempFile.Close()
 			_ = os.Remove(session.filePath)
-			logDetailedError("download blob tail preview failed", err)
+			logDetailedError("download blob live preview failed", err)
 			return buildBlobViewFailureStatus(request.BlobName, mode, focus, blobFailureReasonFromError(err)), nil
 		}
-		if err := writeBlobRange(session.file, tailStart, tailData); err != nil {
+		if err := writeBlobRange(session.file, liveStart, liveData); err != nil {
 			s.releasePendingSessionCapacity(blobSize)
 			cancel()
 			_ = tempFile.Close()
 			_ = os.Remove(session.filePath)
-			logDetailedError("write blob tail preview failed", err)
+			logDetailedError("write blob live preview failed", err)
 			return buildBlobViewFailureStatus(request.BlobName, mode, focus, models.BlobFailureReasonDownloadFailed), nil
 		}
 
-		session.bytesDownloaded = int64(len(tailData))
+		session.bytesDownloaded = int64(len(liveData))
 		session.indexedBytes = session.bytesDownloaded
-		session.tailPreviewLines = buildTailPreviewLines(string(tailData), tailStart > 0)
+		session.livePreviewLines = buildLivePreviewLines(string(liveData), liveStart > 0)
 	}
 
 	s.mu.Lock()
@@ -244,8 +248,8 @@ func (s *BlobViewService) GetStatus(sessionID string) (*models.BlobViewSessionSt
 		return nil, err
 	}
 
-	if session.mode == models.BlobViewModeTail {
-		if err := s.refreshTailSession(session); err != nil {
+	if session.mode == models.BlobViewModeLive {
+		if err := s.refreshLiveSession(session); err != nil {
 			s.failSession(session, err)
 		}
 	}
@@ -262,25 +266,25 @@ func (s *BlobViewService) SetSessionMode(
 		return nil, err
 	}
 
-	if mode != models.BlobViewModeTail {
+	if mode != models.BlobViewModeLive || session.versionID != "" {
 		mode = models.BlobViewModeSnapshot
 	}
 
 	session.mu.Lock()
 	session.mode = mode
-	if mode == models.BlobViewModeTail {
+	if mode == models.BlobViewModeLive {
 		session.focus = models.BlobViewFocusEnd
 	} else {
 		session.focus = models.BlobViewFocusStart
-		session.tailPreviewLines = nil
-		session.tailPreviewStart = session.blobSize
+		session.livePreviewLines = nil
+		session.livePreviewStart = session.blobSize
 		session.bytesDownloaded = session.indexedBytes
 	}
 	session.lastAccess = s.now()
 	session.mu.Unlock()
 
-	if mode == models.BlobViewModeTail {
-		if err := s.refreshTailSession(session); err != nil {
+	if mode == models.BlobViewModeLive {
+		if err := s.refreshLiveSession(session); err != nil {
 			s.failSession(session, err)
 		}
 	}
@@ -300,8 +304,8 @@ func (s *BlobViewService) GetLines(sessionID string, startLine, lineCount int64)
 
 	session.mu.Lock()
 	session.lastAccess = s.now()
-	if len(session.tailPreviewLines) > 0 {
-		totalLines := int64(len(session.tailPreviewLines))
+	if len(session.livePreviewLines) > 0 {
+		totalLines := int64(len(session.livePreviewLines))
 		session.mu.Unlock()
 		return &models.BlobViewLinesResponse{
 			StartLine:  0,
@@ -312,8 +316,9 @@ func (s *BlobViewService) GetLines(sessionID string, startLine, lineCount int64)
 	}
 	totalLines := session.indexedLineCountLocked()
 	indexedBytes := session.indexedBytes
-	lineStarts := append([]int64(nil), session.lineStarts...)
+	lineStarts := session.lineStartsSnapshotLocked()
 	isComplete := session.isComplete
+	blobSize := session.blobSize
 	file := session.file
 	session.mu.Unlock()
 
@@ -336,7 +341,7 @@ func (s *BlobViewService) GetLines(sessionID string, startLine, lineCount int64)
 	}
 
 	endLine := minInt64(startLine+lineCount, totalLines)
-	lines, err := readLinesWindow(file, lineStarts, startLine, endLine, indexedBytes, session.blobSize, isComplete)
+	lines, err := readLinesWindow(file, lineStarts, startLine, endLine, indexedBytes, blobSize, isComplete)
 	if err != nil {
 		logDetailedError("read blob view lines failed", err)
 		return nil, fmt.Errorf("failed to load blob lines")
@@ -368,13 +373,13 @@ func (s *BlobViewService) Search(request models.BlobViewSearchRequest) (*models.
 
 	session.mu.Lock()
 	session.lastAccess = s.now()
-	if len(session.tailPreviewLines) > 0 {
-		tailPreviewLines := append([]string(nil), session.tailPreviewLines...)
+	if len(session.livePreviewLines) > 0 {
+		livePreviewLines := append([]string(nil), session.livePreviewLines...)
 		session.mu.Unlock()
 
-		matches := make([]models.BlobViewSearchMatch, 0, len(tailPreviewLines))
+		matches := make([]models.BlobViewSearchMatch, 0, len(livePreviewLines))
 		queryLower := strings.ToLower(query)
-		for index, line := range tailPreviewLines {
+		for index, line := range livePreviewLines {
 			if !strings.Contains(strings.ToLower(line), queryLower) {
 				continue
 			}
@@ -393,18 +398,19 @@ func (s *BlobViewService) Search(request models.BlobViewSearchRequest) (*models.
 	}
 	totalLines := session.indexedLineCountLocked()
 	indexedBytes := session.indexedBytes
-	lineStarts := append([]int64(nil), session.lineStarts...)
+	lineStarts := session.lineStartsSnapshotLocked()
 	isSessionComplete := session.isComplete
+	blobSize := session.blobSize
 	file := session.file
-	tailPreviewLines := append([]string(nil), session.tailPreviewLines...)
+	livePreviewLines := append([]string(nil), session.livePreviewLines...)
 	focus := session.focus
 	session.mu.Unlock()
 
 	matches := make([]models.BlobViewSearchMatch, 0, blobViewSearchBatchSize)
 	nextCursor := int64(-1)
 
-	if focus == models.BlobViewFocusEnd && !isSessionComplete && totalLines == 0 && len(tailPreviewLines) > 0 {
-		for index, line := range tailPreviewLines {
+	if focus == models.BlobViewFocusEnd && !isSessionComplete && totalLines == 0 && len(livePreviewLines) > 0 {
+		for index, line := range livePreviewLines {
 			if !strings.Contains(strings.ToLower(line), strings.ToLower(query)) {
 				continue
 			}
@@ -429,33 +435,54 @@ func (s *BlobViewService) Search(request models.BlobViewSearchRequest) (*models.
 		request.Cursor = 0
 	}
 
-	normalizedQuery := strings.ToLower(query)
+	normalizedQuery := []byte(strings.ToLower(query))
+	lowerBuffer := make([]byte, 0, 4*1024)
 	scannedLines := int64(0)
-	for lineNumber := request.Cursor; lineNumber < totalLines; lineNumber++ {
+	lineNumber := request.Cursor
+
+scan:
+	for lineNumber < totalLines {
 		if scannedLines >= blobViewSearchScanLineLimit {
 			nextCursor = lineNumber
 			break
 		}
 
-		line, err := readSingleLine(file, lineStarts, lineNumber, indexedBytes, session.blobSize, isSessionComplete)
+		blockEndLine := minInt64(
+			lineNumber+blobViewSearchReadBlockLines,
+			minInt64(totalLines, lineNumber+blobViewSearchScanLineLimit-scannedLines),
+		)
+		block, err := readLineBlock(
+			file,
+			lineStarts,
+			lineNumber,
+			blockEndLine,
+			indexedBytes,
+			blobSize,
+			isSessionComplete,
+		)
 		if err != nil {
 			logDetailedError("search blob view failed", err)
 			return nil, fmt.Errorf("failed to search blob content")
 		}
 
-		if strings.Contains(strings.ToLower(line), normalizedQuery) {
-			matches = append(matches, models.BlobViewSearchMatch{
-				LineNumber: lineNumber,
-				Preview:    line,
-			})
+		for index, line := range block {
+			lowerBuffer = appendLowerBytes(lowerBuffer[:0], line)
+			if bytes.Contains(lowerBuffer, normalizedQuery) {
+				matches = append(matches, models.BlobViewSearchMatch{
+					LineNumber: lineNumber + int64(index),
+					Preview:    string(line),
+				})
+			}
+
+			if len(matches) >= blobViewSearchBatchSize {
+				nextCursor = lineNumber + int64(index) + 1
+				break scan
+			}
+
+			scannedLines++
 		}
 
-		if len(matches) >= blobViewSearchBatchSize {
-			nextCursor = lineNumber + 1
-			break
-		}
-
-		scannedLines++
+		lineNumber = blockEndLine
 	}
 
 	isComplete := isSessionComplete && nextCursor == -1
@@ -479,9 +506,9 @@ func (s *BlobViewService) Export(ctx context.Context, sessionID string) (*models
 
 	session.mu.Lock()
 	session.lastAccess = s.now()
-	if session.mode == models.BlobViewModeTail {
+	if session.mode == models.BlobViewModeLive {
 		session.mu.Unlock()
-		return nil, fmt.Errorf("tail mode export is unavailable")
+		return nil, fmt.Errorf("live mode export is unavailable")
 	}
 	isComplete := session.isComplete
 	blobName := session.blobName
@@ -548,7 +575,7 @@ func (s *BlobViewService) downloadSession(session *blobViewSession) {
 	}()
 
 	ctx := session.downloadCtx
-	blobClient, _, _, err := s.createBlobClient(ctx, session.accountName, session.containerName, session.blobName)
+	blobClient, _, _, err := s.createSessionBlobClient(ctx, session)
 	if err != nil {
 		s.failSession(session, err)
 		return
@@ -562,8 +589,8 @@ func (s *BlobViewService) downloadSession(session *blobViewSession) {
 		session.mu.RLock()
 		offset := session.indexedBytes
 		endOffset := session.blobSize
-		if len(session.tailPreviewLines) > 0 {
-			endOffset = session.tailPreviewStart
+		if len(session.livePreviewLines) > 0 {
+			endOffset = session.livePreviewStart
 		}
 		session.mu.RUnlock()
 
@@ -593,7 +620,7 @@ func (s *BlobViewService) downloadSession(session *blobViewSession) {
 	}
 
 	session.mu.Lock()
-	needsRebuild := len(session.tailPreviewLines) > 0
+	needsRebuild := len(session.livePreviewLines) > 0
 	if !needsRebuild {
 		session.isComplete = session.indexedBytes >= session.blobSize
 		session.lastAccess = s.now()
@@ -609,8 +636,8 @@ func (s *BlobViewService) downloadSession(session *blobViewSession) {
 
 	session.mu.Lock()
 	session.isComplete = session.indexedBytes >= session.blobSize
-	session.tailPreviewLines = nil
-	session.tailPreviewStart = session.blobSize
+	session.livePreviewLines = nil
+	session.livePreviewStart = session.blobSize
 	session.bytesDownloaded = session.indexedBytes
 	session.lastAccess = s.now()
 	session.mu.Unlock()
@@ -621,6 +648,26 @@ func (s *BlobViewService) newBlobClient(
 	accountName string,
 	containerName string,
 	blobName string,
+) (blobViewBlobClient, int64, string, error) {
+	return s.newBlobClientForVersion(ctx, accountName, containerName, blobName, "")
+}
+
+func (s *BlobViewService) newVersionedBlobClient(
+	ctx context.Context,
+	accountName string,
+	containerName string,
+	blobName string,
+	versionID string,
+) (blobViewBlobClient, int64, string, error) {
+	return s.newBlobClientForVersion(ctx, accountName, containerName, blobName, versionID)
+}
+
+func (s *BlobViewService) newBlobClientForVersion(
+	ctx context.Context,
+	accountName string,
+	containerName string,
+	blobName string,
+	versionID string,
 ) (blobViewBlobClient, int64, string, error) {
 	cred, err := s.auth.GetCredential()
 	if err != nil {
@@ -633,12 +680,62 @@ func (s *BlobViewService) newBlobClient(
 		return nil, 0, "", sanitizeBlobError(err)
 	}
 
-	props, err := client.ServiceClient().NewContainerClient(containerName).NewBlobClient(blobName).GetProperties(ctx, nil)
+	blobClient := client.ServiceClient().NewContainerClient(containerName).NewBlobClient(blobName)
+	if versionID != "" {
+		blobClient, err = blobClient.WithVersionID(versionID)
+		if err != nil {
+			return nil, 0, "", sanitizeBlobError(err)
+		}
+	}
+
+	props, err := blobClient.GetProperties(ctx, nil)
 	if err != nil {
 		return nil, 0, "", sanitizeBlobError(err)
 	}
 
-	return blobViewAzureClient{client: client}, derefInt64(props.ContentLength), derefStr(props.ContentType), nil
+	return blobViewAzureClient{client: blobClient}, derefInt64(props.ContentLength), derefStr(props.ContentType), nil
+}
+
+func (s *BlobViewService) createRequestedBlobClient(
+	ctx context.Context,
+	request models.OpenBlobViewSessionRequest,
+) (blobViewBlobClient, int64, string, error) {
+	if request.VersionID != "" {
+		return s.createVersionedBlobClient(
+			ctx,
+			request.AccountName,
+			request.ContainerName,
+			request.BlobName,
+			request.VersionID,
+		)
+	}
+	return s.createBlobClient(
+		ctx,
+		request.AccountName,
+		request.ContainerName,
+		request.BlobName,
+	)
+}
+
+func (s *BlobViewService) createSessionBlobClient(
+	ctx context.Context,
+	session *blobViewSession,
+) (blobViewBlobClient, int64, string, error) {
+	if session.versionID != "" {
+		return s.createVersionedBlobClient(
+			ctx,
+			session.accountName,
+			session.containerName,
+			session.blobName,
+			session.versionID,
+		)
+	}
+	return s.createBlobClient(
+		ctx,
+		session.accountName,
+		session.containerName,
+		session.blobName,
+	)
 }
 
 func (s *BlobViewService) getSession(sessionID string) (*blobViewSession, error) {
@@ -659,8 +756,8 @@ func (s *BlobViewService) statusForSession(session *blobViewSession) *models.Blo
 
 	hasPendingBefore := false
 	hasPendingAfter := false
-	if session.mode == models.BlobViewModeTail {
-		hasPendingBefore = len(session.tailPreviewLines) > 0 || !session.isComplete
+	if session.mode == models.BlobViewModeLive {
+		hasPendingBefore = len(session.livePreviewLines) > 0 || !session.isComplete
 	} else if !session.isComplete {
 		if session.focus == models.BlobViewFocusEnd {
 			hasPendingBefore = true
@@ -670,22 +767,21 @@ func (s *BlobViewService) statusForSession(session *blobViewSession) *models.Blo
 	}
 
 	return &models.BlobViewSessionStatus{
-		SessionID:         session.id,
-		BlobName:          session.blobName,
-		BlobSize:          session.blobSize,
-		ContentType:       session.contentType,
-		BytesDownloaded:   bytesDownloadedLocked(session),
-		IndexedLineCount:  session.indexedLineCountLocked(),
-		IndexedThrough:    session.indexedBytes,
-		IsComplete:        session.isComplete,
-		CanEnableWordWrap: session.mode == models.BlobViewModeSnapshot && session.isComplete,
-		HasPendingBefore:  hasPendingBefore,
-		HasPendingAfter:   hasPendingAfter,
-		ErrorMessage:      session.errorMessage,
-		FailureReason:     session.failureReason,
-		Mode:              session.mode,
-		Focus:             session.focus,
-		TailPreviewLines:  append([]string{}, session.tailPreviewLines...),
+		SessionID:        session.id,
+		BlobName:         session.blobName,
+		BlobSize:         session.blobSize,
+		ContentType:      session.contentType,
+		BytesDownloaded:  bytesDownloadedLocked(session),
+		IndexedLineCount: session.indexedLineCountLocked(),
+		IndexedThrough:   session.indexedBytes,
+		IsComplete:       session.isComplete,
+		HasPendingBefore: hasPendingBefore,
+		HasPendingAfter:  hasPendingAfter,
+		ErrorMessage:     session.errorMessage,
+		FailureReason:    session.failureReason,
+		Mode:             session.mode,
+		Focus:            session.focus,
+		LivePreviewLines: append([]string{}, session.livePreviewLines...),
 	}
 }
 
@@ -780,12 +876,12 @@ func buildBlobViewFailureStatus(
 		FailureReason:    string(reason),
 		Mode:             mode,
 		Focus:            focus,
-		TailPreviewLines: []string{},
+		LivePreviewLines: []string{},
 	}
 }
 
 type blobViewAzureClient struct {
-	client *azblob.Client
+	client *blob.Client
 }
 
 func (c blobViewAzureClient) DownloadRange(
@@ -795,7 +891,7 @@ func (c blobViewAzureClient) DownloadRange(
 	offset int64,
 	count int64,
 ) ([]byte, error) {
-	resp, err := c.client.DownloadStream(ctx, containerName, blobName, &azblob.DownloadStreamOptions{
+	resp, err := c.client.DownloadStream(ctx, &azblob.DownloadStreamOptions{
 		Range: azblob.HTTPRange{
 			Offset: offset,
 			Count:  count,
@@ -878,9 +974,17 @@ func appendLineStartsLocked(session *blobViewSession, offset int64, data []byte)
 	}
 }
 
+// lineStartsSnapshotLocked returns the current line index for use outside the
+// session lock. Sharing the backing array is safe because indexed offsets are
+// only ever appended or replaced wholesale, never rewritten in place, so a
+// captured slice header keeps describing a stable prefix.
+func (s *blobViewSession) lineStartsSnapshotLocked() []int64 {
+	return s.lineStarts
+}
+
 func (s *blobViewSession) indexedLineCountLocked() int64 {
-	if len(s.tailPreviewLines) > 0 {
-		return int64(len(s.tailPreviewLines))
+	if len(s.livePreviewLines) > 0 {
+		return int64(len(s.livePreviewLines))
 	}
 	if s.indexedBytes == 0 || len(s.lineStarts) == 0 {
 		return 0
@@ -888,14 +992,14 @@ func (s *blobViewSession) indexedLineCountLocked() int64 {
 	return int64(len(s.lineStarts))
 }
 
-func buildTailPreviewLines(content string, droppedPrefix bool) []string {
+func buildLivePreviewLines(content string, droppedPrefix bool) []string {
 	normalized := strings.ReplaceAll(strings.ReplaceAll(content, "\r\n", "\n"), "\r", "\n")
 	lines := strings.Split(normalized, "\n")
 	if droppedPrefix && len(lines) > 0 {
 		lines = lines[1:]
 	}
-	if len(lines) > blobViewTailPreviewLineLimit {
-		lines = lines[len(lines)-blobViewTailPreviewLineLimit:]
+	if len(lines) > blobViewLivePreviewLineLimit {
+		lines = lines[len(lines)-blobViewLivePreviewLineLimit:]
 	}
 
 	result := make([]string, 0, len(lines))
@@ -916,12 +1020,10 @@ func writeBlobRange(file *os.File, offset int64, data []byte) error {
 	return nil
 }
 
-func (s *BlobViewService) refreshTailSession(session *blobViewSession) error {
-	blobClient, blobSize, contentType, err := s.createBlobClient(
+func (s *BlobViewService) refreshLiveSession(session *blobViewSession) error {
+	blobClient, blobSize, contentType, err := s.createSessionBlobClient(
 		session.downloadCtx,
-		session.accountName,
-		session.containerName,
-		session.blobName,
+		session,
 	)
 	if err != nil {
 		return err
@@ -942,9 +1044,9 @@ func (s *BlobViewService) refreshTailSession(session *blobViewSession) error {
 
 	if isComplete {
 		if blobSize < previousBlobSize {
-			s.resetTailSession(session, blobSize, contentType)
+			s.resetLiveSession(session, blobSize, contentType)
 		} else if blobSize > previousBlobSize {
-			if err := s.appendTailBytes(session, blobClient, previousBlobSize, blobSize); err != nil {
+			if err := s.appendLiveBytes(session, blobClient, previousBlobSize, blobSize); err != nil {
 				return err
 			}
 			session.mu.Lock()
@@ -977,8 +1079,8 @@ func (s *BlobViewService) refreshTailSession(session *blobViewSession) error {
 			session.bytesDownloaded = 0
 			session.indexedBytes = 0
 			session.lineStarts = makeInitialLineStarts(0)
-			session.tailPreviewLines = nil
-			session.tailPreviewStart = 0
+			session.livePreviewLines = nil
+			session.livePreviewStart = 0
 			session.isComplete = true
 			session.errorMessage = ""
 			session.failureReason = ""
@@ -988,8 +1090,27 @@ func (s *BlobViewService) refreshTailSession(session *blobViewSession) error {
 		return nil
 	}
 
-	if err := s.updateTailPreview(session, blobClient, blobSize, contentType); err != nil {
-		return err
+	session.mu.Lock()
+	if session.closed {
+		session.mu.Unlock()
+		return nil
+	}
+	// Refetch the preview window only when the blob actually changed. Polling
+	// otherwise re-downloads a full chunk on every tick for content that is
+	// already on disk.
+	previewIsCurrent := len(session.livePreviewLines) > 0 && session.blobSize == blobSize
+	if previewIsCurrent {
+		session.contentType = contentType
+		session.errorMessage = ""
+		session.failureReason = ""
+		session.lastAccess = s.now()
+	}
+	session.mu.Unlock()
+
+	if !previewIsCurrent {
+		if err := s.updateLivePreview(session, blobClient, blobSize, contentType); err != nil {
+			return err
+		}
 	}
 
 	s.startDownload(session)
@@ -1047,19 +1168,19 @@ func (s *BlobViewService) resizeSessionFile(session *blobViewSession, blobSize i
 	return nil
 }
 
-func (s *BlobViewService) updateTailPreview(
+func (s *BlobViewService) updateLivePreview(
 	session *blobViewSession,
 	blobClient blobViewBlobClient,
 	blobSize int64,
 	contentType string,
 ) error {
-	tailStart := maxInt64(blobSize-defaultBlobChunkSizeBytes, 0)
-	tailData, err := blobClient.DownloadRange(
+	liveStart := maxInt64(blobSize-defaultBlobChunkSizeBytes, 0)
+	liveData, err := blobClient.DownloadRange(
 		session.downloadCtx,
 		session.containerName,
 		session.blobName,
-		tailStart,
-		blobSize-tailStart,
+		liveStart,
+		blobSize-liveStart,
 	)
 	if err != nil {
 		return err
@@ -1073,7 +1194,7 @@ func (s *BlobViewService) updateTailPreview(
 		return nil
 	}
 
-	if err := writeBlobRange(file, tailStart, tailData); err != nil {
+	if err := writeBlobRange(file, liveStart, liveData); err != nil {
 		return err
 	}
 
@@ -1084,10 +1205,10 @@ func (s *BlobViewService) updateTailPreview(
 	}
 	session.blobSize = blobSize
 	session.contentType = contentType
-	session.tailPreviewStart = tailStart
-	session.tailPreviewLines = buildTailPreviewLines(string(tailData), tailStart > 0)
+	session.livePreviewStart = liveStart
+	session.livePreviewLines = buildLivePreviewLines(string(liveData), liveStart > 0)
 	session.bytesDownloaded = session.indexedBytes
-	session.isComplete = session.indexedBytes >= session.blobSize && len(session.tailPreviewLines) == 0
+	session.isComplete = session.indexedBytes >= session.blobSize && len(session.livePreviewLines) == 0
 	session.errorMessage = ""
 	session.failureReason = ""
 	session.lastAccess = s.now()
@@ -1095,7 +1216,7 @@ func (s *BlobViewService) updateTailPreview(
 	return nil
 }
 
-func (s *BlobViewService) resetTailSession(
+func (s *BlobViewService) resetLiveSession(
 	session *blobViewSession,
 	blobSize int64,
 	contentType string,
@@ -1110,8 +1231,8 @@ func (s *BlobViewService) resetTailSession(
 	session.bytesDownloaded = 0
 	session.indexedBytes = 0
 	session.lineStarts = makeInitialLineStarts(blobSize)
-	session.tailPreviewLines = nil
-	session.tailPreviewStart = blobSize
+	session.livePreviewLines = nil
+	session.livePreviewStart = blobSize
 	session.isComplete = blobSize == 0
 	session.errorMessage = ""
 	session.failureReason = ""
@@ -1119,7 +1240,7 @@ func (s *BlobViewService) resetTailSession(
 	session.mu.Unlock()
 }
 
-func (s *BlobViewService) appendTailBytes(
+func (s *BlobViewService) appendLiveBytes(
 	session *blobViewSession,
 	blobClient blobViewBlobClient,
 	startOffset int64,
@@ -1155,12 +1276,15 @@ func (s *BlobViewService) appendTailBytes(
 			session.mu.Unlock()
 			return nil
 		}
-		appendLineStartsLocked(session, offset, data)
+		// The new size has to land first: appendLineStartsLocked discards any
+		// offset past session.blobSize, so indexing before the update would
+		// drop every line break the appended bytes introduced.
 		session.blobSize = endOffset
+		appendLineStartsLocked(session, offset, data)
 		session.indexedBytes = offset + int64(len(data))
 		session.bytesDownloaded = session.indexedBytes
-		session.tailPreviewLines = nil
-		session.tailPreviewStart = session.blobSize
+		session.livePreviewLines = nil
+		session.livePreviewStart = session.blobSize
 		session.isComplete = session.indexedBytes >= session.blobSize
 		session.errorMessage = ""
 		session.failureReason = ""
@@ -1219,61 +1343,113 @@ func readLinesWindow(
 	blobSize int64,
 	isComplete bool,
 ) ([]models.BlobViewLine, error) {
-	lines := make([]models.BlobViewLine, 0, endLine-startLine)
-	for lineNumber := startLine; lineNumber < endLine; lineNumber++ {
-		content, err := readSingleLine(file, lineStarts, lineNumber, indexedBytes, blobSize, isComplete)
-		if err != nil {
-			return nil, err
-		}
+	block, err := readLineBlock(file, lineStarts, startLine, endLine, indexedBytes, blobSize, isComplete)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := make([]models.BlobViewLine, 0, len(block))
+	for index, content := range block {
 		lines = append(lines, models.BlobViewLine{
-			LineNumber: lineNumber,
-			Content:    content,
+			LineNumber: startLine + int64(index),
+			Content:    string(content),
 		})
 	}
 	return lines, nil
 }
 
-func readSingleLine(
+// readLineBlock reads the bytes backing lines [startLine, endLine) with a single
+// ReadAt and slices them per line. The returned slices alias one shared buffer
+// and stay valid only until the caller copies them.
+func readLineBlock(
 	file *os.File,
 	lineStarts []int64,
-	lineNumber int64,
+	startLine int64,
+	endLine int64,
 	indexedBytes int64,
 	blobSize int64,
 	isComplete bool,
-) (string, error) {
-	if lineNumber < 0 || lineNumber >= int64(len(lineStarts)) {
-		return "", nil
+) ([][]byte, error) {
+	totalLines := int64(len(lineStarts))
+	if startLine < 0 {
+		startLine = 0
+	}
+	if endLine > totalLines {
+		endLine = totalLines
+	}
+	if startLine >= endLine {
+		return nil, nil
 	}
 
-	startOffset := lineStarts[lineNumber]
+	startOffset := lineStarts[startLine]
 	endOffset := indexedBytes
 	if isComplete {
 		endOffset = blobSize
 	}
-	if nextLine := lineNumber + 1; nextLine < int64(len(lineStarts)) {
-		endOffset = lineStarts[nextLine]
+	if endLine < totalLines {
+		endOffset = lineStarts[endLine]
 	}
 	if endOffset < startOffset {
 		endOffset = startOffset
 	}
 
-	length := endOffset - startOffset
-	if length == 0 {
-		return "", nil
+	lines := make([][]byte, endLine-startLine)
+	if endOffset == startOffset {
+		return lines, nil
 	}
 	if file == nil {
-		return "", fmt.Errorf("failed to open cached blob")
+		return nil, fmt.Errorf("failed to open cached blob")
 	}
 
-	buffer := make([]byte, length)
+	buffer := make([]byte, endOffset-startOffset)
 	if _, err := file.ReadAt(buffer, startOffset); err != nil && err != io.EOF {
-		return "", fmt.Errorf("failed to read cached blob")
+		return nil, fmt.Errorf("failed to read cached blob")
 	}
 
-	content := string(buffer)
-	content = strings.TrimSuffix(content, "\n")
-	content = strings.TrimSuffix(content, "\r")
-	return content, nil
+	for lineNumber := startLine; lineNumber < endLine; lineNumber++ {
+		lineEnd := endOffset
+		if nextLine := lineNumber + 1; nextLine < totalLines {
+			lineEnd = lineStarts[nextLine]
+		}
+		lines[lineNumber-startLine] = trimLineBreak(
+			sliceLineBytes(buffer, lineStarts[lineNumber]-startOffset, lineEnd-startOffset),
+		)
+	}
+
+	return lines, nil
+}
+
+func sliceLineBytes(buffer []byte, start, end int64) []byte {
+	bufferLength := int64(len(buffer))
+	start = minInt64(maxInt64(start, 0), bufferLength)
+	end = minInt64(maxInt64(end, start), bufferLength)
+	return buffer[start:end]
+}
+
+func trimLineBreak(line []byte) []byte {
+	line = bytes.TrimSuffix(line, []byte("\n"))
+	return bytes.TrimSuffix(line, []byte("\r"))
+}
+
+// appendLowerBytes appends the lowercase form of src to dst so that repeated
+// comparisons can reuse a single buffer instead of allocating per line.
+func appendLowerBytes(dst []byte, src []byte) []byte {
+	for index := 0; index < len(src); {
+		value := src[index]
+		if value < utf8.RuneSelf {
+			if 'A' <= value && value <= 'Z' {
+				value += 'a' - 'A'
+			}
+			dst = append(dst, value)
+			index++
+			continue
+		}
+
+		decoded, size := utf8.DecodeRune(src[index:])
+		dst = utf8.AppendRune(dst, unicode.ToLower(decoded))
+		index += size
+	}
+	return dst
 }
 
 func isSessionClosed(session *blobViewSession) bool {
@@ -1289,7 +1465,7 @@ func sessionIsComplete(session *blobViewSession) bool {
 }
 
 func bytesDownloadedLocked(session *blobViewSession) int64 {
-	if len(session.tailPreviewLines) == 0 {
+	if len(session.livePreviewLines) == 0 {
 		return minInt64(maxInt64(session.bytesDownloaded, session.indexedBytes), session.blobSize)
 	}
 
@@ -1297,7 +1473,7 @@ func bytesDownloadedLocked(session *blobViewSession) int64 {
 		return 0
 	}
 
-	previewStart := minInt64(maxInt64(session.tailPreviewStart, 0), session.blobSize)
+	previewStart := minInt64(maxInt64(session.livePreviewStart, 0), session.blobSize)
 	previewBytes := session.blobSize - maxInt64(previewStart, session.indexedBytes)
 	if previewBytes < 0 {
 		previewBytes = 0

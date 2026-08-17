@@ -10,7 +10,7 @@ export interface AzurePreferences {
 
 export type RefreshInterval = 5 | 15 | 60;
 export type RetentionPolicy = '30d' | '90d' | 'manual';
-export type TailRefreshIntervalSeconds = 5 | 10 | 30 | 60;
+export type LiveRefreshIntervalSeconds = 1 | 5 | 10 | 30 | 60;
 export type AppAppearance = 'system' | 'dark' | 'light';
 
 const APP_APPEARANCES = ['system', 'dark', 'light'] as const;
@@ -29,9 +29,8 @@ export interface AppConfig {
 }
 
 export interface LogsPreferences {
-  wordWrapEnabled: boolean;
   logLevelHighlightingEnabled: boolean;
-  tailRefreshIntervalSeconds: TailRefreshIntervalSeconds;
+  liveRefreshIntervalSeconds: LiveRefreshIntervalSeconds;
   sortBasis: LogSortBasis;
 }
 
@@ -51,9 +50,8 @@ export function createDefaultAppConfig(language = detectPreferredLanguage()): Ap
       appearance: 'system',
     },
     logs: {
-      wordWrapEnabled: false,
       logLevelHighlightingEnabled: true,
-      tailRefreshIntervalSeconds: 10,
+      liveRefreshIntervalSeconds: 10,
       sortBasis: LogSortBasis.LastModified,
     },
   };

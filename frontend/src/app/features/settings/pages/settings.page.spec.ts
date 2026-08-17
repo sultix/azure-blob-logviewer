@@ -37,9 +37,8 @@ class SettingsServiceStub implements Partial<SettingsService> {
     appearance: 'system' as const,
   });
   readonly logs = signal<LogsPreferences>({
-    wordWrapEnabled: false,
     logLevelHighlightingEnabled: true,
-    tailRefreshIntervalSeconds: 10,
+    liveRefreshIntervalSeconds: 10,
     sortBasis: LogSortBasis.LastModified,
   });
   updateGeneral = vi.fn();
@@ -164,16 +163,16 @@ describe('SettingsPage', () => {
     );
   });
 
-  it('renders and updates the tail refresh interval preference', () => {
+  it('renders and updates the live refresh interval preference', () => {
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Tail Refresh Interval');
-    const intervalButton = getButtonByText(fixture, '30s');
+    expect(fixture.nativeElement.textContent).toContain('Live Refresh Interval');
+    const intervalButton = getButtonByText(fixture, '1s');
     intervalButton.click();
 
     const settings = TestBed.inject(SettingsService) as unknown as SettingsServiceStub;
     expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
-      tailRefreshIntervalSeconds: 30,
+      liveRefreshIntervalSeconds: 1,
     });
   });
 

@@ -83,3 +83,141 @@ func TestValidateBlobPreviewSize(t *testing.T) {
 		t.Fatalf("expected oversized blob to be rejected as too_large, got %q", reason)
 	}
 }
+
+func TestBuildListBlobsFlatOptions(t *testing.T) {
+	t.Run("omits options for the default listing", func(t *testing.T) {
+		if options := buildListBlobsFlatOptions("", false); options != nil {
+			t.Fatalf("expected nil options, got %#v", options)
+		}
+	})
+
+	t.Run("includes soft-deleted blobs", func(t *testing.T) {
+		options := buildListBlobsFlatOptions("", true)
+		if options == nil || !options.Include.Deleted {
+			t.Fatal("expected deleted blobs to be included")
+		}
+		if !options.Include.DeletedWithVersions {
+			t.Fatal("expected deleted blobs with versions to be included")
+		}
+		if !options.Include.Versions {
+			t.Fatal("expected blob versions to be included")
+		}
+	})
+
+	t.Run("preserves the prefix while including deleted blobs", func(t *testing.T) {
+		options := buildListBlobsFlatOptions("archive/", true)
+		if options == nil || options.Prefix == nil || *options.Prefix != "archive/" {
+			t.Fatalf("expected archive prefix, got %#v", options)
+		}
+		if !options.Include.Deleted {
+			t.Fatal("expected deleted blobs to be included")
+		}
+		if !options.Include.DeletedWithVersions {
+			t.Fatal("expected deleted blobs with versions to be included")
+		}
+	})
+}
+
+func TestCollapseListedBlobs(t *testing.T) {
+	t.Run("keeps the active blob and hides historical versions", func(t *testing.T) {
+		items := []listedBlobItem{
+			{
+				item: models.AzureBlobItem{
+					Name:         "app.log",
+					Size:         200,
+					VersionID:    "current-version",
+					LastModified: "2026-08-17T10:00:00Z",
+				},
+				isCurrentVersion: true,
+			},
+			{
+				item: models.AzureBlobItem{
+					Name:         "app.log",
+					Size:         100,
+					VersionID:    "old-version",
+					LastModified: "2026-08-16T10:00:00Z",
+				},
+			},
+		}
+
+		result := collapseListedBlobs(items, true)
+		if len(result) != 1 {
+			t.Fatalf("expected one active blob, got %d", len(result))
+		}
+		if result[0].Deleted || result[0].VersionID != "" || result[0].Size != 200 {
+			t.Fatalf("unexpected active blob: %#v", result[0])
+		}
+	})
+
+	t.Run("uses the latest readable version for a deleted versioned blob", func(t *testing.T) {
+		items := []listedBlobItem{
+			{
+				item:            models.AzureBlobItem{Name: "app.log", Deleted: true},
+				hasVersionsOnly: true,
+			},
+			{
+				item: models.AzureBlobItem{
+					Name:         "app.log",
+					Size:         100,
+					VersionID:    "version-1",
+					LastModified: "2026-08-16T10:00:00Z",
+				},
+			},
+			{
+				item: models.AzureBlobItem{
+					Name:         "app.log",
+					Size:         200,
+					VersionID:    "version-2",
+					LastModified: "2026-08-17T10:00:00Z",
+				},
+			},
+		}
+
+		result := collapseListedBlobs(items, true)
+		if len(result) != 1 {
+			t.Fatalf("expected one deleted blob, got %d", len(result))
+		}
+		if !result[0].Deleted || result[0].VersionID != "version-2" || result[0].Size != 200 {
+			t.Fatalf("unexpected deleted versioned blob: %#v", result[0])
+		}
+	})
+
+	t.Run("keeps a classic soft-deleted blob for restoration", func(t *testing.T) {
+		items := []listedBlobItem{{
+			item: models.AzureBlobItem{
+				Name:      "app.log",
+				Deleted:   true,
+				DeletedAt: "2026-08-17T10:00:00Z",
+			},
+		}}
+
+		result := collapseListedBlobs(items, true)
+		if len(result) != 1 || !result[0].Deleted || result[0].VersionID != "" {
+			t.Fatalf("unexpected classic deleted blob: %#v", result)
+		}
+	})
+}
+
+func TestIsDeletedBlob(t *testing.T) {
+	trueValue := true
+	falseValue := false
+
+	tests := []struct {
+		name            string
+		deleted         *bool
+		hasVersionsOnly *bool
+		want            bool
+	}{
+		{name: "active blob", deleted: &falseValue, hasVersionsOnly: &falseValue},
+		{name: "soft-deleted blob", deleted: &trueValue, want: true},
+		{name: "deleted versioned blob", hasVersionsOnly: &trueValue, want: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isDeletedBlob(test.deleted, test.hasVersionsOnly); got != test.want {
+				t.Fatalf("isDeletedBlob() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}

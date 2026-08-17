@@ -103,14 +103,14 @@ func (a *App) ListContainers(subscriptionID, resourceGroup, accountName string) 
 	return a.azureRes.ListContainers(a.ctx, subscriptionID, resourceGroup, accountName)
 }
 
-func (a *App) ListBlobs(accountName, containerName, prefix string) ([]models.AzureBlobItem, error) {
+func (a *App) ListBlobs(accountName, containerName, prefix string, includeDeleted bool) ([]models.AzureBlobItem, error) {
 	if accountName == "" {
 		return nil, fmt.Errorf("account name is required")
 	}
 	if containerName == "" {
 		return nil, fmt.Errorf("container name is required")
 	}
-	return a.azureRes.ListBlobs(a.ctx, accountName, containerName, prefix)
+	return a.azureRes.ListBlobs(a.ctx, accountName, containerName, prefix, includeDeleted)
 }
 
 func (a *App) ReadBlobTextChunk(request models.AzureBlobTextChunkRequest) (*models.AzureBlobTextChunk, error) {
@@ -123,7 +123,23 @@ func (a *App) ReadBlobTextChunk(request models.AzureBlobTextChunkRequest) (*mode
 	if request.BlobName == "" {
 		return nil, fmt.Errorf("blob name is required")
 	}
+	if err := validateVersionID(request.VersionID); err != nil {
+		return nil, err
+	}
 	return a.azureRes.ReadBlobTextChunk(a.ctx, request)
+}
+
+func (a *App) RestoreBlob(request models.RestoreAzureBlobRequest) error {
+	if request.AccountName == "" {
+		return fmt.Errorf("account name is required")
+	}
+	if request.ContainerName == "" {
+		return fmt.Errorf("container name is required")
+	}
+	if request.BlobName == "" {
+		return fmt.Errorf("blob name is required")
+	}
+	return a.azureRes.RestoreBlob(a.ctx, request)
 }
 
 func (a *App) OpenBlobViewSession(request models.OpenBlobViewSessionRequest) (*models.BlobViewSessionStatus, error) {
@@ -136,10 +152,23 @@ func (a *App) OpenBlobViewSession(request models.OpenBlobViewSessionRequest) (*m
 	if request.BlobName == "" {
 		return nil, fmt.Errorf("blob name is required")
 	}
+	if err := validateVersionID(request.VersionID); err != nil {
+		return nil, err
+	}
 	if request.Mode == "" {
 		request.Mode = models.BlobViewModeSnapshot
 	}
 	return a.blobView.OpenSession(a.ctx, request)
+}
+
+func validateVersionID(versionID string) error {
+	if len(versionID) > 256 {
+		return fmt.Errorf("version id exceeds the supported length")
+	}
+	if strings.ContainsAny(versionID, "\r\n") {
+		return fmt.Errorf("version id contains invalid characters")
+	}
+	return nil
 }
 
 func (a *App) GetBlobViewStatus(sessionID string) (*models.BlobViewSessionStatus, error) {

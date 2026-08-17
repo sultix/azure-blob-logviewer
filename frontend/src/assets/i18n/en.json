@@ -70,6 +70,8 @@
       "addButtonTitleDisabled": "Please connect to Azure in Settings first",
       "editButtonTitleEnabled": "Edit this storage connection",
       "editButtonTitleDisabled": "Please connect to Azure in Settings first",
+      "openButtonTitleEnabled": "Open logs for this storage connection",
+      "openButtonTitleDisabled": "Please wait for Azure authentication or connect in Settings first",
       "authNoticeBefore": "Please connect to Azure in ",
       "authNoticeAfter": " first to add new storage connections.",
       "loading": "Loading connections…",
@@ -134,7 +136,22 @@
       "createdMetaLabel": "Created",
       "modifiedMetaLabel": "Modified",
       "live": "LIVE",
+      "deleted": "Deleted",
+      "deletedRetentionDay": "Deleted · {{count}} day left",
+      "deletedRetentionDays": "Deleted · {{count}} days left",
+      "includeDeleted": "Deleted",
+      "includeDeletedAriaLabel": "Show soft-deleted blobs",
       "refreshAriaLabel": "Refresh available logs"
+    },
+    "restore": {
+      "title": "Restore file",
+      "message": "Restore {{name}} in Azure Storage and open it?",
+      "accept": "Restore and open",
+      "failedTitle": "Restore failed",
+      "failed": "The file could not be restored. Check your Azure permissions.",
+      "restoredTitle": "File restored",
+      "refreshFailed": "The file was restored. Refresh the list again to open it.",
+      "restored": "The file was restored and opened."
     },
     "detail": {
       "loading": "Loading logs…",
@@ -145,11 +162,9 @@
       "size": "Size {{value}}",
       "created": "Created {{value}}",
       "modified": "Modified {{value}}",
-      "wordWrap": "Word Wrap",
-      "wordWrapToggleAriaLabel": "Toggle word wrap for log content",
-      "tail": "Tail",
-      "tailToggleAriaLabel": "Toggle live tail mode for log content",
-      "wordWrapDisabledInTail": "Word wrap is disabled while tail mode is active.",
+      "deletedVersionReadOnly": "Deleted version · read-only",
+      "live": "Live",
+      "liveToggleAriaLabel": "Toggle live mode for log content",
       "searchContentPlaceholder": "Search content...",
       "searchContentAriaLabel": "Search within log content",
       "clearSearch": "Clear search",
@@ -168,12 +183,11 @@
         "progress": "{{loaded}} / {{total}} loaded",
         "backgroundLoading": "File is loading in the background",
         "complete": "File fully loaded",
-        "tailActive": "Tail mode active",
-        "tailRefresh": "Refreshing every {{seconds}}s",
-        "wordWrapUnavailable": "Word wrap is unavailable for large files to keep the viewer responsive.",
+        "liveActive": "Live mode active",
+        "liveRefresh": "Refreshing every {{seconds}}s",
         "pendingBefore": "Earlier lines are still loading",
         "pendingAfter": "Later lines are still loading",
-        "tailPreview": "Tail shows the newest lines immediately. Older parts of the file continue loading in the background.",
+        "livePreview": "Live mode shows the newest lines immediately. Older parts of the file continue loading in the background.",
         "preparingLines": "Preparing visible lines…",
         "matches": "{{count}} matches",
         "matchesPartial": "{{count}} matches so far",
@@ -191,10 +205,8 @@
       "mobileActions": {
         "refresh": "Refresh",
         "download": "Download",
-        "wordWrapOn": "Word Wrap: On",
-        "wordWrapOff": "Word Wrap: Off",
-        "tailOn": "Tail: On",
-        "tailOff": "Tail: Off"
+        "liveOn": "Live: On",
+        "liveOff": "Live: Off"
       },
       "footer": {
         "lines": "Lines: {{count}}",
@@ -245,9 +257,9 @@
         "title": "Language",
         "description": "Choose the frontend language for labels, messages, and date formatting."
       },
-      "tailRefreshInterval": {
-        "title": "Tail Refresh Interval",
-        "description": "How often tail mode fetches the newest log lines.",
+      "liveRefreshInterval": {
+        "title": "Live Refresh Interval",
+        "description": "How often live mode fetches the newest log lines.",
         "seconds": "{{count}}s",
         "minute": "60s"
       },

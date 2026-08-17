@@ -29,7 +29,7 @@ import type {
   AppAppearance,
   RefreshInterval,
   RetentionPolicy,
-  TailRefreshIntervalSeconds,
+  LiveRefreshIntervalSeconds,
 } from '../models/app-config.model';
 
 import { AzureLoginComponent } from '../components/azure-login/azure-login.component';
@@ -76,28 +76,34 @@ export class SettingsPage implements OnInit {
     { value: 'en', label: this.i18n.translate('common.languageNames.en') },
     { value: 'de', label: this.i18n.translate('common.languageNames.de') },
   ]);
-  readonly tailRefreshIntervalOptions = computed<
-    { value: TailRefreshIntervalSeconds; label: string }[]
+  readonly liveRefreshIntervalOptions = computed<
+    { value: LiveRefreshIntervalSeconds; label: string }[]
   >(() => [
     {
+      value: 1,
+      label: this.i18n.translate('settings.page.liveRefreshInterval.seconds', {
+        count: 1,
+      }),
+    },
+    {
       value: 5,
-      label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', {
+      label: this.i18n.translate('settings.page.liveRefreshInterval.seconds', {
         count: 5,
       }),
     },
     {
       value: 10,
-      label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', {
+      label: this.i18n.translate('settings.page.liveRefreshInterval.seconds', {
         count: 10,
       }),
     },
     {
       value: 30,
-      label: this.i18n.translate('settings.page.tailRefreshInterval.seconds', {
+      label: this.i18n.translate('settings.page.liveRefreshInterval.seconds', {
         count: 30,
       }),
     },
-    { value: 60, label: this.i18n.translate('settings.page.tailRefreshInterval.minute') },
+    { value: 60, label: this.i18n.translate('settings.page.liveRefreshInterval.minute') },
   ]);
   readonly appearanceOptions = computed<{ value: AppAppearance; label: string }[]>(() => [
     { value: 'system', label: this.i18n.translate('settings.page.appearance.system') },
@@ -166,8 +172,8 @@ export class SettingsPage implements OnInit {
     this.settings.updateGeneral({ appearance: value });
   }
 
-  setTailRefreshInterval(value: TailRefreshIntervalSeconds): void {
-    this.settings.updateLogsPreferences({ tailRefreshIntervalSeconds: value });
+  setLiveRefreshInterval(value: LiveRefreshIntervalSeconds): void {
+    this.settings.updateLogsPreferences({ liveRefreshIntervalSeconds: value });
   }
 
   setLogLevelHighlightingEnabled(value: boolean): void {

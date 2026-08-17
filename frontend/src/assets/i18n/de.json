@@ -70,6 +70,8 @@
       "addButtonTitleDisabled": "Bitte zuerst in den Einstellungen mit Azure verbinden",
       "editButtonTitleEnabled": "Diese Storage-Verbindung bearbeiten",
       "editButtonTitleDisabled": "Bitte zuerst in den Einstellungen mit Azure verbinden",
+      "openButtonTitleEnabled": "Logs für diese Storage-Verbindung öffnen",
+      "openButtonTitleDisabled": "Bitte auf die Azure-Authentifizierung warten oder zuerst in den Einstellungen verbinden",
       "authNoticeBefore": "Bitte verbinden Sie sich zuerst unter ",
       "authNoticeAfter": ", um neue Storage-Verbindungen hinzuzufügen.",
       "loading": "Verbindungen werden geladen…",
@@ -134,7 +136,22 @@
       "createdMetaLabel": "Erstellt",
       "modifiedMetaLabel": "Geändert",
       "live": "LIVE",
+      "deleted": "Gelöscht",
+      "deletedRetentionDay": "Gelöscht · noch {{count}} Tag",
+      "deletedRetentionDays": "Gelöscht · noch {{count}} Tage",
+      "includeDeleted": "Gelöschte",
+      "includeDeletedAriaLabel": "Soft-gelöschte Blobs anzeigen",
       "refreshAriaLabel": "Verfügbare Logs aktualisieren"
+    },
+    "restore": {
+      "title": "Datei wiederherstellen",
+      "message": "{{name}} in Azure Storage wiederherstellen und öffnen?",
+      "accept": "Wiederherstellen und öffnen",
+      "failedTitle": "Wiederherstellung fehlgeschlagen",
+      "failed": "Die Datei konnte nicht wiederhergestellt werden. Prüfen Sie Ihre Azure-Berechtigungen.",
+      "restoredTitle": "Datei wiederhergestellt",
+      "refreshFailed": "Die Datei wurde wiederhergestellt. Aktualisieren Sie die Liste erneut, um sie zu öffnen.",
+      "restored": "Die Datei wurde wiederhergestellt und geöffnet."
     },
     "detail": {
       "loading": "Logs werden geladen…",
@@ -145,11 +162,9 @@
       "size": "Größe {{value}}",
       "created": "Erstellt {{value}}",
       "modified": "Geändert {{value}}",
-      "wordWrap": "Zeilenumbruch",
-      "wordWrapToggleAriaLabel": "Zeilenumbruch für Loginhalt umschalten",
-      "tail": "Tail",
-      "tailToggleAriaLabel": "Live-Tail-Modus für Loginhalt umschalten",
-      "wordWrapDisabledInTail": "Der Zeilenumbruch ist deaktiviert, solange der Tail-Modus aktiv ist.",
+      "deletedVersionReadOnly": "Gelöschte Version · schreibgeschützt",
+      "live": "Live",
+      "liveToggleAriaLabel": "Live-Modus für Loginhalt umschalten",
       "searchContentPlaceholder": "Inhalt durchsuchen...",
       "searchContentAriaLabel": "Im Loginhalt suchen",
       "clearSearch": "Suche löschen",
@@ -168,12 +183,11 @@
         "progress": "{{loaded}} / {{total}} geladen",
         "backgroundLoading": "Datei wird im Hintergrund geladen",
         "complete": "Datei vollständig geladen",
-        "tailActive": "Tail-Modus aktiv",
-        "tailRefresh": "Aktualisierung alle {{seconds}}s",
-        "wordWrapUnavailable": "Zeilenumbruch ist für große Dateien nicht verfügbar, damit der Viewer flüssig bleibt.",
+        "liveActive": "Live-Modus aktiv",
+        "liveRefresh": "Aktualisierung alle {{seconds}}s",
         "pendingBefore": "Frühere Zeilen werden noch geladen",
         "pendingAfter": "Spätere Zeilen werden noch geladen",
-        "tailPreview": "Tail zeigt die neuesten Zeilen sofort an. Ältere Teile der Datei werden im Hintergrund nachgeladen.",
+        "livePreview": "Der Live-Modus zeigt die neuesten Zeilen sofort an. Ältere Teile der Datei werden im Hintergrund nachgeladen.",
         "preparingLines": "Sichtbare Zeilen werden vorbereitet…",
         "matches": "{{count}} Treffer",
         "matchesPartial": "{{count}} Treffer bisher",
@@ -191,10 +205,8 @@
       "mobileActions": {
         "refresh": "Aktualisieren",
         "download": "Herunterladen",
-        "wordWrapOn": "Zeilenumbruch: An",
-        "wordWrapOff": "Zeilenumbruch: Aus",
-        "tailOn": "Tail: An",
-        "tailOff": "Tail: Aus"
+        "liveOn": "Live: An",
+        "liveOff": "Live: Aus"
       },
       "footer": {
         "lines": "Zeilen: {{count}}",
@@ -245,9 +257,9 @@
         "title": "Sprache",
         "description": "Wählen Sie die Frontend-Sprache für Beschriftungen, Meldungen und Datumsformate."
       },
-      "tailRefreshInterval": {
-        "title": "Tail-Aktualisierungsintervall",
-        "description": "Wie oft der Tail-Modus die neuesten Logzeilen neu lädt.",
+      "liveRefreshInterval": {
+        "title": "Live-Aktualisierungsintervall",
+        "description": "Wie oft der Live-Modus die neuesten Logzeilen neu lädt.",
         "seconds": "{{count}}s",
         "minute": "60s"
       },

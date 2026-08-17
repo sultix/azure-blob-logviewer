@@ -2,7 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
-import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
+import {
+  initializeI18nForTests,
+  provideTranslateTesting,
+} from '@app/testing/translate-testing';
 
 import type { LogFileRowVm } from '../../models/logs-view.model';
 
@@ -39,7 +42,9 @@ describe('LogsFileListComponent', () => {
     fixture.componentRef.setInput('selectedEntryIds', []);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('No blobs found in this container.');
+    expect(fixture.nativeElement.textContent).toContain(
+      'No blobs found in this container.',
+    );
   });
 
   it('highlights selected rows and emits additive selection metadata', () => {
@@ -51,6 +56,7 @@ describe('LogsFileListComponent', () => {
         lastModifiedLabel: 'Today, 10:45',
         sizeLabel: '1.0 KB',
         isLive: true,
+        isDeleted: false,
       },
       {
         id: 'entry-2',
@@ -59,11 +65,10 @@ describe('LogsFileListComponent', () => {
         lastModifiedLabel: 'Today, 10:05',
         sizeLabel: '2.0 KB',
         isLive: false,
+        isDeleted: false,
       },
     ];
-    const entrySelected = vi.fn<
-      (event: { id: string; additive: boolean }) => void
-    >();
+    const entrySelected = vi.fn<(event: { id: string; additive: boolean }) => void>();
     component.entrySelected.subscribe(entrySelected);
 
     fixture.componentRef.setInput('rows', rows);
@@ -101,5 +106,47 @@ describe('LogsFileListComponent', () => {
     component.refresh();
 
     expect(refreshRequested).toHaveBeenCalledOnce();
+  });
+
+  it('emits deleted-filter changes and keeps deleted rows selectable', () => {
+    const includeDeletedChanged = vi.fn<(value: boolean) => void>();
+    const entrySelected = vi.fn<(event: { id: string; additive: boolean }) => void>();
+    component.includeDeletedChanged.subscribe(includeDeletedChanged);
+    component.entrySelected.subscribe(entrySelected);
+
+    fixture.componentRef.setInput('rows', [
+      {
+        id: 'deleted-1',
+        blobName: 'deleted.log',
+        createdLabel: 'Today, 10:30',
+        lastModifiedLabel: 'Today, 10:45',
+        sizeLabel: '1.0 KB',
+        isLive: false,
+        isDeleted: true,
+        deletedLabel: 'Deleted · 4 days left',
+      },
+    ] satisfies LogFileRowVm[]);
+    fixture.componentRef.setInput('includeDeleted', true);
+    fixture.componentRef.setInput('selectedEntryIds', []);
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('li button') as HTMLButtonElement;
+    expect(row.disabled).toBe(false);
+    expect(row.title).toBe('Deleted · 4 days left');
+    expect(row.className).toContain('bg-error-container/10');
+    expect(row.className).toContain('ring-error/30');
+    expect(row.querySelector('.pi-trash')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Deleted · 4 days left');
+
+    row.click();
+
+    expect(entrySelected).toHaveBeenCalledWith({
+      id: 'deleted-1',
+      additive: false,
+    });
+
+    component.onIncludeDeletedChange(false);
+
+    expect(includeDeletedChanged).toHaveBeenCalledWith(false);
   });
 });

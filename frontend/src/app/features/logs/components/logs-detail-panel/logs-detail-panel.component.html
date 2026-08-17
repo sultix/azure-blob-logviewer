@@ -52,35 +52,22 @@
 
       <div class="flex flex-wrap items-start justify-end gap-4">
         <div class="flex flex-wrap items-center justify-end gap-4">
-          <div class="hidden 2xl:flex 2xl:items-center 2xl:gap-4">
-            <label
-              for="logs-word-wrap"
-              class="flex items-center self-center gap-2 text-xs font-semibold text-on-surface"
-            >
-              <span>{{ 'logs.detail.wordWrap' | translate }}</span>
-              <p-toggleswitch
-                inputId="logs-word-wrap"
-                [ngModel]="wordWrapEnabled()"
-                (ngModelChange)="onWordWrapChange($event)"
-                [disabled]="!canToggleWordWrap()"
-                [ariaLabel]="'logs.detail.wordWrapToggleAriaLabel' | translate"
-              />
-            </label>
-            @if (tailAvailable()) {
+          @if (liveAvailable()) {
+            <div class="hidden 2xl:flex 2xl:items-center 2xl:gap-4">
               <label
-                for="logs-tail-mode"
+                for="logs-live-mode"
                 class="flex items-center self-center gap-2 text-xs font-semibold text-on-surface"
               >
-                <span>{{ 'logs.detail.tail' | translate }}</span>
+                <span>{{ 'logs.detail.live' | translate }}</span>
                 <p-toggleswitch
-                  inputId="logs-tail-mode"
-                  [ngModel]="tailEnabled()"
-                  (ngModelChange)="onTailChange($event)"
-                  [ariaLabel]="'logs.detail.tailToggleAriaLabel' | translate"
+                  inputId="logs-live-mode"
+                  [ngModel]="liveEnabled()"
+                  (ngModelChange)="onLiveChange($event)"
+                  [ariaLabel]="'logs.detail.liveToggleAriaLabel' | translate"
                 />
               </label>
-            }
-          </div>
+            </div>
+          }
           <div
             class="flex min-w-[15rem] items-center gap-2 rounded-lg bg-surface-container-highest px-3 py-2"
           >
@@ -188,7 +175,9 @@
           <div class="flex flex-col gap-1">
             <span class="font-semibold text-on-surface">{{ viewer.statusLabel }}</span>
             <span>{{ viewer.progressLabel }}</span>
-            <span>{{ largeViewerInfoLabel() }}</span>
+            @if (largeViewerInfoLabel(); as infoLabel) {
+              <span>{{ infoLabel }}</span>
+            }
           </div>
           @if (viewer.pendingBeforeLabel || viewer.pendingAfterLabel) {
             <span class="rounded-full bg-surface-container-high px-2 py-1">
@@ -213,14 +202,14 @@
           {{ contentErrorMessage() }}
         </div>
       } @else if (largeViewer(); as viewer) {
-        @if (viewer.tailPreviewLines.length > 0) {
+        @if (viewer.livePreviewLines.length > 0) {
           <div class="flex flex-col">
             <div
               class="rounded-lg border border-surface-container-highest bg-surface-container px-4 py-3 text-xs text-on-surface-variant mb-2"
             >
-              {{ 'logs.detail.viewer.tailPreview' | translate }}
+              {{ 'logs.detail.viewer.livePreview' | translate }}
             </div>
-            @for (line of renderedTailPreviewLines(); track line.lineNumber) {
+            @for (line of renderedLivePreviewLines(); track line.lineNumber) {
               <div class="h-4.5">
                 <span [class]="largeLineContentClass()" [innerHTML]="line.html"></span>
               </div>
@@ -258,13 +247,6 @@
           }
         }
       } @else {
-        @if (tailEnabled()) {
-          <div
-            class="mb-3 rounded-lg border border-surface-container-highest bg-surface-container px-4 py-3 text-xs text-on-surface-variant"
-          >
-            {{ 'logs.detail.wordWrapDisabledInTail' | translate }}
-          </div>
-        }
         <pre
           #contentElement
           [class]="contentClass()"

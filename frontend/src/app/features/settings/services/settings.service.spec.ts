@@ -47,7 +47,7 @@ describe('SettingsService', () => {
       JSON.stringify({
         azure: { lastSubscriptionId: 'sub-1' },
         general: { retentionPolicy: 'manual' },
-        logs: { wordWrapEnabled: true },
+        logs: { logLevelHighlightingEnabled: false },
       }),
     );
 
@@ -68,11 +68,100 @@ describe('SettingsService', () => {
       appearance: 'system',
     });
     expect(service.logs()).toEqual({
-      wordWrapEnabled: true,
-      logLevelHighlightingEnabled: true,
-      tailRefreshIntervalSeconds: 10,
+      logLevelHighlightingEnabled: false,
+      liveRefreshIntervalSeconds: 10,
       sortBasis: LogSortBasis.LastModified,
     });
+  });
+
+  it('adopts the retired tail refresh interval and drops the legacy key', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        logs: { tailRefreshIntervalSeconds: 30 },
+      }),
+    );
+
+    TestBed.configureTestingModule({
+      providers: [SettingsService],
+    });
+    const service = TestBed.inject(SettingsService);
+
+    // toEqual fails on extra properties, so this also proves the legacy key
+    // never reaches the in-memory preferences.
+    expect(service.logs()).toEqual({
+      logLevelHighlightingEnabled: true,
+      liveRefreshIntervalSeconds: 30,
+      sortBasis: LogSortBasis.LastModified,
+    });
+  });
+
+  it('prefers the live refresh interval over the retired tail key', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        logs: { tailRefreshIntervalSeconds: 30, liveRefreshIntervalSeconds: 5 },
+      }),
+    );
+
+    TestBed.configureTestingModule({
+      providers: [SettingsService],
+    });
+    const service = TestBed.inject(SettingsService);
+
+    expect(service.logs().liveRefreshIntervalSeconds).toBe(5);
+  });
+
+  it('purges the retired tail key from storage on the next write', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        logs: { tailRefreshIntervalSeconds: 30 },
+      }),
+    );
+
+    TestBed.configureTestingModule({
+      providers: [SettingsService],
+    });
+    const service = TestBed.inject(SettingsService);
+
+    service.updateLogsPreferences({ logLevelHighlightingEnabled: false });
+
+    const persisted = localStorage.getItem(STORAGE_KEY) ?? '';
+    expect(persisted).not.toContain('tailRefreshIntervalSeconds');
+    expect(persisted).toContain('"liveRefreshIntervalSeconds":30');
+  });
+
+  it('falls back to the default refresh interval for an unsupported stored value', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        logs: { liveRefreshIntervalSeconds: 999 },
+      }),
+    );
+
+    TestBed.configureTestingModule({
+      providers: [SettingsService],
+    });
+    const service = TestBed.inject(SettingsService);
+
+    expect(service.logs().liveRefreshIntervalSeconds).toBe(10);
+  });
+
+  it('restores the one-second live refresh interval', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        logs: { liveRefreshIntervalSeconds: 1 },
+      }),
+    );
+
+    TestBed.configureTestingModule({
+      providers: [SettingsService],
+    });
+    const service = TestBed.inject(SettingsService);
+
+    expect(service.logs().liveRefreshIntervalSeconds).toBe(1);
   });
 
   it('falls back to defaults when persisted JSON is invalid', () => {
@@ -107,7 +196,6 @@ describe('SettingsService', () => {
       appearance: 'dark',
     });
     service.updateLogsPreferences({
-      wordWrapEnabled: true,
       logLevelHighlightingEnabled: false,
       sortBasis: LogSortBasis.Created,
     });
@@ -124,9 +212,8 @@ describe('SettingsService', () => {
       appearance: 'dark',
     });
     expect(service.logs()).toEqual({
-      wordWrapEnabled: true,
       logLevelHighlightingEnabled: false,
-      tailRefreshIntervalSeconds: 10,
+      liveRefreshIntervalSeconds: 10,
       sortBasis: LogSortBasis.Created,
     });
     expect(localStorage.getItem(STORAGE_KEY)).toBe(

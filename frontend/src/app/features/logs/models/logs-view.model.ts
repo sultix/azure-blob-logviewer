@@ -18,6 +18,8 @@ export interface LogFileRowVm {
   lastModifiedLabel: string;
   sizeLabel: string;
   isLive: boolean;
+  isDeleted: boolean;
+  deletedLabel?: string;
 }
 
 export interface LogFileSelectionEvent {
@@ -53,7 +55,7 @@ export type LogLargeViewerScrollCommand =
   | { kind: 'bottom'; requestId: number };
 
 export interface LogLargeViewerVm {
-  mode: 'snapshot' | 'tail';
+  mode: 'snapshot' | 'live';
   progressLabel: string;
   statusLabel: string;
   searchStatusLabel: string;
@@ -65,10 +67,9 @@ export interface LogLargeViewerVm {
   bottomSpacerPx: number;
   lines: LogVirtualLineVm[];
   totalLines: number;
-  tailPreviewLines: string[];
+  livePreviewLines: string[];
   pendingBeforeLabel: string | null;
   pendingAfterLabel: string | null;
-  canEnableWordWrap: boolean;
   downloadDisabled: boolean;
 }
 

@@ -54,14 +54,25 @@ export interface AzureBlobItem {
   createdAt: string;
   lastModified: string;
   blobType: string;
+  deleted: boolean;
+  deletedAt: string;
+  remainingRetentionDays: number;
+  versionId?: string;
 }
 
 export interface AzureBlobTextChunkRequest {
   accountName: string;
   containerName: string;
   blobName: string;
+  versionId?: string;
   startOffset?: number | null;
   count?: number | null;
+}
+
+export interface RestoreAzureBlobRequest {
+  accountName: string;
+  containerName: string;
+  blobName: string;
 }
 
 export interface AzureBlobTextChunk {

@@ -151,12 +151,20 @@
 
             <div class="flex min-w-0 flex-1 flex-col gap-1">
               <div class="flex items-center gap-3">
+                @if (vm.isAuthenticated) {
                 <a
                   [routerLink]="['/logs', card.id]"
                   class="block max-w-full truncate rounded-sm font-mono text-sm font-medium text-on-surface underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >
                   {{ card.name }}
                 </a>
+                } @else {
+                <span
+                  class="block max-w-full truncate font-mono text-sm font-medium text-on-surface-variant"
+                >
+                  {{ card.name }}
+                </span>
+                }
               </div>
               <div class="flex items-center gap-4 text-xs text-on-surface-variant">
                 <span>{{ card.displayName }}</span>
@@ -172,7 +180,9 @@
               <button
                 type="button"
                 (click)="openLogs(card)"
-                class="flex h-10 items-center gap-2 rounded-lg bg-surface-container-highest px-4 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright"
+                [disabled]="!vm.isAuthenticated"
+                [title]="vm.isAuthenticated ? ('connections.page.openButtonTitleEnabled' | translate) : ('connections.page.openButtonTitleDisabled' | translate)"
+                class="flex h-10 items-center gap-2 rounded-lg bg-surface-container-highest px-4 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface-container-highest"
               >
                 @if (card.isOffline) {
                 <i class="pi pi-refresh text-xs"></i>

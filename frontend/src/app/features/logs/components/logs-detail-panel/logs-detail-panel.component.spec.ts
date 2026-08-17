@@ -20,8 +20,6 @@ import { LOG_VIRTUAL_LINE_HEIGHT_PX } from '../../models/logs-viewer.constants';
 
 import { LogsDetailPanelComponent } from './logs-detail-panel.component';
 
-const SETTINGS_STORAGE_KEY = 'obsidian-console:config';
-
 describe('LogsDetailPanelComponent', () => {
   let fixture: ComponentFixture<LogsDetailPanelComponent>;
   let component: LogsDetailPanelComponent;
@@ -87,7 +85,7 @@ describe('LogsDetailPanelComponent', () => {
 
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('tailAvailable', true);
+    fixture.componentRef.setInput('liveAvailable', true);
     fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput('content', 'line 1\nline 2');
     fixture.componentRef.setInput('contentLoading', false);
@@ -108,7 +106,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Ln 1034, Col 42');
     expect(fixture.nativeElement.textContent).not.toContain('UTF-8');
     expect(fixture.nativeElement.textContent).not.toContain('Spaces: 4');
-    expect(fixture.nativeElement.textContent).toContain('Word Wrap');
+    expect(fixture.nativeElement.textContent).toContain('Live');
     expect(fixture.nativeElement.querySelector('p-toggleswitch')).not.toBeNull();
     expect(
       fixture.nativeElement.querySelector(
@@ -132,8 +130,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(component.mobileActionItems().map((item) => item.label)).toEqual([
       'Refresh',
       'Download',
-      'Tail: Off',
-      'Word Wrap: Off',
+      'Live: Off',
     ]);
 
     const scrollContainer = fixture.nativeElement.querySelector('.overflow-auto');
@@ -171,9 +168,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(refreshRequested).toHaveBeenCalledOnce();
   });
 
-  it('uses the compact 18px line height and disables wrapping in tail mode', () => {
-    settings.updateLogsPreferences({ wordWrapEnabled: true });
-
+  it('uses the compact 18px line height in live mode', () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -183,20 +178,14 @@ describe('LogsDetailPanelComponent', () => {
 
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('tailEnabled', true);
+    fixture.componentRef.setInput('liveEnabled', true);
     fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('content', 'tail line 1\ntail line 2');
+    fixture.componentRef.setInput('content', 'live line 1\nlive line 2');
     fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain(
-      'Word wrap is disabled while tail mode is active.',
-    );
 
     const content = fixture.nativeElement.querySelector('pre') as HTMLPreElement;
     expect(content.className).toContain('whitespace-pre');
     expect(content.className).toContain('leading-[18px]');
-    expect(content.className).not.toContain('whitespace-pre-wrap');
-    expect(content.className).not.toContain('break-all');
   });
 
   it('renders a real content error and hides content-based footer values', () => {
@@ -292,10 +281,9 @@ describe('LogsDetailPanelComponent', () => {
         { lineNumber: 19, content: 'next error line' },
       ],
       totalLines: 42,
-      tailPreviewLines: [],
+      livePreviewLines: [],
       pendingBeforeLabel: 'Earlier lines are still loading',
       pendingAfterLabel: 'Later lines are still loading',
-      canEnableWordWrap: false,
       downloadDisabled: true,
     };
     const downloadRequested = vi.fn<() => void>();
@@ -333,15 +321,13 @@ describe('LogsDetailPanelComponent', () => {
     });
     scrollContainer.scrollTop = 0;
     component.onLargeViewerScroll();
+    flushViewportEmit(fixture);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain(
       'File is loading in the background',
     );
     expect(fixture.nativeElement.textContent).toContain('4.0 MB / 100.0 MB loaded');
-    expect(fixture.nativeElement.textContent).toContain(
-      'Word wrap is unavailable for large files to keep the viewer responsive.',
-    );
     expect(fixture.nativeElement.textContent).toContain(
       'Earlier lines are still loading',
     );
@@ -391,7 +377,6 @@ describe('LogsDetailPanelComponent', () => {
       nearBottom: false,
     });
     expect(component.mobileActionItems()[1]?.disabled).toBe(true);
-    expect(component.canToggleWordWrap()).toBe(false);
   });
 
   it('renders large viewer lines without highlight markup when no search query is set', () => {
@@ -414,10 +399,9 @@ describe('LogsDetailPanelComponent', () => {
       bottomSpacerPx: 0,
       lines: [{ lineNumber: 7, content: 'plain line content' }],
       totalLines: 1,
-      tailPreviewLines: [],
+      livePreviewLines: [],
       pendingBeforeLabel: null,
       pendingAfterLabel: null,
-      canEnableWordWrap: true,
       downloadDisabled: false,
     };
 
@@ -428,13 +412,9 @@ describe('LogsDetailPanelComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('plain line content');
-    expect(fixture.nativeElement.textContent).toContain(
-      'Word wrap is unavailable for large files to keep the viewer responsive.',
-    );
     expect(fixture.nativeElement.querySelectorAll('mark.log-search-match')).toHaveLength(
       0,
     );
-    expect(component.canToggleWordWrap()).toBe(false);
   });
 
   it('marks bracketed log levels in the normal content view', () => {
@@ -537,10 +517,9 @@ describe('LogsDetailPanelComponent', () => {
       bottomSpacerPx: 0,
       lines: [{ lineNumber: 7, content: '[ERROR] failure' }],
       totalLines: 1,
-      tailPreviewLines: [],
+      livePreviewLines: [],
       pendingBeforeLabel: null,
       pendingAfterLabel: null,
-      canEnableWordWrap: true,
       downloadDisabled: false,
     };
 
@@ -558,7 +537,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(tokens[0]?.className).toContain('ring-error/20');
   });
 
-  it('renders tail preview lines with precomputed html', () => {
+  it('renders live preview lines with precomputed html', () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -569,7 +548,7 @@ describe('LogsDetailPanelComponent', () => {
       lineCountLabel: 'Lines in excerpt: 200',
     };
     const largeViewer: LogLargeViewerVm = {
-      mode: 'tail',
+      mode: 'live',
       progressLabel: '4.0 MB / 100.0 MB loaded',
       statusLabel: 'File is loading in the background',
       searchStatusLabel: '1 / 1',
@@ -581,10 +560,9 @@ describe('LogsDetailPanelComponent', () => {
       bottomSpacerPx: 0,
       lines: [],
       totalLines: 0,
-      tailPreviewLines: ['tail error line', 'tail info line'],
+      livePreviewLines: ['live error line', 'live info line'],
       pendingBeforeLabel: null,
       pendingAfterLabel: null,
-      canEnableWordWrap: false,
       downloadDisabled: true,
     };
 
@@ -596,9 +574,9 @@ describe('LogsDetailPanelComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain(
-      'Tail shows the newest lines immediately. Older parts of the file continue loading in the background.',
+      'Live mode shows the newest lines immediately. Older parts of the file continue loading in the background.',
     );
-    expect(fixture.nativeElement.textContent).toContain('tail error line');
+    expect(fixture.nativeElement.textContent).toContain('live error line');
     expect(fixture.nativeElement.textContent).not.toContain(
       'Earlier lines are still loading',
     );
@@ -608,7 +586,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(highlights[0]?.className).toContain('active-search-match');
   });
 
-  it('marks bracketed log levels in tail preview lines', () => {
+  it('marks bracketed log levels in live preview lines', () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -616,9 +594,9 @@ describe('LogsDetailPanelComponent', () => {
       created: '1 hr ago',
     };
     const largeViewer: LogLargeViewerVm = {
-      mode: 'tail',
+      mode: 'live',
       progressLabel: '4.0 MB / 100.0 MB loaded',
-      statusLabel: 'Tail mode active',
+      statusLabel: 'Live mode active',
       searchStatusLabel: '',
       searchQuery: '',
       matchCount: 0,
@@ -628,10 +606,9 @@ describe('LogsDetailPanelComponent', () => {
       bottomSpacerPx: 0,
       lines: [],
       totalLines: 0,
-      tailPreviewLines: ['[WARN] tail line', '[info] another line'],
+      livePreviewLines: ['[WARN] live line', '[info] another line'],
       pendingBeforeLabel: null,
       pendingAfterLabel: null,
-      canEnableWordWrap: false,
       downloadDisabled: true,
     };
 
@@ -650,7 +627,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(tokens[1]?.className).toContain('log-level-token--info');
   });
 
-  it('executes a bottom scroll command for tail viewer rendering', async () => {
+  it('executes a bottom scroll command for live viewer rendering', async () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -665,7 +642,7 @@ describe('LogsDetailPanelComponent', () => {
     fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput(
       'largeViewer',
-      createTailLargeViewer({
+      createLiveLargeViewer({
         scrollCommand: createBottomScrollCommand(1),
       }),
     );
@@ -688,7 +665,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(largeScrollHandled).toHaveBeenCalledOnce();
   });
 
-  it('re-executes a bottom scroll command when tail preview lines refresh with the same size', async () => {
+  it('re-executes a bottom scroll command when live preview lines refresh with the same size', async () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -701,9 +678,9 @@ describe('LogsDetailPanelComponent', () => {
     fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput(
       'largeViewer',
-      createTailLargeViewer({
+      createLiveLargeViewer({
         scrollCommand: createBottomScrollCommand(1),
-        tailPreviewLines: ['line 1', 'line 2'],
+        livePreviewLines: ['line 1', 'line 2'],
       }),
     );
     fixture.detectChanges();
@@ -720,9 +697,9 @@ describe('LogsDetailPanelComponent', () => {
     scrollToSpy.mockClear();
     fixture.componentRef.setInput(
       'largeViewer',
-      createTailLargeViewer({
+      createLiveLargeViewer({
         scrollCommand: createBottomScrollCommand(2),
-        tailPreviewLines: ['line 2', 'line 3'],
+        livePreviewLines: ['line 2', 'line 3'],
       }),
     );
     fixture.detectChanges();
@@ -735,7 +712,7 @@ describe('LogsDetailPanelComponent', () => {
     });
   });
 
-  it('re-executes a bottom scroll command when indexed tail content grows', async () => {
+  it('re-executes a bottom scroll command when indexed live content grows', async () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -748,10 +725,10 @@ describe('LogsDetailPanelComponent', () => {
     fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput(
       'largeViewer',
-      createTailLargeViewer({
+      createLiveLargeViewer({
         scrollCommand: createBottomScrollCommand(1),
         totalLines: 100,
-        tailPreviewLines: [],
+        livePreviewLines: [],
         lines: [{ lineNumber: 99, content: 'line 100' }],
       }),
     );
@@ -774,10 +751,10 @@ describe('LogsDetailPanelComponent', () => {
     });
     fixture.componentRef.setInput(
       'largeViewer',
-      createTailLargeViewer({
+      createLiveLargeViewer({
         scrollCommand: createBottomScrollCommand(2),
         totalLines: 120,
-        tailPreviewLines: [],
+        livePreviewLines: [],
         lines: [{ lineNumber: 119, content: 'line 120' }],
       }),
     );
@@ -806,10 +783,10 @@ describe('LogsDetailPanelComponent', () => {
     fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput(
       'largeViewer',
-      createTailLargeViewer({
+      createLiveLargeViewer({
         scrollCommand: createLineScrollCommand(99),
         totalLines: 100,
-        tailPreviewLines: [],
+        livePreviewLines: [],
       }),
     );
     fixture.detectChanges();
@@ -831,7 +808,7 @@ describe('LogsDetailPanelComponent', () => {
     expect(largeScrollHandled).toHaveBeenCalledOnce();
   });
 
-  it('emits preview viewport updates with nearBottom for tail preview mode', async () => {
+  it('emits preview viewport updates with nearBottom for live preview mode', async () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
       path: 'storage-a/logs/alpha.log',
@@ -847,7 +824,7 @@ describe('LogsDetailPanelComponent', () => {
     fixture.componentRef.setInput('status', 'success');
     fixture.componentRef.setInput('hasSelection', true);
     fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('largeViewer', createTailLargeViewer());
+    fixture.componentRef.setInput('largeViewer', createLiveLargeViewer());
     fixture.detectChanges();
 
     const scrollContainer = getScrollContainer(fixture);
@@ -871,6 +848,7 @@ describe('LogsDetailPanelComponent', () => {
       scrollTop: 250,
     });
     component.onLargeViewerScroll();
+    flushViewportEmit(fixture);
 
     expect(largeViewportChanged).toHaveBeenLastCalledWith({
       startLine: 0,
@@ -897,9 +875,9 @@ describe('LogsDetailPanelComponent', () => {
     fixture.componentRef.setInput('toolbar', toolbar);
     fixture.componentRef.setInput(
       'largeViewer',
-      createTailLargeViewer({
+      createLiveLargeViewer({
         totalLines: 120,
-        tailPreviewLines: [],
+        livePreviewLines: [],
       }),
     );
     fixture.detectChanges();
@@ -925,7 +903,62 @@ describe('LogsDetailPanelComponent', () => {
       scrollTop: 1980,
     });
     component.onLargeViewerScroll();
+    flushViewportEmit(fixture);
 
+    expect(largeViewportChanged).toHaveBeenLastCalledWith({
+      startLine: 94,
+      lineCount: 42,
+      nearBottom: true,
+    });
+  });
+
+  it('coalesces a burst of scroll events into a single trailing viewport emit', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+    const largeViewportChanged =
+      vi.fn<
+        (event: { startLine: number; lineCount: number; nearBottom: boolean }) => void
+      >();
+    component.largeViewportChanged.subscribe(largeViewportChanged);
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createLiveLargeViewer({
+        totalLines: 120,
+        livePreviewLines: [],
+      }),
+    );
+    fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 180,
+      scrollHeight: 2160,
+      scrollTop: 0,
+    });
+    await settleComponent(fixture);
+    largeViewportChanged.mockClear();
+
+    // Each step would have triggered its own backend read before throttling.
+    for (const scrollTop of [180, 540, 900, 1260, 1980]) {
+      setScrollMetrics(scrollContainer, {
+        clientHeight: 180,
+        scrollHeight: 2160,
+        scrollTop,
+      });
+      component.onLargeViewerScroll();
+    }
+
+    flushViewportEmit(fixture);
+
+    expect(largeViewportChanged).toHaveBeenCalledTimes(1);
     expect(largeViewportChanged).toHaveBeenLastCalledWith({
       startLine: 94,
       lineCount: 42,
@@ -953,10 +986,9 @@ describe('LogsDetailPanelComponent', () => {
       bottomSpacerPx: 0,
       lines: [],
       totalLines: 1500,
-      tailPreviewLines: [],
+      livePreviewLines: [],
       pendingBeforeLabel: null,
       pendingAfterLabel: null,
-      canEnableWordWrap: true,
       downloadDisabled: false,
     };
 
@@ -967,125 +999,6 @@ describe('LogsDetailPanelComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Preparing visible lines…');
-  });
-
-  it('toggles word wrap for the log content', () => {
-    const toolbar: LogToolbarVm = {
-      blobName: 'alpha.log',
-      path: 'storage-a/logs/alpha.log',
-      sizeLabel: '1.5 KB',
-      created: '1 hr ago',
-    };
-
-    fixture.componentRef.setInput('status', 'success');
-    fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('content', 'averyveryveryverylongloglinewithoutspaces');
-    fixture.detectChanges();
-
-    const toggleInput = fixture.nativeElement.querySelector(
-      'p-toggleswitch input[type="checkbox"]',
-    ) as HTMLInputElement;
-    toggleInput.click();
-    fixture.detectChanges();
-
-    const content = fixture.nativeElement.querySelector('pre');
-    expect(content.className).toContain('whitespace-pre-wrap');
-    expect(content.className).toContain('break-all');
-    expect(settings.logs().wordWrapEnabled).toBe(true);
-    expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toContain(
-      '"wordWrapEnabled":true',
-    );
-  });
-
-  it('does not toggle word wrap for fully loaded large files', () => {
-    const toolbar: LogToolbarVm = {
-      blobName: 'alpha.log',
-      path: 'storage-a/logs/alpha.log',
-      sizeLabel: '100.0 MB',
-      created: '1 hr ago',
-    };
-    const largeViewer: LogLargeViewerVm = {
-      mode: 'snapshot',
-      progressLabel: '100.0 MB / 100.0 MB loaded',
-      statusLabel: 'File fully loaded',
-      searchStatusLabel: '',
-      searchQuery: '',
-      matchCount: 0,
-      activeMatchLineNumber: null,
-      scrollCommand: null,
-      topSpacerPx: 0,
-      bottomSpacerPx: 0,
-      lines: [{ lineNumber: 7, content: 'plain line content' }],
-      totalLines: 1,
-      tailPreviewLines: [],
-      pendingBeforeLabel: null,
-      pendingAfterLabel: null,
-      canEnableWordWrap: true,
-      downloadDisabled: false,
-    };
-
-    fixture.componentRef.setInput('status', 'success');
-    fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('largeViewer', largeViewer);
-    fixture.detectChanges();
-
-    component.onWordWrapChange(true);
-
-    expect(component.canToggleWordWrap()).toBe(false);
-    expect(settings.logs().wordWrapEnabled).toBe(false);
-  });
-
-  it('uses the persisted word wrap preference on startup', async () => {
-    localStorage.setItem(
-      SETTINGS_STORAGE_KEY,
-      JSON.stringify({
-        azure: {
-          lastSubscriptionId: '',
-          lastStorageAccountName: '',
-          lastContainerName: '',
-        },
-        general: {
-          refreshIntervalMinutes: 15,
-          retentionPolicy: '30d',
-          language: 'en',
-          appearance: 'system',
-        },
-        logs: {
-          wordWrapEnabled: true,
-          logLevelHighlightingEnabled: true,
-          tailRefreshIntervalSeconds: 10,
-        },
-      }),
-    );
-
-    TestBed.resetTestingModule();
-    await TestBed.configureTestingModule({
-      imports: [LogsDetailPanelComponent],
-      providers: [provideTranslateTesting()],
-    }).compileComponents();
-
-    await initializeI18nForTests();
-    fixture = TestBed.createComponent(LogsDetailPanelComponent);
-    component = fixture.componentInstance;
-
-    const toolbar: LogToolbarVm = {
-      blobName: 'alpha.log',
-      path: 'storage-a/logs/alpha.log',
-      sizeLabel: '1.5 KB',
-      created: '1 hr ago',
-    };
-
-    fixture.componentRef.setInput('status', 'success');
-    fixture.componentRef.setInput('hasSelection', true);
-    fixture.componentRef.setInput('toolbar', toolbar);
-    fixture.componentRef.setInput('content', 'averyveryveryverylongloglinewithoutspaces');
-    fixture.detectChanges();
-
-    const content = fixture.nativeElement.querySelector('pre') as HTMLPreElement;
-    expect(content.className).toContain('whitespace-pre-wrap');
-    expect(content.className).toContain('break-all');
   });
 
   it('searches and highlights matches inside the log content', async () => {
@@ -1389,6 +1302,13 @@ async function runContentSearch(
   await settleComponent(fixture);
 }
 
+// Viewport emits are throttled and read inside an animation frame, so a scroll
+// only reaches the output once both have been flushed.
+function flushViewportEmit(fixture?: ComponentFixture<LogsDetailPanelComponent>): void {
+  vi.advanceTimersByTime(80);
+  fixture?.detectChanges();
+}
+
 async function settleComponent(
   fixture?: ComponentFixture<LogsDetailPanelComponent>,
 ): Promise<void> {
@@ -1412,13 +1332,13 @@ function createDomRect(
   } as DOMRect;
 }
 
-function createTailLargeViewer(
+function createLiveLargeViewer(
   overrides: Partial<LogLargeViewerVm> = {},
 ): LogLargeViewerVm {
   return {
-    mode: 'tail',
+    mode: 'live',
     progressLabel: '4.0 MB / 100.0 MB loaded',
-    statusLabel: 'Tail mode active',
+    statusLabel: 'Live mode active',
     searchStatusLabel: '',
     searchQuery: '',
     matchCount: 0,
@@ -1428,10 +1348,9 @@ function createTailLargeViewer(
     bottomSpacerPx: 0,
     lines: [],
     totalLines: 0,
-    tailPreviewLines: ['line 1', 'line 2'],
+    livePreviewLines: ['line 1', 'line 2'],
     pendingBeforeLabel: null,
     pendingAfterLabel: null,
-    canEnableWordWrap: false,
     downloadDisabled: true,
     ...overrides,
   };
