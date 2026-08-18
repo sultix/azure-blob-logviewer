@@ -1,0 +1,1 @@
+Auch gelöschte Dateien bleiben erreichbar, solange die Soft-Delete-Frist von Azure läuft. Der Schalter Gelöschte nimmt sie mit in die Liste auf. Ein rotes Kennzeichen zeigt, wie viele Tage noch bleiben. Beim Anklicken bietet die App an, die Datei wiederherzustellen und direkt zu öffnen.

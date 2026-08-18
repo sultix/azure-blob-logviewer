@@ -1,0 +1,1 @@
+Große Dateien behandelt die App besonders. Ab zwanzig Megabyte übernimmt ein Streaming-Viewer: Das Dateiende ist sofort sichtbar, der Rest wird im Hintergrund nachgeladen. Der Fortschritt steht über dem Inhalt. Gescrollt wird trotzdem flüssig, denn angezeigt wird immer nur der sichtbare Ausschnitt. Hier sind es über zweihundertdreißigtausend Zeilen.

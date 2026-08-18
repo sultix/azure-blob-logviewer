@@ -1,0 +1,1 @@
+Los geht es in den Einstellungen. Oben rechts sehen Sie den Verbindungsstatus. Ohne Anmeldung passiert hier nichts: Die App nutzt Ihre Azure-Kommandozeile, Sie müssen sich also vorher im Terminal angemeldet haben. Ein Klick auf Mit Azure verbinden übernimmt diese Sitzung. Zugangsdaten speichert die App nicht.

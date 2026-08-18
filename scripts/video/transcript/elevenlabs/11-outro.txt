@@ -1,0 +1,1 @@
+Azure Blob Logviewer. Suchen, streamen, live mitlesen.
