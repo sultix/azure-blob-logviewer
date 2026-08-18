@@ -15,6 +15,7 @@ import { filter } from 'rxjs';
 
 import { AppApiService } from '@app/core/services/app-api.service';
 import { WindowControlsService } from '@app/core/services/window-controls.service';
+import { AzureService } from '@app/features/settings/services/azure.service';
 
 interface NavigationHistoryState {
   readonly history: string[];
@@ -29,12 +30,14 @@ interface NavigationHistoryState {
 })
 export class ShellComponent implements OnInit {
   private readonly appApi = inject(AppApiService);
+  private readonly azure = inject(AzureService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
   private readonly navigationHistory = signal(this.initialNavigationHistoryState());
   protected readonly controls = inject(WindowControlsService);
   protected readonly appLogoPath = 'assets/branding/app-logo-80.png';
   protected readonly appVersion = signal<string | null>(null);
+  protected readonly authInProgress = this.azure.authInProgress;
   protected readonly isMaximized = computed(() => this.controls.isMaximized());
   protected readonly currentUrl = computed(() => this.navigationHistory().history.at(-1) ?? '');
   protected readonly showBackButton = computed(() =>

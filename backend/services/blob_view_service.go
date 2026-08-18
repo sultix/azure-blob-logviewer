@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -266,8 +267,15 @@ func (s *BlobViewService) SetSessionMode(
 		return nil, err
 	}
 
+	requestedMode := mode
 	if mode != models.BlobViewModeLive || session.versionID != "" {
 		mode = models.BlobViewModeSnapshot
+	}
+	if requestedMode == models.BlobViewModeLive && mode != requestedMode {
+		log.Printf(
+			"blob viewer live mode rejected session_id=%s reason=versioned_blob",
+			sessionID,
+		)
 	}
 
 	session.mu.Lock()
@@ -939,6 +947,7 @@ func (s *BlobViewService) cleanupExpiredSessions() {
 		expired := now.Sub(session.lastAccess) > blobViewSessionTTL
 		session.mu.RUnlock()
 		if expired {
+			log.Printf("blob viewer session expired session_id=%s", id)
 			expiredIDs = append(expiredIDs, id)
 			expiredSessions = append(expiredSessions, session)
 		}

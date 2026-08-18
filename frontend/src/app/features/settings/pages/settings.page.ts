@@ -80,12 +80,6 @@ export class SettingsPage implements OnInit {
     { value: LiveRefreshIntervalSeconds; label: string }[]
   >(() => [
     {
-      value: 1,
-      label: this.i18n.translate('settings.page.liveRefreshInterval.seconds', {
-        count: 1,
-      }),
-    },
-    {
       value: 5,
       label: this.i18n.translate('settings.page.liveRefreshInterval.seconds', {
         count: 5,
@@ -114,6 +108,7 @@ export class SettingsPage implements OnInit {
   readonly savedConnectionsCount = computed(() => this.connections.connections().length);
   readonly hasSavedConnections = computed(() => this.savedConnectionsCount() > 0);
   readonly appVersion = signal<string | null>(null);
+  readonly logsDirectoryOpening = signal(false);
 
   // Auth status badge
   readonly statusBadge = computed(() => {
@@ -183,6 +178,23 @@ export class SettingsPage implements OnInit {
   resetSettings(): void {
     this.settings.reset();
     void this.i18n.setLanguage(this.general().language);
+  }
+
+  async openLogsDirectory(): Promise<void> {
+    if (this.logsDirectoryOpening()) return;
+
+    this.logsDirectoryOpening.set(true);
+    try {
+      await this.api.openLogsDirectory();
+    } catch {
+      this.messageService.add({
+        severity: 'error',
+        summary: this.i18n.translate('settings.page.diagnostics.openFailedTitle'),
+        detail: this.i18n.translate('settings.page.diagnostics.openFailedDetail'),
+      });
+    } finally {
+      this.logsDirectoryOpening.set(false);
+    }
   }
 
   async importConnections(): Promise<void> {

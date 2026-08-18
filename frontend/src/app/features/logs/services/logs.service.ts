@@ -118,7 +118,6 @@ export class LogsService implements OnDestroy {
   readonly isEmpty = computed(
     () => this.status() === 'success' && this.entries().length === 0,
   );
-
   readonly selectedEntryIds = this.selectedEntryIdsState.asReadonly();
   readonly selectedEntries = computed<LogEntry[]>(() =>
     this.resolveEntriesForIds(this.selectedEntryIdsState()),
@@ -390,7 +389,6 @@ export class LogsService implements OnDestroy {
   ): Promise<boolean> {
     const connectionLoadToken = this.connectionLoadToken;
     const refreshToken = ++this.entriesRefreshToken;
-
     try {
       const blobs = await this.api.listBlobs(
         accountName,
@@ -419,6 +417,53 @@ export class LogsService implements OnDestroy {
         return false;
       }
 
+      return false;
+    }
+  }
+
+  async resolveDeletedVersion(id: string): Promise<boolean> {
+    const entry = this.resolveEntriesForIds([id])[0];
+    if (
+      !entry?.isDeleted ||
+      !entry.hasVersionsOnly ||
+      entry.versionId ||
+      !entry.storageAccountName ||
+      !entry.containerName
+    ) {
+      return Boolean(entry?.versionId);
+    }
+
+    try {
+      const blob = await this.api.resolveDeletedBlobVersion({
+        accountName: entry.storageAccountName,
+        containerName: entry.containerName,
+        blobName: entry.blobName,
+      });
+      const resolved = this.mapBlobToEntry(
+        blob,
+        entry.storageAccountName,
+        entry.containerName,
+      );
+      this.state.update((current) =>
+        current.status !== 'success'
+          ? current
+          : {
+              status: 'success',
+              entries: current.entries.map((candidate) =>
+                candidate.id === id
+                  ? {
+                      ...candidate,
+                      ...resolved,
+                      id,
+                      deletedAt: candidate.deletedAt,
+                      remainingRetentionDays: candidate.remainingRetentionDays,
+                    }
+                  : candidate,
+              ),
+            },
+      );
+      return true;
+    } catch {
       return false;
     }
   }
@@ -503,84 +548,91 @@ export class LogsService implements OnDestroy {
     }
   }
 
-  async setLiveMode(enabled: boolean): Promise<void> {
+  async setLiveMode(enabled: boolean): Promise<boolean> {
     const entry = this.selectedEntry();
     if (!entry || this.selectionCount() !== 1) {
-      return;
+      return false;
     }
 
-    const viewer = this.largeViewerState();
-    if (viewer?.entryId === entry.id) {
-      const status = await this.api.setBlobViewSessionMode(
-        viewer.sessionId,
-        enabled ? 'live' : 'snapshot',
-      );
-      const livePhase = status.mode === 'live' ? resolveLivePhase(status) : null;
-      const liveFollowMode = status.mode === 'live' ? 'following' : null;
-      const nextViewportLineCount = viewer.viewportLineCount;
-      const nextViewportStartLine =
-        status.mode === 'live' && livePhase === 'indexed'
-          ? calculateBottomViewportStartLine(
-              status.indexedLineCount,
-              nextViewportLineCount,
-            )
-          : viewer.viewportStartLine;
-
-      this.largeViewerState.update((current) => {
-        if (!current || current.sessionId !== viewer.sessionId) {
-          return current;
-        }
-
-        const isIndexedLiveMode = status.mode === 'live' && livePhase === 'indexed';
-        return {
-          ...current,
-          mode: status.mode,
-          status,
-          viewportStartLine: nextViewportStartLine,
-          linesResponse: isIndexedLiveMode ? null : current.linesResponse,
-          loadedViewportStartLine: isIndexedLiveMode
-            ? null
-            : current.loadedViewportStartLine,
-          loadedViewportLineCount: isIndexedLiveMode
-            ? null
-            : current.loadedViewportLineCount,
-          scrollCommand: status.mode === 'live' ? this.createBottomScrollCommand() : null,
-          livePhase,
-          liveFollowMode,
-        };
-      });
-
-      if (status.mode === 'snapshot' && status.isComplete) {
-        this.stopStatusPolling();
-      } else {
-        this.startStatusPolling(viewer.sessionId, status.mode);
-      }
-
-      if (status.mode === 'live' && livePhase === 'indexed') {
-        await this.loadLargeViewerViewport(
+    try {
+      const viewer = this.largeViewerState();
+      if (viewer?.entryId === entry.id) {
+        const requestedMode: BlobViewMode = enabled ? 'live' : 'snapshot';
+        const status = await this.api.setBlobViewSessionMode(
           viewer.sessionId,
-          nextViewportStartLine,
-          nextViewportLineCount,
+          requestedMode,
         );
-      }
+        const livePhase = status.mode === 'live' ? resolveLivePhase(status) : null;
+        const liveFollowMode = status.mode === 'live' ? 'following' : null;
+        const nextViewportLineCount = viewer.viewportLineCount;
+        const nextViewportStartLine =
+          status.mode === 'live' && livePhase === 'indexed'
+            ? calculateBottomViewportStartLine(
+                status.indexedLineCount,
+                nextViewportLineCount,
+              )
+            : viewer.viewportStartLine;
 
-      const activeQuery = this.largeViewerSearchQuery().trim();
-      if (activeQuery.length > 0) {
-        if (status.livePreviewLines.length > 0) {
-          this.applyLivePreviewSearch(viewer.sessionId, activeQuery, false);
+        this.largeViewerState.update((current) => {
+          if (!current || current.sessionId !== viewer.sessionId) {
+            return current;
+          }
+
+          const isIndexedLiveMode = status.mode === 'live' && livePhase === 'indexed';
+          return {
+            ...current,
+            mode: status.mode,
+            status,
+            viewportStartLine: nextViewportStartLine,
+            linesResponse: isIndexedLiveMode ? null : current.linesResponse,
+            loadedViewportStartLine: isIndexedLiveMode
+              ? null
+              : current.loadedViewportStartLine,
+            loadedViewportLineCount: isIndexedLiveMode
+              ? null
+              : current.loadedViewportLineCount,
+            scrollCommand:
+              status.mode === 'live' ? this.createBottomScrollCommand() : null,
+            livePhase,
+            liveFollowMode,
+          };
+        });
+
+        if (status.mode === 'snapshot' && status.isComplete) {
+          this.stopStatusPolling();
         } else {
-          await this.loadSearchResults(viewer.sessionId, activeQuery);
+          this.startStatusPolling(viewer.sessionId, status.mode);
         }
+
+        if (status.mode === 'live' && livePhase === 'indexed') {
+          await this.loadLargeViewerViewport(
+            viewer.sessionId,
+            nextViewportStartLine,
+            nextViewportLineCount,
+          );
+        }
+
+        const activeQuery = this.largeViewerSearchQuery().trim();
+        if (activeQuery.length > 0) {
+          if (status.livePreviewLines.length > 0) {
+            this.applyLivePreviewSearch(viewer.sessionId, activeQuery, false);
+          } else {
+            await this.loadSearchResults(viewer.sessionId, activeQuery);
+          }
+        }
+        return status.mode === requestedMode;
       }
-      return;
-    }
 
-    if (enabled) {
-      await this.openLargeViewer(entry, 'live', true);
-      return;
-    }
+      if (enabled) {
+        await this.openLargeViewer(entry, 'live', true);
+        return this.largeViewerMode() === 'live';
+      }
 
-    await this.applySelection([entry.id]);
+      await this.applySelection([entry.id]);
+      return !this.isLiveMode();
+    } catch {
+      return false;
+    }
   }
 
   async updateLargeViewport(
@@ -688,6 +740,7 @@ export class LogsService implements OnDestroy {
     sessionId: string,
     startLine: number,
     lineCount: number,
+    forceReload = false,
   ): Promise<void> {
     const viewer = this.largeViewerState();
     if (!viewer || viewer.sessionId !== sessionId) {
@@ -705,6 +758,7 @@ export class LogsService implements OnDestroy {
     if (
       viewer.linesResponse &&
       isRequestedViewportLoaded &&
+      !forceReload &&
       !indexedLinesChanged &&
       !(viewer.linesResponse.lines.length === 0 && viewer.status.indexedLineCount > 0)
     ) {
@@ -1010,6 +1064,7 @@ export class LogsService implements OnDestroy {
     const nextLivePhase = status.mode === 'live' ? resolveLivePhase(status) : null;
 
     let needsViewportRefresh = false;
+    let blobSizeChanged = false;
     let nextViewportStartLine = 0;
     let nextViewportLineCount = DEFAULT_LINE_WINDOW_SIZE;
     let nextLiveFollowMode: LiveFollowMode | null = null;
@@ -1019,7 +1074,9 @@ export class LogsService implements OnDestroy {
         return current;
       }
 
+      blobSizeChanged = current.status.blobSize !== status.blobSize;
       needsViewportRefresh =
+        blobSizeChanged ||
         current.status.indexedLineCount !== status.indexedLineCount ||
         current.status.isComplete !== status.isComplete ||
         current.livePhase !== nextLivePhase;
@@ -1086,6 +1143,7 @@ export class LogsService implements OnDestroy {
         sessionId,
         nextViewportStartLine,
         nextViewportLineCount,
+        blobSizeChanged,
       );
     }
 
@@ -1505,6 +1563,7 @@ export class LogsService implements OnDestroy {
       remainingRetentionDays:
         blob.deleted && blob.deletedAt ? blob.remainingRetentionDays : undefined,
       versionId: blob.versionId,
+      hasVersionsOnly: blob.hasVersionsOnly,
       path: `${accountName}/${containerName}/${blob.name}`,
       createdRelative: createdAt ? this.relativeTime(createdAt) : undefined,
       storageAccountName: accountName,

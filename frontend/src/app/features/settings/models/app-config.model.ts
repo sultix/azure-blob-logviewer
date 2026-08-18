@@ -10,7 +10,7 @@ export interface AzurePreferences {
 
 export type RefreshInterval = 5 | 15 | 60;
 export type RetentionPolicy = '30d' | '90d' | 'manual';
-export type LiveRefreshIntervalSeconds = 1 | 5 | 10 | 30 | 60;
+export type LiveRefreshIntervalSeconds = 5 | 10 | 30 | 60;
 export type AppAppearance = 'system' | 'dark' | 'light';
 
 const APP_APPEARANCES = ['system', 'dark', 'light'] as const;
@@ -51,7 +51,7 @@ export function createDefaultAppConfig(language = detectPreferredLanguage()): Ap
     },
     logs: {
       logLevelHighlightingEnabled: true,
-      liveRefreshIntervalSeconds: 10,
+      liveRefreshIntervalSeconds: 5,
       sortBasis: LogSortBasis.LastModified,
     },
   };

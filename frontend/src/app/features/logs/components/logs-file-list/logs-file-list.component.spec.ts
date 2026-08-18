@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { Scroller } from 'primeng/scroller';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 
@@ -16,6 +18,14 @@ describe('LogsFileListComponent', () => {
   let component: LogsFileListComponent;
 
   beforeEach(async () => {
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get: () => 400,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get: () => 300,
+    });
     await TestBed.configureTestingModule({
       imports: [LogsFileListComponent],
       providers: [provideTranslateTesting()],
@@ -75,18 +85,13 @@ describe('LogsFileListComponent', () => {
     fixture.componentRef.setInput('selectedEntryIds', ['entry-1', 'entry-2']);
     fixture.detectChanges();
 
-    const buttons = fixture.nativeElement.querySelectorAll('li button');
-    const firstButton = buttons[0] as HTMLButtonElement;
-    const secondButton = buttons[1] as HTMLButtonElement;
+    expect(fixture.nativeElement.querySelector('p-scroller')).not.toBeNull();
+    const scroller = fixture.debugElement.query(By.directive(Scroller))
+      .componentInstance as Scroller;
+    expect(scroller.items).toEqual(rows);
+    expect(component.selectedEntryIdSet()).toEqual(new Set(['entry-1', 'entry-2']));
 
-    expect(firstButton.className).toContain('bg-surface-container-highest');
-    expect(secondButton.className).toContain('bg-surface-container-highest');
-    expect(firstButton.getAttribute('aria-pressed')).toBe('true');
-    expect(fixture.nativeElement.textContent).toContain('LIVE');
-    expect(fixture.nativeElement.textContent).toContain('Created Today, 10:30');
-    expect(fixture.nativeElement.textContent).toContain('Modified Today, 10:45');
-
-    secondButton.dispatchEvent(new MouseEvent('click', { ctrlKey: true }));
+    component.onEntryClick(new MouseEvent('click', { ctrlKey: true }), 'entry-2');
 
     expect(entrySelected).toHaveBeenCalledWith({
       id: 'entry-2',
@@ -130,15 +135,12 @@ describe('LogsFileListComponent', () => {
     fixture.componentRef.setInput('selectedEntryIds', []);
     fixture.detectChanges();
 
-    const row = fixture.nativeElement.querySelector('li button') as HTMLButtonElement;
-    expect(row.disabled).toBe(false);
-    expect(row.title).toBe('Deleted · 4 days left');
-    expect(row.className).toContain('bg-error-container/10');
-    expect(row.className).toContain('ring-error/30');
-    expect(row.querySelector('.pi-trash')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Deleted · 4 days left');
+    expect(component.rows()[0]).toMatchObject({
+      isDeleted: true,
+      deletedLabel: 'Deleted · 4 days left',
+    });
 
-    row.click();
+    component.onEntryClick(new MouseEvent('click'), 'deleted-1');
 
     expect(entrySelected).toHaveBeenCalledWith({
       id: 'deleted-1',
@@ -149,4 +151,31 @@ describe('LogsFileListComponent', () => {
 
     expect(includeDeletedChanged).toHaveBeenCalledWith(false);
   });
+
+  it('virtualizes a large complete list with a fixed row height', () => {
+    const rows = Array.from({ length: 450 }, (_, index) => createRow(`entry-${index}`));
+    fixture.componentRef.setInput('rows', rows);
+    fixture.componentRef.setInput('selectedEntryIds', []);
+    fixture.detectChanges();
+
+    const scroller = fixture.debugElement.query(By.directive(Scroller))
+      .componentInstance as Scroller;
+    expect(scroller.items).toHaveLength(450);
+    expect(scroller.itemSize).toBe(64);
+    expect(
+      fixture.nativeElement.querySelectorAll('[role="listitem"]').length,
+    ).toBeLessThan(450);
+  });
 });
+
+function createRow(id: string): LogFileRowVm {
+  return {
+    id,
+    blobName: `${id}.log`,
+    createdLabel: 'Today, 10:00',
+    lastModifiedLabel: 'Today, 10:00',
+    sizeLabel: '1 KB',
+    isLive: false,
+    isDeleted: false,
+  };
+}

@@ -108,11 +108,29 @@ describe('LogsDetailPanelComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Spaces: 4');
     expect(fixture.nativeElement.textContent).toContain('Live');
     expect(fixture.nativeElement.querySelector('p-toggleswitch')).not.toBeNull();
+    const searchInput = fixture.nativeElement.querySelector(
+      'input[aria-label="Search within log content"]',
+    ) as HTMLInputElement;
+    expect(searchInput).not.toBeNull();
+    expect(searchInput.closest('div')?.className).toContain('w-[22rem]');
+    const clearSearchButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Clear content search"]',
+    ) as HTMLButtonElement;
+    const previousMatchButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Previous match"]',
+    ) as HTMLButtonElement;
+    const nextMatchButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Next match"]',
+    ) as HTMLButtonElement;
+    expect(fixture.nativeElement.textContent).toContain('0 matches');
     expect(
-      fixture.nativeElement.querySelector(
-        'input[aria-label="Search within log content"]',
+      Array.from(searchInput.closest('div')?.querySelectorAll('span') ?? []).some(
+        (element) => element.classList.contains('w-20'),
       ),
-    ).not.toBeNull();
+    ).toBe(true);
+    expect(clearSearchButton.disabled).toBe(true);
+    expect(previousMatchButton.disabled).toBe(true);
+    expect(nextMatchButton.disabled).toBe(true);
     expect(
       fixture.nativeElement.querySelector('button[aria-label="More actions"]'),
     ).not.toBeNull();
@@ -124,9 +142,13 @@ describe('LogsDetailPanelComponent', () => {
     expect((buttons[1] as HTMLButtonElement).title).toBe('');
 
     const tooltips = fixture.debugElement.queryAll(By.directive(Tooltip));
-    expect(tooltips).toHaveLength(2);
-    expect(tooltips[0].injector.get(Tooltip).content).toBe('Refresh');
-    expect(tooltips[1].injector.get(Tooltip).content).toBe('Download');
+    expect(tooltips.map((tooltip) => tooltip.injector.get(Tooltip).content)).toEqual([
+      'Clear search',
+      'Previous match',
+      'Next match',
+      'Refresh',
+      'Download',
+    ]);
     expect(component.mobileActionItems().map((item) => item.label)).toEqual([
       'Refresh',
       'Download',
@@ -140,6 +162,24 @@ describe('LogsDetailPanelComponent', () => {
     const content = fixture.nativeElement.querySelector('pre');
     expect(content.className).toContain('whitespace-pre');
     expect(content.className).not.toContain('whitespace-pre-wrap');
+  });
+
+  it('restores the confirmed toggle value when live activation finishes unsuccessfully', () => {
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('liveAvailable', true);
+    fixture.componentRef.setInput('liveEnabled', false);
+    fixture.detectChanges();
+
+    component.onLiveChange(true);
+    expect(component.liveToggleValue()).toBe(true);
+
+    fixture.componentRef.setInput('liveUpdating', true);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('liveUpdating', false);
+    fixture.detectChanges();
+
+    expect(component.liveToggleValue()).toBe(false);
   });
 
   it('renders the content loading state and emits refresh actions', () => {
@@ -665,6 +705,106 @@ describe('LogsDetailPanelComponent', () => {
     expect(largeScrollHandled).toHaveBeenCalledOnce();
   });
 
+  it('keeps the live bottom scroll pending until the first line window is rendered', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+    const largeScrollHandled = vi.fn<() => void>();
+    component.largeScrollHandled.subscribe(largeScrollHandled);
+
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput('contentLoading', true);
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createLiveLargeViewer({
+        scrollCommand: createBottomScrollCommand(1),
+        totalLines: 100,
+        livePreviewLines: [],
+        lines: [{ lineNumber: 99, content: 'line 100' }],
+      }),
+    );
+    fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 120,
+      scrollHeight: 1800,
+      scrollTop: 0,
+    });
+
+    scrollToSpy.mockClear();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).not.toHaveBeenCalled();
+    expect(largeScrollHandled).not.toHaveBeenCalled();
+
+    fixture.componentRef.setInput('contentLoading', false);
+    fixture.detectChanges();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).toHaveBeenLastCalledWith({
+      top: 1800,
+      behavior: 'auto',
+    });
+    expect(largeScrollHandled).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the live bottom scroll pending while the indexed line window is empty', async () => {
+    const toolbar: LogToolbarVm = {
+      blobName: 'alpha.log',
+      path: 'storage-a/logs/alpha.log',
+      sizeLabel: '100.0 MB',
+      created: '1 hr ago',
+    };
+    fixture.componentRef.setInput('status', 'success');
+    fixture.componentRef.setInput('hasSelection', true);
+    fixture.componentRef.setInput('toolbar', toolbar);
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createLiveLargeViewer({
+        scrollCommand: createBottomScrollCommand(1),
+        totalLines: 1_000,
+        livePreviewLines: [],
+        lines: [],
+      }),
+    );
+    fixture.detectChanges();
+
+    const scrollContainer = getScrollContainer(fixture);
+    setScrollMetrics(scrollContainer, {
+      clientHeight: 120,
+      scrollHeight: 18_000,
+      scrollTop: 0,
+    });
+    scrollToSpy.mockClear();
+    await settleComponent(fixture);
+
+    expect(scrollToSpy).not.toHaveBeenCalled();
+
+    fixture.componentRef.setInput(
+      'largeViewer',
+      createLiveLargeViewer({
+        scrollCommand: createBottomScrollCommand(1),
+        totalLines: 1_000,
+        livePreviewLines: [],
+        lines: [{ lineNumber: 999, content: 'latest line' }],
+      }),
+    );
+    fixture.detectChanges();
+    await settleComponent(fixture);
+
+    expect(scrollContainer.scrollTop).toBe(18_000);
+    expect(scrollToSpy).toHaveBeenLastCalledWith({
+      top: 18_000,
+      behavior: 'auto',
+    });
+  });
+
   it('re-executes a bottom scroll command when live preview lines refresh with the same size', async () => {
     const toolbar: LogToolbarVm = {
       blobName: 'alpha.log',
@@ -1094,16 +1234,19 @@ describe('LogsDetailPanelComponent', () => {
     await runContentSearch(fixture, searchInput, 'er');
 
     expect(fixture.nativeElement.querySelectorAll('mark')).toHaveLength(0);
-    expect(fixture.nativeElement.textContent).not.toContain('0 matches');
-    expect(
-      fixture.nativeElement.querySelector('button[aria-label="Previous match"]'),
-    ).toBeNull();
-    expect(
-      fixture.nativeElement.querySelector('button[aria-label="Next match"]'),
-    ).toBeNull();
-    expect(
-      fixture.nativeElement.querySelector('button[aria-label="Clear content search"]'),
-    ).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('0 matches');
+    const previousButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Previous match"]',
+    ) as HTMLButtonElement;
+    const nextButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Next match"]',
+    ) as HTMLButtonElement;
+    const clearButton = fixture.nativeElement.querySelector(
+      'button[aria-label="Clear content search"]',
+    ) as HTMLButtonElement;
+    expect(previousButton.disabled).toBe(true);
+    expect(nextButton.disabled).toBe(true);
+    expect(clearButton.disabled).toBe(false);
   });
 
   it('clears the content search from the inline clear button', async () => {
@@ -1133,9 +1276,8 @@ describe('LogsDetailPanelComponent', () => {
 
     expect(searchInput.value).toBe('');
     expect(fixture.nativeElement.querySelectorAll('mark')).toHaveLength(0);
-    expect(
-      fixture.nativeElement.querySelector('button[aria-label="Clear content search"]'),
-    ).toBeNull();
+    expect(clearButton.disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('0 matches');
     expect(fixture.nativeElement.textContent).not.toContain('1 / 2');
   });
 

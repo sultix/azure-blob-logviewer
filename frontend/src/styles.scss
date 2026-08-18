@@ -35,6 +35,10 @@
     --selection-background: 14 165 233;
     --selection-opacity: 0.18;
     --selection-color: 20 28 45;
+    --search-match-opacity: 0.32;
+    --active-search-match-background: 245 158 11;
+    --active-search-match-color: 30 41 59;
+    --active-search-match-outline: 180 83 9;
   }
 
   .dark,
@@ -67,6 +71,10 @@
     --selection-background: 137 206 255;
     --selection-opacity: 0.2;
     --selection-color: 218 226 253;
+    --search-match-opacity: 0.5;
+    --active-search-match-background: 250 204 21;
+    --active-search-match-color: 15 23 42;
+    --active-search-match-outline: 254 240 138;
   }
 
   html,
@@ -100,6 +108,20 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: rgb(var(--outline));
+  }
+}
+
+@layer components {
+  .log-search-match {
+    background-color: rgb(var(--primary-container) / var(--search-match-opacity));
+    color: rgb(var(--on-surface));
+  }
+
+  .log-search-match.active-search-match {
+    background-color: rgb(var(--active-search-match-background));
+    color: rgb(var(--active-search-match-color));
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgb(var(--active-search-match-outline));
   }
 }
 

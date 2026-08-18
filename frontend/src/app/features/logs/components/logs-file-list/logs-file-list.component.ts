@@ -9,13 +9,14 @@ import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ButtonModule } from 'primeng/button';
 import { ToggleSwitch } from 'primeng/toggleswitch';
+import { Scroller } from 'primeng/scroller';
 
 import type { LogFileRowVm, LogFileSelectionEvent } from '../../models/logs-view.model';
 
 @Component({
   selector: 'app-logs-file-list',
   standalone: true,
-  imports: [ButtonModule, FormsModule, ToggleSwitch, TranslatePipe],
+  imports: [ButtonModule, FormsModule, Scroller, ToggleSwitch, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'flex min-h-0 flex-1 flex-col overflow-hidden',
@@ -32,6 +33,8 @@ export class LogsFileListComponent {
   readonly entrySelected = output<LogFileSelectionEvent>();
   readonly includeDeletedChanged = output<boolean>();
   readonly refreshRequested = output<void>();
+
+  readonly trackRow = (_index: number, row: LogFileRowVm): string => row.id;
 
   onEntryClick(event: MouseEvent, id: string): void {
     this.entrySelected.emit({

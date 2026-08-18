@@ -198,6 +198,11 @@ describe('AzureService', () => {
 
     const firstCall = service.initializeStartupAuth();
     const secondCall = service.initializeStartupAuth();
+
+    expect(service.authStep()).toBe('authenticating');
+    expect(service.authInProgress()).toBe(true);
+    expect(service.isAuthenticated()).toBe(false);
+
     resolveRestore?.({ authenticated: true });
     await firstCall;
     await secondCall;
@@ -236,6 +241,30 @@ describe('AzureService', () => {
     expect(service.authError()).toBeNull();
     expect(service.authFailureReason()).toBe('cli_not_available');
     expect(service.azureCliMissing()).toBe(true);
+  });
+
+  it('lets an interactive login win over an in-flight startup restore', async () => {
+    let resolveRestore: ((value: { authenticated: boolean }) => void) | null = null;
+    api.restoreAzureSession.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRestore = resolve;
+        }),
+    );
+    api.startAzureLogin.mockResolvedValue({ authenticated: true });
+    api.listSubscriptions.mockResolvedValue([createSubscription()]);
+
+    const startupRestore = service.initializeStartupAuth();
+    await service.login();
+
+    expect(service.authStep()).toBe('authenticated');
+
+    resolveRestore?.({ authenticated: false });
+    await startupRestore;
+    await flushAsync();
+
+    expect(service.authStep()).toBe('authenticated');
+    expect(service.authError()).toBeNull();
   });
 
   it('cascades subscription, storage account, and container selection into downstream loads', async () => {

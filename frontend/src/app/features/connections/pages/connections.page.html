@@ -95,14 +95,44 @@
           (click)="openDialog()"
           [disabled]="!vm.isAuthenticated"
           class="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary transition-transform hover:bg-primary/90 hover:-translate-y-[1px] disabled:opacity-40 disabled:hover:translate-y-0"
-          [title]="vm.isAuthenticated ? ('connections.page.addButtonTitleEnabled' | translate) : ('connections.page.addButtonTitleDisabled' | translate)"
+          [title]="vm.addButtonTitle"
         >
           <i class="pi pi-plus text-xs"></i>
           {{ 'connections.page.addButton' | translate }}
         </button>
       </div>
 
-      @if (!vm.isAuthenticated) {
+      @if (vm.authInProgress) {
+      <div
+        role="status"
+        aria-live="polite"
+        class="flex items-start gap-3 rounded-xl bg-surface-container p-5"
+      >
+        <svg
+          class="mt-0.5 h-4 w-4 shrink-0 animate-spin text-tertiary"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <circle
+            class="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            stroke-width="4"
+          ></circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+          ></path>
+        </svg>
+        <p class="text-xs leading-relaxed text-on-surface-variant">
+          {{ 'connections.page.authInProgressNotice' | translate }}
+        </p>
+      </div>
+      } @else if (!vm.isAuthenticated) {
       <div class="flex items-start gap-3 rounded-xl bg-surface-container p-5">
         <i class="pi pi-info-circle mt-0.5 text-sm text-tertiary"></i>
         <p class="text-xs leading-relaxed text-on-surface-variant">
@@ -181,7 +211,7 @@
                 type="button"
                 (click)="openLogs(card)"
                 [disabled]="!vm.isAuthenticated"
-                [title]="vm.isAuthenticated ? ('connections.page.openButtonTitleEnabled' | translate) : ('connections.page.openButtonTitleDisabled' | translate)"
+                [title]="vm.openButtonTitle"
                 class="flex h-10 items-center gap-2 rounded-lg bg-surface-container-highest px-4 text-xs font-semibold uppercase tracking-wider text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface-container-highest"
               >
                 @if (card.isOffline) {

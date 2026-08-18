@@ -8,6 +8,7 @@ import type {
   AzureBlobTextChunk,
   AzureContainer,
   AzureAuthFailureReason,
+  AzureAuthState,
   AzureStorageAccount,
   AzureSubscription,
 } from '../models/azure.model';
@@ -26,6 +27,7 @@ export class AzureService {
   private readonly i18n = inject(AppI18nService);
   private startupRestorePromise: Promise<void> | null = null;
   private startupRestoreCompleted = false;
+  private startupRestoreSuperseded = false;
   private subscriptionsLoadPromise: Promise<void> | null = null;
   private storageAccountsLoadPromise: Promise<void> | null = null;
   private storageAccountsLoadKey: string | null = null;
@@ -38,6 +40,7 @@ export class AzureService {
   readonly authFailureReason = signal<AzureAuthFailureReason>('');
 
   readonly isAuthenticated = computed(() => this.authStep() === 'authenticated');
+  readonly authInProgress = computed(() => this.authStep() === 'authenticating');
   readonly azureCliMissing = computed(() => this.authFailureReason() === 'cli_not_available');
 
   // --- Subscriptions ---
@@ -101,6 +104,7 @@ export class AzureService {
   // --- Authentication actions ---
 
   async login(): Promise<void> {
+    this.startupRestoreSuperseded = true;
     this.authStep.set('authenticating');
     this.authError.set(null);
 
@@ -143,26 +147,30 @@ export class AzureService {
       return this.startupRestorePromise;
     }
 
+    this.startupRestoreSuperseded = false;
+    this.authStep.set('authenticating');
+    this.authError.set(null);
+
     this.startupRestorePromise = (async () => {
+      let state: AzureAuthState | null = null;
       try {
-        const state = await this.api.restoreAzureSession();
-        this.authFailureReason.set(state.failureReason ?? '');
-        if (state.authenticated) {
-          this.authStep.set('authenticated');
-          this.authError.set(null);
-          return;
-        }
+        state = await this.api.restoreAzureSession();
       } catch {
         // Startup restore stays silent and leaves the app disconnected.
-        this.authFailureReason.set('');
-      } finally {
-        this.authError.set(null);
-        if (this.authStep() !== 'authenticated') {
-          this.authStep.set('disconnected');
-        }
-        this.startupRestoreCompleted = true;
-        this.startupRestorePromise = null;
+        state = null;
       }
+
+      this.startupRestoreCompleted = true;
+      this.startupRestorePromise = null;
+
+      // An interactive login started while the restore was in flight owns the state.
+      if (this.startupRestoreSuperseded) {
+        return;
+      }
+
+      this.authFailureReason.set(state?.failureReason ?? '');
+      this.authError.set(null);
+      this.authStep.set(state?.authenticated ? 'authenticated' : 'disconnected');
     })();
 
     return this.startupRestorePromise;

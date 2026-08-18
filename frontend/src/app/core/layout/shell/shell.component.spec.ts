@@ -7,6 +7,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 
 import { AppApiService } from '@app/core/services/app-api.service';
 import { WindowControlsService } from '@app/core/services/window-controls.service';
+import { AzureService } from '@app/features/settings/services/azure.service';
 import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
 
 import { ShellComponent } from './shell.component';
@@ -22,6 +23,10 @@ class AppApiServiceStub implements Partial<AppApiService> {
   getVersion = vi.fn<() => Promise<string>>().mockResolvedValue('0.1.1');
 }
 
+class AzureServiceStub implements Partial<AzureService> {
+  readonly authInProgress = signal(false);
+}
+
 @Component({
   standalone: true,
   template: '',
@@ -31,11 +36,13 @@ class TestRouteComponent {}
 describe('ShellComponent', () => {
   let controls: WindowControlsServiceStub;
   let appApi: AppApiServiceStub;
+  let azure: AzureServiceStub;
   let router: Router;
 
   beforeEach(async () => {
     controls = new WindowControlsServiceStub();
     appApi = new AppApiServiceStub();
+    azure = new AzureServiceStub();
 
     await TestBed.configureTestingModule({
       imports: [ShellComponent],
@@ -50,6 +57,7 @@ describe('ShellComponent', () => {
         MessageService,
         { provide: AppApiService, useValue: appApi },
         { provide: WindowControlsService, useValue: controls },
+        { provide: AzureService, useValue: azure },
       ],
     }).compileComponents();
 
@@ -79,6 +87,26 @@ describe('ShellComponent', () => {
 
     expect(appApi.getVersion).toHaveBeenCalledOnce();
     expect(branding.textContent).toContain('v0.1.1');
+  });
+
+  it('hides the Azure authentication chip while no authentication runs', () => {
+    const fixture = createFixture();
+
+    expect(fixture.nativeElement.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('renders the Azure authentication chip while authentication runs', () => {
+    const fixture = createFixture();
+    azure.authInProgress.set(true);
+    fixture.detectChanges();
+
+    const chip = fixture.nativeElement.querySelector(
+      '[role="status"]',
+    ) as HTMLElement | null;
+
+    expect(chip?.textContent).toContain('Authenticating');
+    expect(chip?.getAttribute('aria-label')).toBe('Azure authentication in progress');
+    expect(chip?.querySelector('svg.animate-spin')).not.toBeNull();
   });
 
   it('renders the restore icon and label in the maximized window state', () => {

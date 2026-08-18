@@ -33,6 +33,14 @@ class AppApiServiceStub implements Partial<AppApiService> {
         includeDeleted?: boolean,
       ) => Promise<AzureBlobItem[]>
     >();
+  resolveDeletedBlobVersion =
+    vi.fn<
+      (request: {
+        accountName: string;
+        containerName: string;
+        blobName: string;
+      }) => Promise<AzureBlobItem>
+    >();
   readBlobTextChunk =
     vi.fn<(request: AzureBlobTextChunkRequest) => Promise<AzureBlobTextChunk>>();
   restoreBlob =
@@ -297,6 +305,64 @@ describe('LogsService', () => {
     expect(api.readBlobTextChunk).not.toHaveBeenCalled();
   });
 
+  it('keeps loading until the complete blob response is available', async () => {
+    const fullList = createDeferred<AzureBlobItem[]>();
+    api.listBlobs.mockReturnValueOnce(fullList.promise);
+
+    const loadPromise = service.loadForConnection('myaccount', 'logs');
+
+    expect(service.status()).toBe('loading');
+    expect(service.entries()).toEqual([]);
+
+    fullList.resolve(
+      Array.from({ length: 450 }, (_, index) =>
+        createBlob({ name: `entry-${index.toString().padStart(3, '0')}.log` }),
+      ),
+    );
+    await loadPromise;
+
+    expect(service.status()).toBe('success');
+    expect(service.entries()).toHaveLength(450);
+    expect(service.entries()[449]?.blobName).toBe('entry-449.log');
+    expect(api.listBlobs).toHaveBeenCalledOnce();
+  });
+
+  it('resolves a versioned deletion on demand while keeping the row identity', async () => {
+    api.listBlobs.mockResolvedValueOnce([
+      createBlob({
+        name: 'deleted.log',
+        deleted: true,
+        hasVersionsOnly: true,
+      }),
+    ]);
+    api.resolveDeletedBlobVersion.mockResolvedValue(
+      createBlob({
+        name: 'deleted.log',
+        deleted: true,
+        hasVersionsOnly: true,
+        versionId: '2026-04-11T10:00:00.0000000Z',
+        size: 128,
+      }),
+    );
+    await service.loadForConnection('myaccount', 'logs', true);
+    const rowId = service.entries()[0]?.id;
+
+    await expect(service.resolveDeletedVersion(rowId ?? '')).resolves.toBe(true);
+
+    expect(api.resolveDeletedBlobVersion).toHaveBeenCalledWith({
+      accountName: 'myaccount',
+      containerName: 'logs',
+      blobName: 'deleted.log',
+    });
+    expect(service.entries()[0]).toMatchObject({
+      id: rowId,
+      versionId: '2026-04-11T10:00:00.0000000Z',
+      size: 128,
+      isDeleted: true,
+      hasVersionsOnly: true,
+    });
+  });
+
   it('falls back to the selection snapshot when refreshed entries no longer contain the selected file', async () => {
     api.listBlobs
       .mockResolvedValueOnce([createBlob({ name: 'alpha.log', size: 1024 })])
@@ -535,6 +601,57 @@ describe('LogsService', () => {
     expectBottomScrollCommand(service.largeViewerScrollCommand());
     expect(api.openBlobViewSession).toHaveBeenCalledTimes(1);
     expect(api.setBlobViewSessionMode).toHaveBeenCalledWith('session-snapshot', 'live');
+  });
+
+  it('reports when the backend keeps an existing viewer in snapshot mode', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES }),
+    ]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        mode: 'snapshot',
+      }),
+    );
+    api.setBlobViewSessionMode.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        mode: 'snapshot',
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    await expect(service.setLiveMode(true)).resolves.toBe(false);
+    expect(service.largeViewerMode()).toBe('snapshot');
+  });
+
+  it('reports a failed backend request without leaving snapshot mode', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES }),
+    ]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-snapshot',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        mode: 'snapshot',
+      }),
+    );
+    api.setBlobViewSessionMode.mockRejectedValueOnce(new Error('bridge failed'));
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    await expect(service.setLiveMode(true)).resolves.toBe(false);
+    expect(service.largeViewerMode()).toBe('snapshot');
   });
 
   it('searches within live preview lines locally without calling the backend search', async () => {
@@ -1146,6 +1263,61 @@ describe('LogsService', () => {
     const refreshedCommand = service.largeViewerScrollCommand();
     expectBottomScrollCommand(refreshedCommand);
     expect(refreshedCommand.requestId).toBeGreaterThan(initialCommand.requestId);
+  });
+
+  it('reloads the indexed live window when the blob grows before the line count changes', async () => {
+    api.listBlobs.mockResolvedValue([
+      createBlob({ name: 'file.log', size: LARGE_BLOB_SIZE_BYTES }),
+    ]);
+    api.openBlobViewSession.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-live',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES,
+        indexedLineCount: 100,
+        isComplete: true,
+        mode: 'live',
+        livePreviewLines: [],
+      }),
+    );
+    api.getBlobViewLines
+      .mockResolvedValueOnce({
+        startLine: 0,
+        totalLines: 100,
+        isComplete: true,
+        lines: [{ lineNumber: 99, content: 'partial line' }],
+      })
+      .mockResolvedValueOnce({
+        startLine: 0,
+        totalLines: 100,
+        isComplete: true,
+        lines: [{ lineNumber: 99, content: 'partial line continued' }],
+      });
+    api.getBlobViewStatus.mockResolvedValueOnce(
+      createSessionStatus({
+        sessionId: 'session-live',
+        blobName: 'file.log',
+        blobSize: LARGE_BLOB_SIZE_BYTES + 128,
+        bytesDownloaded: LARGE_BLOB_SIZE_BYTES + 128,
+        indexedLineCount: 100,
+        isComplete: true,
+        mode: 'live',
+        livePreviewLines: [],
+      }),
+    );
+
+    await service.loadForConnection('myaccount', 'logs');
+    service.selectEntry('file.log');
+    await flushAsync();
+
+    await service['refreshLargeViewerStatus']('session-live');
+
+    expect(api.getBlobViewLines).toHaveBeenCalledTimes(2);
+    expect(service.largeViewerLines()).toEqual([
+      { lineNumber: 99, content: 'partial line continued' },
+    ]);
+    expectBottomScrollCommand(service.largeViewerScrollCommand());
   });
 
   it('replaces a stale top snapshot window with the bottom indexed live window after enabling live mode', async () => {

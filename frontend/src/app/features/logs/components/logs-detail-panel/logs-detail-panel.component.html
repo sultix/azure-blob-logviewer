@@ -61,15 +61,16 @@
                 <span>{{ 'logs.detail.live' | translate }}</span>
                 <p-toggleswitch
                   inputId="logs-live-mode"
-                  [ngModel]="liveEnabled()"
+                  [ngModel]="liveToggleValue()"
                   (ngModelChange)="onLiveChange($event)"
+                  [disabled]="liveUpdating()"
                   [ariaLabel]="'logs.detail.liveToggleAriaLabel' | translate"
                 />
               </label>
             </div>
           }
           <div
-            class="flex min-w-[15rem] items-center gap-2 rounded-lg bg-surface-container-highest px-3 py-2"
+            class="flex w-[22rem] shrink-0 items-center gap-2 rounded-lg bg-surface-container-highest px-3 py-2"
           >
             <i class="pi pi-search text-[11px] text-on-surface-variant"></i>
             <input
@@ -77,50 +78,47 @@
               [placeholder]="'logs.detail.searchContentPlaceholder' | translate"
               [ngModel]="contentSearchInput()"
               (ngModelChange)="onContentSearchChange($event)"
-              class="min-w-0 flex-1 bg-transparent text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+              class="min-w-0 w-0 flex-1 bg-transparent text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none"
               [attr.aria-label]="'logs.detail.searchContentAriaLabel' | translate"
             />
-            @if (hasActiveContentSearch()) {
-              <button
-                type="button"
-                (click)="clearContentSearch()"
-                [pTooltip]="'logs.detail.clearSearch' | translate"
-                tooltipPosition="top"
-                [attr.aria-label]="'logs.detail.clearSearchAriaLabel' | translate"
-                class="flex h-5 w-5 text-xs items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface hover:text-on-surface"
-              >
-                <i class="pi pi-times text-[10px]"></i>
-              </button>
-              @if (isContentSearchReady() || isLargeViewer()) {
-                <span
-                  class="shrink-0 rounded-full bg-primary-container/20 px-2 py-0.5 text-[10px] font-semibold text-on-surface"
-                >
-                  {{ contentSearchMatchText() }}
-                </span>
-                <button
-                  type="button"
-                  (click)="scrollToPreviousMatch()"
-                  [disabled]="!hasContentSearchMatches()"
-                  [pTooltip]="'logs.detail.previousMatch' | translate"
-                  tooltipPosition="top"
-                  [attr.aria-label]="'logs.detail.previousMatchAriaLabel' | translate"
-                  class="flex h-5 w-5 items-center justify-center rounded-md bg-surface-container-highest text-xs text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <i class="pi pi-chevron-up text-[10px]"></i>
-                </button>
-                <button
-                  type="button"
-                  (click)="scrollToNextMatch()"
-                  [disabled]="!hasContentSearchMatches()"
-                  [pTooltip]="'logs.detail.nextMatch' | translate"
-                  tooltipPosition="top"
-                  [attr.aria-label]="'logs.detail.nextMatchAriaLabel' | translate"
-                  class="flex h-5 w-5 text-xs items-center justify-center rounded-md bg-surface-container-highest text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <i class="pi pi-chevron-down text-[10px]"></i>
-                </button>
-              }
-            }
+            <button
+              type="button"
+              (click)="clearContentSearch()"
+              [disabled]="!hasActiveContentSearch()"
+              [pTooltip]="'logs.detail.clearSearch' | translate"
+              tooltipPosition="top"
+              [attr.aria-label]="'logs.detail.clearSearchAriaLabel' | translate"
+              class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-xs text-on-surface-variant transition-colors hover:bg-surface hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <i class="pi pi-times text-[10px]"></i>
+            </button>
+            <span
+              class="w-20 shrink-0 truncate rounded-full bg-primary-container/20 px-2 py-0.5 text-center text-[10px] font-semibold text-on-surface"
+            >
+              {{ contentSearchMatchText() }}
+            </span>
+            <button
+              type="button"
+              (click)="scrollToPreviousMatch()"
+              [disabled]="!hasContentSearchMatches()"
+              [pTooltip]="'logs.detail.previousMatch' | translate"
+              tooltipPosition="top"
+              [attr.aria-label]="'logs.detail.previousMatchAriaLabel' | translate"
+              class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface-container-highest text-xs text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <i class="pi pi-chevron-up text-[10px]"></i>
+            </button>
+            <button
+              type="button"
+              (click)="scrollToNextMatch()"
+              [disabled]="!hasContentSearchMatches()"
+              [pTooltip]="'logs.detail.nextMatch' | translate"
+              tooltipPosition="top"
+              [attr.aria-label]="'logs.detail.nextMatchAriaLabel' | translate"
+              class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface-container-highest text-xs text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <i class="pi pi-chevron-down text-[10px]"></i>
+            </button>
           </div>
           <div class="hidden 2xl:flex 2xl:items-center 2xl:gap-4">
             <button

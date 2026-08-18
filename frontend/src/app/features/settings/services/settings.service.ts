@@ -13,7 +13,7 @@ import type {
 import { createDefaultAppConfig, isAppAppearance } from '../models/app-config.model';
 
 const STORAGE_KEY = 'obsidian-console:config';
-const LIVE_REFRESH_INTERVALS = [1, 5, 10, 30, 60] as const;
+const LIVE_REFRESH_INTERVALS = [5, 10, 30, 60] as const;
 
 // Persisted shape: the current keys plus the ones retired by past renames.
 type StoredLogsPreferences = Partial<LogsPreferences> & {

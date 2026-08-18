@@ -115,7 +115,6 @@ class LogsServiceStub implements Partial<LogsService> {
     this.largeViewerLivePreviewLinesState(),
   );
   readonly isLiveMode = computed(() => this.isLiveModeState());
-
   readonly loadForConnection = vi.fn<
     (
       accountName: string,
@@ -160,6 +159,14 @@ class LogsServiceStub implements Partial<LogsService> {
     return { kind: 'updated' };
   });
   readonly refreshContent = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly resolveDeletedVersion = vi.fn<(id: string) => Promise<boolean>>(async (id) => {
+    this.entriesState.update((entries) =>
+      entries.map((entry) =>
+        entry.id === id ? { ...entry, versionId: 'resolved-version' } : entry,
+      ),
+    );
+    return true;
+  });
   readonly restoreDeletedEntry = vi.fn<(id: string) => Promise<boolean>>(
     async () => true,
   );
@@ -172,8 +179,9 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly selectPreviousSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly selectNextSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly exportLargeViewer = vi.fn<() => Promise<boolean>>(async () => false);
-  readonly setLiveMode = vi.fn<(enabled: boolean) => Promise<void>>(async (enabled) => {
+  readonly setLiveMode = vi.fn<(enabled: boolean) => Promise<boolean>>(async (enabled) => {
     this.isLiveModeState.set(enabled);
+    return true;
   });
   readonly clearLargeViewerScrollCommand = vi.fn<() => void>(() => {
     this.largeViewerScrollCommandState.set(null);
@@ -299,6 +307,14 @@ describe('LogsPage', () => {
     Object.defineProperty(HTMLDivElement.prototype, 'scrollTo', {
       configurable: true,
       value: vi.fn(),
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get: () => 400,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get: () => 300,
     });
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
@@ -650,8 +666,6 @@ describe('LogsPage', () => {
         `Modified ${formatDetailTimestamp('2026-04-13T09:30:00Z')}`,
       ],
     });
-    expect(fixture.nativeElement.textContent).toContain('Created Today, 09:00');
-    expect(fixture.nativeElement.textContent).toContain('Modified Today, 09:30');
     expect(component.footer()).toEqual({
       typeLabel: 'text/plain',
       lineCountLabel: 'Lines: 2',
@@ -692,6 +706,44 @@ describe('LogsPage', () => {
     expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
       sortBasis: LogSortBasis.LastModified,
     });
+  });
+
+  it('searches, filters, and sorts across entries beyond the former page boundary', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
+    const entries = Array.from({ length: 450 }, (_, index) =>
+      createLogEntry({
+        id: `entry-${index}`,
+        blobName: `ordinary-${index.toString().padStart(3, '0')}.log`,
+        createdAt: '2026-04-11T08:00:00Z',
+        lastModified: '2026-04-11T09:00:00Z',
+      }),
+    );
+    entries[449] = createLogEntry({
+      id: 'entry-449',
+      blobName: 'global-target.log',
+      createdAt: '2026-04-15T10:00:00Z',
+      lastModified: '2026-04-16T11:00:00Z',
+    });
+    logs.statusState.set('success');
+    logs.entriesState.set(entries);
+    const sortedRows = component.sortedRows();
+
+    component.onSearch('global-target');
+    expect(component.sortedRows()).toBe(sortedRows);
+    expect(component.rows().map((row) => row.blobName)).toEqual(['global-target.log']);
+
+    component.onSearch('');
+    component.onCreatedOnChange(new Date('2026-04-15T00:00:00Z'));
+    expect(component.rows().map((row) => row.blobName)).toEqual(['global-target.log']);
+
+    component.clearFilters();
+    expect(component.rows()).toHaveLength(450);
+    expect(component.rows()[0]?.blobName).toBe('global-target.log');
+
+    component.onSortBasisChange(LogSortBasis.LastModified);
+    expect(component.rows()[0]?.blobName).toBe('global-target.log');
   });
 
   it('reads the initial sort basis from persisted logs settings', async () => {
@@ -1006,6 +1058,42 @@ describe('LogsPage', () => {
     expect(logs.updateSelection).toHaveBeenCalledWith(deletedVersion.id, false);
     expect(component.liveAvailable()).toBe(false);
     expect(component.toolbar()?.metaBadges).toContain('Deleted version · read-only');
+  });
+
+  it('does not offer live mode for an explicitly versioned blob', async () => {
+    const versionedEntry = createLogEntry({
+      id: 'archive.log::version-1',
+      blobName: 'archive.log',
+      versionId: 'version-1',
+    });
+    fixture.detectChanges();
+    await flushAsync();
+    logs.statusState.set('success');
+    logs.entriesState.set([versionedEntry]);
+
+    await component.select({ id: versionedEntry.id, additive: false });
+    fixture.detectChanges();
+
+    expect(component.liveAvailable()).toBe(false);
+  });
+
+  it('resolves a versioned deletion before selecting it', async () => {
+    const deletedVersion = createLogEntry({
+      id: 'archive.log::deleted::soft-delete',
+      blobName: 'archive.log',
+      isDeleted: true,
+      hasVersionsOnly: true,
+    });
+    fixture.detectChanges();
+    await flushAsync();
+    logs.statusState.set('success');
+    logs.entriesState.set([deletedVersion]);
+
+    await component.select({ id: deletedVersion.id, additive: false });
+
+    expect(logs.resolveDeletedVersion).toHaveBeenCalledWith(deletedVersion.id);
+    expect(confirmationService.confirm).not.toHaveBeenCalled();
+    expect(logs.updateSelection).toHaveBeenCalledWith(deletedVersion.id, false);
   });
 
   it('restores a soft-deleted blob after confirmation and opens it', async () => {
@@ -1442,6 +1530,21 @@ describe('LogsPage', () => {
     expect(component.footer()).toEqual({
       typeLabel: 'text/plain',
       lineCountLabel: 'Lines in excerpt: 200',
+    });
+  });
+
+  it('shows an error when the backend does not confirm live mode', async () => {
+    logs.setLiveMode.mockResolvedValueOnce(false);
+
+    await component.onLiveToggled(true);
+
+    expect(component.liveModeUpdating()).toBe(false);
+    expect(messageService.add).toHaveBeenCalledWith({
+      severity: 'error',
+      summary: 'Live mode not changed',
+      detail:
+        'The backend did not confirm the mode change. The viewer remains in its previous mode.',
+      life: 4000,
     });
   });
 

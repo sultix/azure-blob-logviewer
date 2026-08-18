@@ -13,6 +13,7 @@ import type {
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
 import type {
   AzureAuthState,
+  AzureBlobIdentityRequest,
   AzureBlobItem,
   AzureBlobTextChunk,
   AzureBlobTextChunkRequest,
@@ -33,6 +34,7 @@ export interface ConnectionsExportResult {
 
 export interface AppApi {
   getVersion(): Promise<string>;
+  openLogsDirectory(): Promise<void>;
   listLogEntries(): Promise<LogEntry[]>;
   getLogEntry(id: string): Promise<LogEntry | null>;
   startAzureLogin(): Promise<AzureAuthState>;
@@ -52,6 +54,7 @@ export interface AppApi {
     prefix: string,
     includeDeleted?: boolean,
   ): Promise<AzureBlobItem[]>;
+  resolveDeletedBlobVersion(request: AzureBlobIdentityRequest): Promise<AzureBlobItem>;
   readBlobTextChunk(request: AzureBlobTextChunkRequest): Promise<AzureBlobTextChunk>;
   restoreBlob(request: RestoreAzureBlobRequest): Promise<void>;
   openBlobViewSession(
@@ -76,6 +79,7 @@ export interface AppApi {
 
 interface WailsAppBridge {
   GetVersion(): Promise<string>;
+  OpenLogsDirectory(): Promise<void>;
   ListLogEntries(): Promise<LogEntry[] | null>;
   GetLogEntry(id: string): Promise<LogEntry | null>;
   StartAzureLogin(): Promise<AzureAuthState | null>;
@@ -95,6 +99,9 @@ interface WailsAppBridge {
     prefix: string,
     includeDeleted: boolean,
   ): Promise<AzureBlobItem[] | null>;
+  ResolveDeletedBlobVersion(
+    request: AzureBlobIdentityRequest,
+  ): Promise<AzureBlobItem | null>;
   ReadBlobTextChunk(
     request: AzureBlobTextChunkRequest,
   ): Promise<AzureBlobTextChunk | null>;
@@ -133,6 +140,10 @@ export class AppApiService implements AppApi {
 
   async getVersion(): Promise<string> {
     return this.bridge().GetVersion();
+  }
+
+  async openLogsDirectory(): Promise<void> {
+    return this.bridge().OpenLogsDirectory();
   }
 
   async listLogEntries(): Promise<LogEntry[]> {
@@ -204,6 +215,16 @@ export class AppApiService implements AppApi {
       includeDeleted,
     );
     return result ?? [];
+  }
+
+  async resolveDeletedBlobVersion(
+    request: AzureBlobIdentityRequest,
+  ): Promise<AzureBlobItem> {
+    const result = await this.bridge().ResolveDeletedBlobVersion(request);
+    if (!result) {
+      throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
+    }
+    return result;
   }
 
   async readBlobTextChunk(

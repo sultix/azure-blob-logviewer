@@ -78,7 +78,8 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly hasSelection = input(false);
   readonly liveAvailable = input(false);
   readonly liveEnabled = input(false);
-  readonly liveRefreshIntervalSeconds = input(10);
+  readonly liveUpdating = input(false);
+  readonly liveRefreshIntervalSeconds = input(5);
   readonly selectionKey = input('');
   readonly toolbar = input<LogToolbarVm | null>(null);
   readonly largeViewer = input<LogLargeViewerVm | null>(null);
@@ -117,6 +118,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
     read: ElementRef<HTMLDivElement>,
   });
   readonly contentSearchInput = signal('');
+  readonly liveToggleValue = signal(false);
   private readonly contentSearchQuery = signal('');
   private readonly requestedMatchIndex = signal(0);
   readonly logLevelHighlightingEnabled = computed(
@@ -262,19 +264,20 @@ export class LogsDetailPanelComponent implements OnDestroy {
               ? this.i18n.translate('logs.detail.mobileActions.liveOn')
               : this.i18n.translate('logs.detail.mobileActions.liveOff'),
             icon: 'pi pi-sync',
+            disabled: this.liveUpdating(),
             command: () => this.toggleLive(),
           },
         ]
       : []),
   ]);
   readonly contentSearchMatchText = computed(() => {
+    if (!this.isContentSearchReady()) {
+      return this.i18n.translate('logs.detail.zeroMatches');
+    }
+
     const largeViewer = this.largeViewer();
     if (largeViewer) {
       return largeViewer.searchStatusLabel;
-    }
-
-    if (!this.isContentSearchReady()) {
-      return '';
     }
 
     if (this.isContentSearchPending()) {
@@ -293,6 +296,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
   constructor() {
     effect(() => {
+      const confirmedLiveValue = this.liveEnabled();
+      if (!this.liveUpdating()) {
+        this.liveToggleValue.set(confirmedLiveValue);
+      }
+    });
+
+    effect(() => {
       const nextSelectionKey = this.selectionKey();
       if (this.lastAppliedSelectionKey === nextSelectionKey) {
         return;
@@ -308,14 +318,35 @@ export class LogsDetailPanelComponent implements OnDestroy {
       const scrollContainer = this.contentScrollContainer()?.nativeElement;
 
       if (largeViewer && scrollContainer) {
+        // Opening live mode creates the viewer state before its first line window
+        // has finished loading. Do not consume the pending bottom-scroll command
+        // against the loading placeholder: doing so leaves the real content at
+        // the top and the subsequent viewport measurement pauses live following.
+        const indexedWindowIsPending =
+          largeViewer.scrollCommand?.kind === 'bottom' &&
+          largeViewer.livePreviewLines.length === 0 &&
+          largeViewer.totalLines > 0 &&
+          largeViewer.lines.length === 0;
+        if (this.contentLoading() || indexedWindowIsPending) {
+          this.clearScheduledViewportEmit();
+          this.lastLargeViewportKey = null;
+          return;
+        }
+
         const scrollCommandRequestId = largeViewer.scrollCommand?.requestId ?? null;
         if (
           scrollCommandRequestId !== null &&
           scrollCommandRequestId !== this.lastHandledLargeScrollCommandId
         ) {
+          this.clearScheduledViewportEmit();
           this.executeLargeViewerScrollCommand(scrollContainer, largeViewer);
           this.lastHandledLargeScrollCommandId = scrollCommandRequestId;
           this.largeScrollHandled.emit();
+          // Programmatic scrolling and layout settle asynchronously in the Wails
+          // webview. Measure the viewport in the next frame instead of immediately
+          // interpreting the old scrollTop as a user pause.
+          this.scheduleLargeViewportEmit();
+          return;
         } else if (scrollCommandRequestId === null) {
           this.lastHandledLargeScrollCommandId = null;
         }
@@ -486,7 +517,8 @@ export class LogsDetailPanelComponent implements OnDestroy {
     largeViewer: LogLargeViewerVm,
   ): void {
     const nearBottom = this.isNearBottom(scrollContainer);
-    const isLivePreview = largeViewer.mode === 'live' && largeViewer.livePreviewLines.length > 0;
+    const isLivePreview =
+      largeViewer.mode === 'live' && largeViewer.livePreviewLines.length > 0;
     if (isLivePreview) {
       const viewportKey = `preview:${nearBottom}:${largeViewer.livePreviewLines.length}`;
       if (this.lastLargeViewportKey === viewportKey) {
@@ -558,10 +590,11 @@ export class LogsDetailPanelComponent implements OnDestroy {
   }
 
   private updateLive(value: boolean): void {
-    if (!this.liveAvailable()) {
+    if (!this.liveAvailable() || this.liveUpdating()) {
       return;
     }
 
+    this.liveToggleValue.set(value);
     this.liveToggled.emit(value);
   }
 
@@ -583,11 +616,17 @@ export class LogsDetailPanelComponent implements OnDestroy {
       return;
     }
 
+    const top =
+      scrollCommand.kind === 'bottom'
+        ? scrollContainer.scrollHeight
+        : scrollCommand.lineNumber * LOG_VIRTUAL_LINE_HEIGHT_PX;
+
+    // Setting scrollTop makes the position change synchronous in the Wails
+    // webview. scrollTo is retained so browsers dispatch their normal scroll
+    // event and the viewport can be measured after layout settles.
+    scrollContainer.scrollTop = top;
     scrollContainer.scrollTo({
-      top:
-        scrollCommand.kind === 'bottom'
-          ? scrollContainer.scrollHeight
-          : scrollCommand.lineNumber * LOG_VIRTUAL_LINE_HEIGHT_PX,
+      top,
       behavior: 'auto',
     });
   }
@@ -666,10 +705,10 @@ function buildContentSearch(
       );
     }
 
+    const activeClass =
+      matchNumber === initialActiveMatchIndex ? ' active-search-match' : '';
     segments.push(
-      `<mark class="log-search-match ${
-        matchNumber === initialActiveMatchIndex ? 'active-search-match ' : ''
-      }bg-primary-container/20 text-on-surface">${escapeHtml(
+      `<mark class="log-search-match${activeClass}">${escapeHtml(
         content.slice(matchIndex, matchIndex + queryLength),
       )}</mark>`,
     );
@@ -718,7 +757,7 @@ function highlightContent(
   );
   const activeClass = isActive ? ' active-search-match' : '';
 
-  return `${before}<mark class="log-search-match${activeClass} bg-primary-container/20 text-on-surface">${match}</mark>${after}`;
+  return `${before}<mark class="log-search-match${activeClass}">${match}</mark>${after}`;
 }
 
 function renderLargeLineHtml(

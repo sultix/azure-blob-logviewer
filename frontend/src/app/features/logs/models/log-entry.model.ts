@@ -13,6 +13,7 @@ export interface LogEntry {
   deletedAt?: string;
   remainingRetentionDays?: number;
   versionId?: string;
+  hasVersionsOnly?: boolean;
   path?: string;
   createdRelative?: string;
   storageAccountName?: string;

@@ -82,6 +82,7 @@ export class LogsPage implements OnInit {
   private readonly currentConnection = signal<StorageConnection | null>(null);
   private readonly sidebarLastUpdatedAt = signal<Date | null>(null);
   private readonly sidebarRefreshing = signal(false);
+  readonly liveModeUpdating = signal(false);
 
   readonly status = this.logs.status;
   readonly errorMessage = this.logs.errorMessage;
@@ -122,10 +123,26 @@ export class LogsPage implements OnInit {
     })),
   );
 
-  readonly rows = computed<LogFileRowVm[]>(() => {
-    const term = this.searchTerm().trim().toLowerCase();
+  readonly sortedRows = computed<PreparedLogFileRowVm[]>(() => {
     const dir = this.sortDir();
     const sortBasis = this.sortBasis();
+    const mult = dir === 'asc' ? 1 : -1;
+
+    return [...this.preparedRows()].sort((a, b) => {
+      const dateCmp =
+        sortBasis === LogSortBasis.Created
+          ? a.createdAtTs - b.createdAtTs
+          : a.lastModifiedAtTs - b.lastModifiedAtTs;
+      if (dateCmp !== 0) {
+        return dateCmp * mult;
+      }
+
+      return a.blobNameLower.localeCompare(b.blobNameLower) * mult;
+    });
+  });
+
+  readonly rows = computed<LogFileRowVm[]>(() => {
+    const term = this.searchTerm().trim().toLowerCase();
     const createdOn = this.createdOn();
     const createdRange = this.createdRange();
     const rangeStart = isCompleteCreatedRange(createdRange)
@@ -135,7 +152,7 @@ export class LogsPage implements OnInit {
       ? endOfDayExclusiveTimestamp(createdRange[1])
       : Number.POSITIVE_INFINITY;
 
-    const filteredRows = this.preparedRows().filter((row) => {
+    return this.sortedRows().filter((row) => {
       if (term && !row.blobNameLower.includes(term)) {
         return false;
       }
@@ -151,19 +168,6 @@ export class LogsPage implements OnInit {
       }
 
       return true;
-    });
-
-    const mult = dir === 'asc' ? 1 : -1;
-    return [...filteredRows].sort((a, b) => {
-      const dateCmp =
-        sortBasis === LogSortBasis.Created
-          ? a.createdAtTs - b.createdAtTs
-          : a.lastModifiedAtTs - b.lastModifiedAtTs;
-      if (dateCmp !== 0) {
-        return dateCmp * mult;
-      }
-
-      return a.blobNameLower.localeCompare(b.blobNameLower) * mult;
     });
   });
 
@@ -253,7 +257,8 @@ export class LogsPage implements OnInit {
       this.selectedEntryIds().length === 1 &&
       this.contentMode() === 'single' &&
       entry !== null &&
-      !entry.isDeleted
+      !entry.isDeleted &&
+      !entry.versionId
     );
   });
   readonly liveEnabled = computed(() => this.logs.isLiveMode());
@@ -426,7 +431,20 @@ export class LogsPage implements OnInit {
   }
 
   async select(event: LogFileSelectionEvent): Promise<void> {
-    const entry = this.logs.entries().find((candidate) => candidate.id === event.id);
+    let entry = this.logs.entries().find((candidate) => candidate.id === event.id);
+    if (entry?.isDeleted && entry.hasVersionsOnly && !entry.versionId) {
+      const resolved = await this.logs.resolveDeletedVersion(entry.id);
+      if (!resolved) {
+        this.messageService.add({
+          severity: 'error',
+          summary: this.i18n.translate('logs.deletedVersion.failedTitle'),
+          detail: this.i18n.translate('logs.deletedVersion.failed'),
+          life: 3500,
+        });
+        return;
+      }
+      entry = this.logs.entries().find((candidate) => candidate.id === event.id);
+    }
     if (entry?.isDeleted && !entry.versionId) {
       this.requestRestoreAndOpen(entry);
       return;
@@ -511,8 +529,27 @@ export class LogsPage implements OnInit {
     this.logs.clearLargeViewerScrollCommand();
   }
 
-  onLiveToggled(enabled: boolean): void {
-    void this.logs.setLiveMode(enabled);
+  async onLiveToggled(enabled: boolean): Promise<void> {
+    if (this.liveModeUpdating()) {
+      return;
+    }
+
+    this.liveModeUpdating.set(true);
+    try {
+      const updated = await this.logs.setLiveMode(enabled);
+      if (updated) {
+        return;
+      }
+
+      this.messageService.add({
+        severity: 'error',
+        summary: this.i18n.translate('logs.detail.toast.liveModeFailedTitle'),
+        detail: this.i18n.translate('logs.detail.toast.liveModeFailedDetail'),
+        life: 4000,
+      });
+    } finally {
+      this.liveModeUpdating.set(false);
+    }
   }
 
   async download(): Promise<void> {

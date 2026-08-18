@@ -69,7 +69,7 @@ describe('SettingsService', () => {
     });
     expect(service.logs()).toEqual({
       logLevelHighlightingEnabled: false,
-      liveRefreshIntervalSeconds: 10,
+      liveRefreshIntervalSeconds: 5,
       sortBasis: LogSortBasis.LastModified,
     });
   });
@@ -145,10 +145,10 @@ describe('SettingsService', () => {
     });
     const service = TestBed.inject(SettingsService);
 
-    expect(service.logs().liveRefreshIntervalSeconds).toBe(10);
+    expect(service.logs().liveRefreshIntervalSeconds).toBe(5);
   });
 
-  it('restores the one-second live refresh interval', () => {
+  it('falls back to the default for the retired one-second live refresh interval', () => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -161,7 +161,7 @@ describe('SettingsService', () => {
     });
     const service = TestBed.inject(SettingsService);
 
-    expect(service.logs().liveRefreshIntervalSeconds).toBe(1);
+    expect(service.logs().liveRefreshIntervalSeconds).toBe(5);
   });
 
   it('falls back to defaults when persisted JSON is invalid', () => {
@@ -213,7 +213,7 @@ describe('SettingsService', () => {
     });
     expect(service.logs()).toEqual({
       logLevelHighlightingEnabled: false,
-      liveRefreshIntervalSeconds: 10,
+      liveRefreshIntervalSeconds: 5,
       sortBasis: LogSortBasis.Created,
     });
     expect(localStorage.getItem(STORAGE_KEY)).toBe(

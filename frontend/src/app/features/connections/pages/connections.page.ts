@@ -74,6 +74,9 @@ interface ConnectionsPageVm {
   readonly errorMessage: string | null;
   readonly isEmpty: boolean;
   readonly isAuthenticated: boolean;
+  readonly authInProgress: boolean;
+  readonly addButtonTitle: string;
+  readonly openButtonTitle: string;
   readonly totalContainers: string;
   readonly azureCliCardStyle: AzureCliCardStyleVm;
   readonly cards: ConnectionCardVm[];
@@ -124,6 +127,7 @@ export class ConnectionsPage implements OnInit {
   readonly errorMessage = this.connectionsService.errorMessage;
   readonly isEmpty = this.connectionsService.isEmpty;
   readonly isAuthenticated = this.azure.isAuthenticated;
+  readonly authInProgress = this.azure.authInProgress;
   readonly azureCliMissing = this.azure.azureCliMissing;
 
   readonly searchTerm = signal('');
@@ -138,6 +142,8 @@ export class ConnectionsPage implements OnInit {
   );
 
   readonly pageVm = computed<ConnectionsPageVm>(() => {
+    const isAuthenticated = this.isAuthenticated();
+    const authInProgress = this.authInProgress();
     const preparedCards = this.preparedCards();
     const term = this.searchTerm().trim().toLowerCase();
     const cards = term
@@ -152,7 +158,20 @@ export class ConnectionsPage implements OnInit {
       status: this.status(),
       errorMessage: this.errorMessage(),
       isEmpty: this.isEmpty(),
-      isAuthenticated: this.isAuthenticated(),
+      isAuthenticated,
+      authInProgress,
+      addButtonTitle: this.resolveActionTitle(
+        'connections.page.addButtonTitleEnabled',
+        'connections.page.addButtonTitleDisabled',
+        isAuthenticated,
+        authInProgress,
+      ),
+      openButtonTitle: this.resolveActionTitle(
+        'connections.page.openButtonTitleEnabled',
+        'connections.page.openButtonTitleDisabled',
+        isAuthenticated,
+        authInProgress,
+      ),
       totalContainers: preparedCards
         .reduce((sum, connection) => sum + (connection.raw.containerCount ?? 0), 0)
         .toString()
@@ -268,6 +287,21 @@ export class ConnectionsPage implements OnInit {
         this.connectionsService.add(this.toNewConnection(result));
       },
     );
+  }
+
+  private resolveActionTitle(
+    enabledKey: string,
+    disabledKey: string,
+    isAuthenticated: boolean,
+    authInProgress: boolean,
+  ): string {
+    if (isAuthenticated) {
+      return this.i18n.translate(enabledKey);
+    }
+    if (authInProgress) {
+      return this.i18n.translate('connections.page.authInProgressTitle');
+    }
+    return this.i18n.translate(disabledKey);
   }
 
   private toCardVm(

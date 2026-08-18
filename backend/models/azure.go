@@ -63,6 +63,14 @@ type AzureBlobItem struct {
 	DeletedAt              string `json:"deletedAt"`
 	RemainingRetentionDays int32  `json:"remainingRetentionDays"`
 	VersionID              string `json:"versionId,omitempty"`
+	HasVersionsOnly        bool   `json:"hasVersionsOnly,omitempty"`
+}
+
+// AzureBlobIdentityRequest identifies one blob without exposing a general storage API.
+type AzureBlobIdentityRequest struct {
+	AccountName   string `json:"accountName"`
+	ContainerName string `json:"containerName"`
+	BlobName      string `json:"blobName"`
 }
 
 // AzureBlobTextChunkRequest describes a chunked text read against a blob.

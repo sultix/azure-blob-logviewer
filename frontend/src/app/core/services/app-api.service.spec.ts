@@ -26,6 +26,7 @@ import { AppApiService } from './app-api.service';
 
 interface MockBridge {
   GetVersion: ReturnType<typeof vi.fn<() => Promise<string>>>;
+  OpenLogsDirectory: ReturnType<typeof vi.fn<() => Promise<void>>>;
   ListLogEntries: ReturnType<typeof vi.fn<() => Promise<LogEntry[] | null>>>;
   GetLogEntry: ReturnType<typeof vi.fn<(id: string) => Promise<LogEntry | null>>>;
   StartAzureLogin: ReturnType<
@@ -77,6 +78,15 @@ interface MockBridge {
         prefix: string,
         includeDeleted: boolean,
       ) => Promise<AzureBlobItem[] | null>
+    >
+  >;
+  ResolveDeletedBlobVersion: ReturnType<
+    typeof vi.fn<
+      (request: {
+        accountName: string;
+        containerName: string;
+        blobName: string;
+      }) => Promise<AzureBlobItem | null>
     >
   >;
   ReadBlobTextChunk: ReturnType<
@@ -303,6 +313,7 @@ describe('AppApiService', () => {
     };
 
     bridge.GetVersion.mockResolvedValue('0.1.1');
+    bridge.OpenLogsDirectory.mockResolvedValue(undefined);
     bridge.ListLogEntries.mockResolvedValue([entry]);
     bridge.GetLogEntry.mockResolvedValue(entry);
     bridge.StartAzureLogin.mockResolvedValue({ authenticated: true, failureReason: '' });
@@ -318,6 +329,12 @@ describe('AppApiService', () => {
     bridge.ListStorageAccounts.mockResolvedValue(accounts);
     bridge.ListContainers.mockResolvedValue(containers);
     bridge.ListBlobs.mockResolvedValue(blobs);
+    bridge.ResolveDeletedBlobVersion.mockResolvedValue({
+      ...blobs[0],
+      deleted: true,
+      hasVersionsOnly: true,
+      versionId: 'version-1',
+    });
     bridge.ReadBlobTextChunk.mockResolvedValue(chunk);
     bridge.RestoreBlob.mockResolvedValue(undefined);
     bridge.OpenBlobViewSession.mockResolvedValue(sessionStatus);
@@ -337,6 +354,7 @@ describe('AppApiService', () => {
     bridge.ExportConnectionsFile.mockResolvedValue({ cancelled: false });
 
     await expect(service.getVersion()).resolves.toBe('0.1.1');
+    await expect(service.openLogsDirectory()).resolves.toBeUndefined();
     await expect(service.listLogEntries()).resolves.toEqual([entry]);
     await expect(service.getLogEntry('log-1')).resolves.toEqual(entry);
     await expect(service.startAzureLogin()).resolves.toEqual({
@@ -359,6 +377,13 @@ describe('AppApiService', () => {
     await expect(
       service.listBlobs('storage-a', 'logs', 'prefix/', true),
     ).resolves.toEqual(blobs);
+    await expect(
+      service.resolveDeletedBlobVersion({
+        accountName: 'storage-a',
+        containerName: 'logs',
+        blobName: 'app.log',
+      }),
+    ).resolves.toMatchObject({ versionId: 'version-1' });
     await expect(
       service.readBlobTextChunk({
         accountName: 'storage-a',
@@ -407,9 +432,15 @@ describe('AppApiService', () => {
     await service.azureLogout();
 
     expect(bridge.GetLogEntry).toHaveBeenCalledWith('log-1');
+    expect(bridge.OpenLogsDirectory).toHaveBeenCalledOnce();
     expect(bridge.ListStorageAccounts).toHaveBeenCalledWith('sub-1');
     expect(bridge.ListContainers).toHaveBeenCalledWith('sub-1', 'rg-1', 'storage-a');
     expect(bridge.ListBlobs).toHaveBeenCalledWith('storage-a', 'logs', 'prefix/', true);
+    expect(bridge.ResolveDeletedBlobVersion).toHaveBeenCalledWith({
+      accountName: 'storage-a',
+      containerName: 'logs',
+      blobName: 'app.log',
+    });
     expect(bridge.ReadBlobTextChunk).toHaveBeenCalledWith({
       accountName: 'storage-a',
       containerName: 'logs',
@@ -508,6 +539,7 @@ describe('AppApiService', () => {
 function createMockBridge(): MockBridge {
   return {
     GetVersion: vi.fn(),
+    OpenLogsDirectory: vi.fn().mockResolvedValue(undefined),
     ListLogEntries: vi.fn(),
     GetLogEntry: vi.fn(),
     StartAzureLogin: vi.fn(),
@@ -518,6 +550,7 @@ function createMockBridge(): MockBridge {
     ListStorageAccounts: vi.fn(),
     ListContainers: vi.fn(),
     ListBlobs: vi.fn(),
+    ResolveDeletedBlobVersion: vi.fn(),
     ReadBlobTextChunk: vi.fn(),
     RestoreBlob: vi.fn().mockResolvedValue(undefined),
     OpenBlobViewSession: vi.fn(),

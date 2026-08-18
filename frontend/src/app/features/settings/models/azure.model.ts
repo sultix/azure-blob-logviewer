@@ -1,16 +1,8 @@
 export type AzureAuthFailureReason =
-  | ''
-  | 'cli_not_available'
-  | 'not_logged_in'
-  | 'token_request_failed';
+  '' | 'cli_not_available' | 'not_logged_in' | 'token_request_failed';
 
 export type BlobFailureReason =
-  | ''
-  | 'not_found'
-  | 'access_denied'
-  | 'too_large'
-  | 'limit_exceeded'
-  | 'download_failed';
+  '' | 'not_found' | 'access_denied' | 'too_large' | 'limit_exceeded' | 'download_failed';
 
 export interface DeviceCodeInfo {
   userCode: string;
@@ -58,6 +50,13 @@ export interface AzureBlobItem {
   deletedAt: string;
   remainingRetentionDays: number;
   versionId?: string;
+  hasVersionsOnly?: boolean;
+}
+
+export interface AzureBlobIdentityRequest {
+  accountName: string;
+  containerName: string;
+  blobName: string;
 }
 
 export interface AzureBlobTextChunkRequest {
