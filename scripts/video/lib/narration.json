@@ -1,0 +1,311 @@
+{
+  "_": "Gesprochenes Skript. Die Zeiten sind Sekunden auf der Uhr der jeweiligen Aufnahme (out/NN.json), nicht des fertigen Films. Ein Satz je Eintrag; die Reihenfolge ist die Sprechreihenfolge. Satzanfänge bewusst variiert, damit die Spur nicht wie eine Aufzählung klingt.",
+  "01": [
+    {
+      "at": 4.0,
+      "text": "Los geht es mit der Anmeldung, oben rechts über die Einstellungen."
+    },
+    {
+      "at": 8.8,
+      "text": "Solange keine Verbindung besteht, meldet der Status: getrennt."
+    },
+    {
+      "at": 12.6,
+      "text": "Voraussetzung ist eine angemeldete Azure-Kommandozeile."
+    },
+    {
+      "at": 15.9,
+      "text": "Ein Klick übernimmt die vorhandene Sitzung."
+    },
+    {
+      "at": 19.5,
+      "text": "Damit ist die App authentifiziert."
+    }
+  ],
+  "02": [
+    {
+      "at": 1.4,
+      "text": "Im Dashboard liegen alle Storage-Verbindungen."
+    },
+    {
+      "at": 6.4,
+      "text": "Eine neue Verbindung entsteht in wenigen Schritten."
+    },
+    {
+      "at": 8.4,
+      "text": "Zuerst ein frei wählbarer Name."
+    },
+    {
+      "at": 10.9,
+      "text": "Optional kommt eine Kategorie dazu, die später gruppiert."
+    },
+    {
+      "at": 12.7,
+      "text": "Danach kommt das Abonnement an die Reihe."
+    },
+    {
+      "at": 15.1,
+      "text": "Anschließend folgt das Speicherkonto."
+    },
+    {
+      "at": 17.5,
+      "text": "Zuletzt fehlt nur noch der Container."
+    },
+    {
+      "at": 21.5,
+      "text": "Gespeichert erscheint die Verbindung als Karte im Dashboard."
+    },
+    {
+      "at": 25.4,
+      "text": "Wächst die Liste, hilft das Suchfeld darüber."
+    },
+    {
+      "at": 29.3,
+      "text": "Über das Drei-Punkte-Menü lässt sich jede Verbindung bearbeiten."
+    },
+    {
+      "at": 37.0,
+      "text": "Entfernen lässt sie sich ebenso."
+    }
+  ],
+  "03": [
+    {
+      "at": 1.5,
+      "text": "Logs öffnen führt in den Container."
+    },
+    {
+      "at": 5.8,
+      "text": "Links liegen alle Dateien mit Datum und Größe."
+    },
+    {
+      "at": 8.9,
+      "text": "Oben filtert die Suche nach Dateinamen."
+    },
+    {
+      "at": 13.7,
+      "text": "Das Datumsfeld grenzt auf einen einzelnen Tag ein."
+    },
+    {
+      "at": 19.0,
+      "text": "Darunter lässt sich ein ganzer Zeitraum eingrenzen."
+    },
+    {
+      "at": 24.5,
+      "text": "Filter löschen setzt beides zurück."
+    },
+    {
+      "at": 27.9,
+      "text": "Sortiert wird wahlweise neueste oder älteste zuerst."
+    },
+    {
+      "at": 30.3,
+      "text": "Im Menü daneben wechselt man zwischen Erstell- und Änderungsdatum."
+    },
+    {
+      "at": 35.9,
+      "text": "Aktualisieren lädt die Liste neu."
+    },
+    {
+      "at": 38.6,
+      "text": "In der Fußzeile stehen Verbindung und Stand der Liste."
+    }
+  ],
+  "04": [
+    {
+      "at": 4.2,
+      "text": "Angeklickt, erscheint der Inhalt sofort im Viewer."
+    },
+    {
+      "at": 8.0,
+      "text": "Oben stehen Größe und Zeitstempel der Datei."
+    },
+    {
+      "at": 11.5,
+      "text": "Log-Level werden farbig hervorgehoben."
+    },
+    {
+      "at": 14.3,
+      "text": "Ab drei Zeichen sucht die App im Inhalt und zählt die Treffer."
+    },
+    {
+      "at": 18.4,
+      "text": "Mit den Pfeilen geht es von Treffer zu Treffer."
+    },
+    {
+      "at": 23.5,
+      "text": "Jeder Treffer wird im Text markiert."
+    },
+    {
+      "at": 25.2,
+      "text": "Zurückgesetzt wird die Suche über das Kreuz im Feld."
+    },
+    {
+      "at": 27.5,
+      "text": "Unten stehen Zeilenzahl, Inhaltstyp und Zeilenende."
+    }
+  ],
+  "05": [
+    {
+      "at": 4.3,
+      "text": "Diese Datei bringt rund fünfundzwanzig Megabyte mit."
+    },
+    {
+      "at": 7.0,
+      "text": "Ab zwanzig Megabyte übernimmt ein Streaming-Viewer."
+    },
+    {
+      "at": 10.5,
+      "text": "Das Ende der Datei steht sofort bereit, der Rest lädt im Hintergrund nach."
+    },
+    {
+      "at": 14.0,
+      "text": "Wie viel bereits geladen ist, steht über dem Text."
+    },
+    {
+      "at": 17.1,
+      "text": "Gescrollt wird trotzdem flüssig."
+    },
+    {
+      "at": 21.0,
+      "text": "Noch fehlende Bereiche zeigen Platzhalter, bis sie da sind."
+    }
+  ],
+  "06": [
+    {
+      "at": 4.4,
+      "text": "In eine Datei, die gerade beschrieben wird, sieht man live hinein."
+    },
+    {
+      "at": 8.8,
+      "text": "Oben rechts sitzt der Schalter für den Live-Modus."
+    },
+    {
+      "at": 12.0,
+      "text": "Neue Zeilen laufen automatisch unten ein."
+    },
+    {
+      "at": 15.5,
+      "text": "Darüber weist ein Banner auf den laufenden Live-Modus hin."
+    },
+    {
+      "at": 18.0,
+      "text": "Der Viewer scrollt dabei von selbst mit."
+    },
+    {
+      "at": 21.0,
+      "text": "Nachgeladen wird alle fünf bis sechzig Sekunden, je nach Einstellung."
+    },
+    {
+      "at": 25.5,
+      "text": "Derselbe Schalter beendet den Modus wieder."
+    }
+  ],
+  "07": [
+    {
+      "at": 3.4,
+      "text": "Mehrere Dateien lassen sich zusammenführen."
+    },
+    {
+      "at": 6.2,
+      "text": "Dazu die weiteren mit gedrückter Command- oder Steuerungstaste anklicken."
+    },
+    {
+      "at": 10.5,
+      "text": "Die Reihenfolge der Klicks bestimmt die Reihenfolge im Ergebnis."
+    },
+    {
+      "at": 15.3,
+      "text": "Zusammengeführt werden bis zu fünf Dateien."
+    },
+    {
+      "at": 18.1,
+      "text": "Heruntergeladen wird alles als eine einzige Textdatei."
+    },
+    {
+      "at": 20.3,
+      "text": "Ein Hinweis bestätigt den Download samt Dateinamen."
+    }
+  ],
+  "08": [
+    {
+      "at": 3.4,
+      "text": "Gelöschte Dateien bleiben erreichbar, solange die Soft-Delete-Frist läuft."
+    },
+    {
+      "at": 5.6,
+      "text": "Sichtbar werden sie über den Schalter Gelöschte."
+    },
+    {
+      "at": 9.2,
+      "text": "Am roten Kennzeichen steht, wie lange sie noch da sind."
+    },
+    {
+      "at": 12.5,
+      "text": "Beim Öffnen bietet die App an, sie wiederherzustellen."
+    },
+    {
+      "at": 16.5,
+      "text": "Wird bestätigt, holt die App die Datei zurück und öffnet sie."
+    },
+    {
+      "at": 20.5,
+      "text": "Von manchen gelöschten Dateien liegt noch eine Version im Speicher."
+    },
+    {
+      "at": 23.4,
+      "text": "Solche öffnen sich sofort und schreibgeschützt, ganz ohne Rückfrage."
+    },
+    {
+      "at": 26.6,
+      "text": "Im Kopf steht dann: gelöschte Version, schreibgeschützt."
+    }
+  ],
+  "09": [
+    {
+      "at": 3.2,
+      "text": "Auch in einem kleineren Fenster bleibt alles erreichbar."
+    },
+    {
+      "at": 7.3,
+      "text": "Im schmalen Fenster rücken die Aktionen in ein Menü."
+    },
+    {
+      "at": 9.3,
+      "text": "Geöffnet wird es über das Drei-Punkte-Symbol."
+    },
+    {
+      "at": 12.8,
+      "text": "Aktualisieren, Herunterladen und der Live-Modus stehen dort zusammen."
+    },
+    {
+      "at": 16.0,
+      "text": "Zurück geht es über die Schaltfläche links oben."
+    }
+  ],
+  "10": [
+    {
+      "at": 3.9,
+      "text": "Beim Erscheinungsbild folgt die App dem System oder wird fest auf hell oder dunkel gestellt."
+    },
+    {
+      "at": 12.3,
+      "text": "Umschalten lässt sich auch die Sprache."
+    },
+    {
+      "at": 18.6,
+      "text": "Wie oft der Live-Modus nachlädt, steuert das Intervall."
+    },
+    {
+      "at": 23.6,
+      "text": "Wer es ruhiger mag, schaltet die Log-Level-Einfärbung ab."
+    },
+    {
+      "at": 28.6,
+      "text": "Verbindungen lassen sich als JSON exportieren und importieren."
+    },
+    {
+      "at": 31.7,
+      "text": "Unter Diagnose öffnet sich das Logverzeichnis der App."
+    }
+  ]
+}

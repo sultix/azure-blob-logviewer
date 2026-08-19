@@ -34,17 +34,13 @@ const RATE = {
 };
 
 /**
- * Gesprochene Sätze, die im Film entfallen. Die zugehörige Aufnahme bleibt —
- * sie läuft unter dem vorherigen Satz schneller mit. So verlieren Nebenszenen
- * Gewicht, ohne dass eine Funktion aus dem Video fällt: was hier wegfällt,
- * zeigt entweder das Bild selbst oder die Hero-Typografie.
+ * Das gesprochene Skript steht in lib/narration.json, nicht mehr in den
+ * Aufnahmen. Grund: die Einblendungen aus der Aufnahme markieren Handgriffe,
+ * der Text soll aber als zusammenhängende Erzählung geschrieben sein — mit
+ * eigenen Sätzen dort, wo im Bild etwas passiert, das beim Drehen keinen
+ * eigenen Marker hatte.
  */
-const SKIP = {
-  '01': [0, 2],
-  '02': [2, 3, 4, 5, 6, 9],
-  '03': [1, 6, 7],
-  '10': [0],
-};
+const NARRATION = JSON.parse(fs.readFileSync(path.join(VIDEO, 'lib/narration.json'), 'utf8'));
 
 // Die Erfolgsmeldung verschwindet vor dem Ende der Aufnahme. Damit das
 // Standbild am Kapitelende sie noch zeigt, endet Kapitel 07 frueher.
@@ -83,12 +79,7 @@ for (const { id, title } of CHAPTERS) {
   const clip = path.join(OUT, `${id}.webm`);
   if (!fs.existsSync(clip)) continue;
   const meta = JSON.parse(fs.readFileSync(path.join(OUT, `${id}.json`), 'utf8'));
-  const skip = new Set(SKIP[id] ?? []);
-  // Übersprungene Sätze verschwinden aus der Zeitachse, ihre Aufnahme nicht:
-  // sie wird dem vorherigen Abschnitt zugeschlagen.
-  const caps = meta.captions
-    .map((c, i) => ({ ...c, index: i }))
-    .filter((c) => !skip.has(c.index));
+  const caps = (NARRATION[id] ?? meta.captions).map((c, i) => ({ ...c, index: i }));
   // Aufnahmen mit Sync-Marke bringen den Nullpunkt der Uhr mit; aeltere nicht.
   const start = meta.videoStart ?? 0;
   const clipFrames = Math.min(frames(dur(clip)), TRIM[id] ? frames(TRIM[id]) : Infinity);

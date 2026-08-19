@@ -1,1 +1,1 @@
-Azure Blob Logviewer. Suchen, streamen, live mitlesen.
+Durchsuchen, streamen, live mitlesen. Das ist der Azure Blob Logviewer.

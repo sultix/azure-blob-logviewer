@@ -59,36 +59,38 @@ export const script: Record<string, ChapterScript> = {
   '01': {
     shots: [
       { slice: 0, t: 0, zoom: 1.0 },
-      { slice: 0, t: 0.3, zoom: 1.3, x: 0.88, y: 0.06 },
-      { slice: 1, t: 0.12, zoom: 1.12, x: 0.5, y: 0.36, dur: 56 },
-      { slice: 2, t: 0.25, zoom: 1.34, x: 0.5, y: 0.42 },
+      { slice: 0, t: 0.35, zoom: 1.3, x: 0.88, y: 0.06 },
+      { slice: 1, t: 0.15, zoom: 1.12, x: 0.5, y: 0.34, dur: 56 },
+      { slice: 3, t: 0.25, zoom: 1.34, x: 0.5, y: 0.42 },
     ],
   },
 
-  // Verbindungen: der Dialog wächst aus der Schaltfläche, die ihn öffnet.
+  // Verbindungen: der Dialog wächst aus der Schaltfläche, die ihn öffnet,
+  // und die Kamera wandert mit den Auswahlfeldern nach unten.
   '02': {
     shots: [
       { slice: 0, t: 0, zoom: 1.0 },
-      { slice: 1, t: 0.04, zoom: 1.3, x: 0.74, y: 0.39 },
-      { slice: 1, t: 0.28, zoom: 1.16, x: 0.5, y: 0.52, dur: 56 },
-      { slice: 3, t: 0.2, zoom: 1.28, x: 0.8, y: 0.5 },
+      { slice: 1, t: 0.1, zoom: 1.3, x: 0.74, y: 0.39 },
+      { slice: 2, t: 0.2, zoom: 1.2, x: 0.5, y: 0.42, dur: 56 },
+      { slice: 5, t: 0.2, zoom: 1.26, x: 0.5, y: 0.6, dur: 56 },
+      { slice: 7, t: 0.3, zoom: 1.02, x: 0.5, y: 0.5, dur: 66 },
+      { slice: 9, t: 0.2, zoom: 1.28, x: 0.8, y: 0.5, dur: 56 },
     ],
     hero: {
       eyebrow: 'Verbindungen', lines: ['Abonnement, Konto', 'und Container festlegen.'],
-      slice: 0, t: 0.12, hold: 4.4, place: 'bottomLeft', scale: 'heroSmall',
+      slice: 0, t: 0.15, hold: 4.4, place: 'bottomLeft', scale: 'heroSmall',
     },
   },
 
-  // Dateiliste: hinein in den Container, dann einmal auf die Filterspalte.
+  // Dateiliste: hinein in den Container, dann auf die Filterspalte.
   '03': {
     shots: [
       { slice: 0, t: 0, zoom: 1.0 },
-      { slice: 0, t: 0.18, zoom: 1.28, x: 0.77, y: 0.5 },
-      // Der Klick wechselt die ganze Ansicht: erst zurück auf Überblick,
-      // sonst hinge die Kamera auf dem leeren Lesebereich fest.
-      { slice: 0, t: 0.62, zoom: 1.04, x: 0.5, y: 0.5, dur: 56 },
-      { slice: 1, t: 0.22, zoom: 1.36, x: 0.12, y: 0.14, dur: 56 },
-      { slice: 4, t: 0.25, zoom: 1.1, x: 0.3, y: 0.3, dur: 56 },
+      { slice: 0, t: 0.2, zoom: 1.28, x: 0.77, y: 0.5 },
+      { slice: 1, t: 0.2, zoom: 1.1, x: 0.3, y: 0.35, dur: 56 },
+      { slice: 2, t: 0.25, zoom: 1.36, x: 0.12, y: 0.12, dur: 56 },
+      { slice: 5, t: 0.3, zoom: 1.22, x: 0.14, y: 0.2, dur: 56 },
+      { slice: 8, t: 0.3, zoom: 1.14, x: 0.2, y: 0.24, dur: 66 },
     ],
   },
 
@@ -96,15 +98,15 @@ export const script: Record<string, ChapterScript> = {
   '04': {
     shots: [
       { slice: 0, t: 0, zoom: 1.0 },
-      { slice: 0, t: 0.28, zoom: 1.2, x: 0.13, y: 0.33 },
-      { slice: 0, t: 0.74, zoom: 1.04, x: 0.5, y: 0.5, dur: 56 },
-      { slice: 1, t: 0.3, zoom: 1.3, x: 0.44, y: 0.3, dur: 56 },
-      { slice: 2, t: 0.12, zoom: 1.42, x: 0.82, y: 0.09, dur: 66 },
-      { slice: 3, t: 0.3, zoom: 1.14, x: 0.62, y: 0.36, dur: 66 },
+      { slice: 0, t: 0.3, zoom: 1.2, x: 0.13, y: 0.33 },
+      { slice: 0, t: 0.78, zoom: 1.04, x: 0.5, y: 0.5, dur: 56 },
+      { slice: 2, t: 0.3, zoom: 1.3, x: 0.44, y: 0.3, dur: 56 },
+      { slice: 3, t: 0.15, zoom: 1.42, x: 0.82, y: 0.09, dur: 66 },
+      { slice: 6, t: 0.3, zoom: 1.12, x: 0.4, y: 0.5, dur: 66 },
     ],
     hero: {
       eyebrow: 'Volltextsuche', lines: ['Den Inhalt durchsuchen,', 'Treffer durchblättern.'],
-      slice: 2, t: 0.5, hold: 5.2, place: 'bottomLeft', scale: 'heroSmall',
+      slice: 3, t: 0.55, hold: 5.2, place: 'bottomLeft', scale: 'heroSmall',
     },
   },
 
@@ -112,13 +114,14 @@ export const script: Record<string, ChapterScript> = {
   '05': {
     shots: [
       { slice: 0, t: 0, zoom: 1.0 },
-      { slice: 0, t: 0.38, zoom: 1.36, x: 0.14, y: 0.31 },
-      { slice: 1, t: 0.12, zoom: 1.06, x: 0.5, y: 0.45, dur: 66 },
-      { slice: 2, t: 0.35, zoom: 1.2, x: 0.58, y: 0.55, dur: 66 },
+      { slice: 0, t: 0.4, zoom: 1.36, x: 0.14, y: 0.31 },
+      { slice: 1, t: 0.15, zoom: 1.06, x: 0.5, y: 0.45, dur: 66 },
+      { slice: 3, t: 0.3, zoom: 1.26, x: 0.33, y: 0.11, dur: 66 },
+      { slice: 4, t: 0.35, zoom: 1.2, x: 0.58, y: 0.55, dur: 66 },
     ],
     hero: {
       eyebrow: 'Große Dateien', lines: ['Ab 20 MB lädt', 'der Viewer im Hintergrund.'],
-      slice: 1, t: 0.5, hold: 5.0, place: 'bottomLeft', scale: 'heroSmall',
+      slice: 1, t: 0.4, hold: 5.0, place: 'bottomLeft', scale: 'heroSmall',
     },
   },
 
@@ -127,13 +130,15 @@ export const script: Record<string, ChapterScript> = {
   '06': {
     shots: [
       { slice: 0, t: 0, zoom: 1.0 },
-      { slice: 0, t: 0.46, zoom: 1.24, x: 0.13, y: 0.3 },
-      { slice: 1, t: 0.16, zoom: 1.46, x: 0.73, y: 0.08, dur: 72 },
-      { slice: 2, t: 0.16, zoom: 1.08, x: 0.56, y: 0.62, dur: 72 },
+      { slice: 0, t: 0.5, zoom: 1.24, x: 0.13, y: 0.3 },
+      { slice: 1, t: 0.2, zoom: 1.46, x: 0.73, y: 0.08, dur: 72 },
+      { slice: 2, t: 0.2, zoom: 1.08, x: 0.56, y: 0.62, dur: 72 },
+      { slice: 3, t: 0.35, zoom: 1.18, x: 0.28, y: 0.11, dur: 66 },
+      { slice: 5, t: 0.3, zoom: 1.0, x: 0.5, y: 0.5, dur: 66 },
     ],
     hero: {
       eyebrow: 'Live-Modus', lines: ['Neue Zeilen erscheinen,', 'sobald sie entstehen.'],
-      slice: 2, t: 0.3, hold: 5.4, place: 'left', scale: 'heroSmall',
+      slice: 2, t: 0.35, hold: 5.4, place: 'left', scale: 'heroSmall',
     },
   },
 
@@ -142,12 +147,13 @@ export const script: Record<string, ChapterScript> = {
     shots: [
       { slice: 0, t: 0, zoom: 1.0 },
       { slice: 0, t: 0.42, zoom: 1.26, x: 0.13, y: 0.36 },
-      { slice: 2, t: 0.18, zoom: 1.16, x: 0.3, y: 0.11, dur: 56 },
-      { slice: 4, t: 0.1, zoom: 1.2, x: 0.82, y: 0.84, dur: 56 },
+      { slice: 2, t: 0.3, zoom: 1.3, x: 0.13, y: 0.44, dur: 56 },
+      { slice: 3, t: 0.25, zoom: 1.16, x: 0.3, y: 0.11, dur: 56 },
+      { slice: 5, t: 0.12, zoom: 1.2, x: 0.82, y: 0.84, dur: 56 },
     ],
     hero: {
       eyebrow: 'Zusammenführen', lines: ['Bis zu fünf Dateien', 'in einer Ansicht.'],
-      slice: 2, t: 0.2, hold: 4.4, place: 'bottomLeft', scale: 'heroSmall',
+      slice: 3, t: 0.25, hold: 4.4, place: 'bottomLeft', scale: 'heroSmall',
     },
   },
 
@@ -155,14 +161,15 @@ export const script: Record<string, ChapterScript> = {
   '08': {
     shots: [
       { slice: 0, t: 0, zoom: 1.0 },
-      { slice: 1, t: 0.16, zoom: 1.4, x: 0.16, y: 0.24 },
+      { slice: 1, t: 0.2, zoom: 1.4, x: 0.16, y: 0.24 },
       { slice: 2, t: 0.3, zoom: 1.34, x: 0.14, y: 0.46, dur: 56 },
       { slice: 3, t: 0.3, zoom: 1.08, x: 0.5, y: 0.48, dur: 66 },
-      { slice: 5, t: 0.25, zoom: 1.3, x: 0.29, y: 0.11, dur: 56 },
+      { slice: 5, t: 0.25, zoom: 1.3, x: 0.13, y: 0.28, dur: 56 },
+      { slice: 7, t: 0.2, zoom: 1.3, x: 0.29, y: 0.11, dur: 56 },
     ],
     hero: {
       eyebrow: 'Wiederherstellen', lines: ['Gelöschte Dateien', 'wiederherstellen.'],
-      slice: 3, t: 0.14, hold: 4.6, place: 'bottomLeft', scale: 'heroSmall',
+      slice: 3, t: 0.2, hold: 4.6, place: 'bottomLeft', scale: 'heroSmall',
     },
   },
 
@@ -170,18 +177,19 @@ export const script: Record<string, ChapterScript> = {
   '09': {
     shots: [
       { slice: 0, t: 0, zoom: 1.02 },
-      { slice: 1, t: 0.18, zoom: 1.34, x: 0.88, y: 0.1, dur: 56 },
+      { slice: 2, t: 0.2, zoom: 1.34, x: 0.88, y: 0.1, dur: 56 },
+      { slice: 4, t: 0.3, zoom: 1.04, x: 0.5, y: 0.45, dur: 66 },
     ],
   },
 
-  // Einstellungen: zwei Blicke, dann zurück auf Überblick.
+  // Einstellungen: je ein Blick auf die Zeilen, über die gesprochen wird.
   '10': {
     shots: [
       { slice: 0, t: 0, zoom: 1.04, x: 0.5, y: 0.42 },
-      { slice: 0, t: 0.26, zoom: 1.3, x: 0.67, y: 0.46 },
-      { slice: 2, t: 0.2, zoom: 1.3, x: 0.68, y: 0.56, dur: 56 },
-      { slice: 4, t: 0.2, zoom: 1.26, x: 0.64, y: 0.86, dur: 66 },
-      { slice: 5, t: 0.35, zoom: 1.1, x: 0.5, y: 0.78, dur: 66 },
+      { slice: 0, t: 0.3, zoom: 1.3, x: 0.67, y: 0.46 },
+      { slice: 2, t: 0.25, zoom: 1.3, x: 0.68, y: 0.57, dur: 56 },
+      { slice: 4, t: 0.25, zoom: 1.26, x: 0.64, y: 0.86, dur: 66 },
+      { slice: 5, t: 0.4, zoom: 1.1, x: 0.5, y: 0.78, dur: 66 },
     ],
   },
 };

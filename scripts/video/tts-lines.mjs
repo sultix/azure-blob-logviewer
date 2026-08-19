@@ -1,5 +1,5 @@
 /**
- * Vertont jede einzelne Einblendung (out/NN.json) sowie Vor- und Abspann.
+ * Vertont das Sprechskript aus lib/narration.json sowie Vor- und Abspann.
  * Ergebnis: audio/lines/<Kapitel>-<Nr>.mp3 — Remotion legt jede Zeile genau an
  * die Stelle, an der die zugehörige Aktion im Bild passiert.
  *
@@ -40,24 +40,37 @@ const args = process.argv.slice(2);
 const force = args.includes('--force');
 const only = args.filter((a) => !a.startsWith('--'));
 
+const NARRATION = JSON.parse(fs.readFileSync(path.join(HERE, 'lib/narration.json'), 'utf8'));
+
 const jobs = [];
-jobs.push({ id: '00-intro', text: fs.readFileSync(path.join(HERE, 'transcript/elevenlabs/00-intro.txt'), 'utf8').trim() });
+jobs.push({ id: '00-intro', chapter: '00', text: fs.readFileSync(path.join(HERE, 'transcript/elevenlabs/00-intro.txt'), 'utf8').trim() });
 for (const { id } of CHAPTERS) {
-  const f = path.join(OUT, `${id}.json`);
-  if (!fs.existsSync(f)) continue;
-  JSON.parse(fs.readFileSync(f, 'utf8')).captions.forEach((c, i) => {
-    jobs.push({ id: `${id}-${String(i).padStart(2, '0')}`, chapter: id, text: c.text });
+  (NARRATION[id] ?? []).forEach((line, i) => {
+    jobs.push({ id: `${id}-${String(i).padStart(2, '0')}`, chapter: id, text: line.text });
   });
 }
-jobs.push({ id: '11-outro', text: fs.readFileSync(path.join(HERE, 'transcript/elevenlabs/11-outro.txt'), 'utf8').trim() });
+jobs.push({ id: '11-outro', chapter: '11', text: fs.readFileSync(path.join(HERE, 'transcript/elevenlabs/11-outro.txt'), 'utf8').trim() });
 
 fs.mkdirSync(LINES, { recursive: true });
 let made = 0, chars = 0, skipped = 0;
+
+/**
+ * Jeder Satz wird einzeln erzeugt, damit er an seiner Stelle im Bild sitzt —
+ * klingen soll die Spur trotzdem wie ein Stück. ElevenLabs kann das: mit
+ * `previous_request_ids` setzt die Stimme die Sprechmelodie der vorherigen
+ * Sätze fort, `previous_text`/`next_text` geben ihr den Satzzusammenhang.
+ * Ohne das klingt jeder Satz wie ein Neuanfang.
+ */
+const chain = new Map();   // Kapitel -> zuletzt erzeugte request-ids
 
 for (const [i, job] of jobs.entries()) {
   if (only.length && !only.some((o) => job.id.startsWith(o))) continue;
   const target = path.join(LINES, `${job.id}.mp3`);
   if (fs.existsSync(target) && !force) { skipped++; continue; }
+
+  const prevJob = jobs[i - 1]?.chapter === job.chapter ? jobs[i - 1] : null;
+  const nextJob = jobs[i + 1]?.chapter === job.chapter ? jobs[i + 1] : null;
+  const priorIds = chain.get(job.chapter) ?? [];
 
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE}?output_format=mp3_44100_128`, {
     method: 'POST',
@@ -65,10 +78,15 @@ for (const [i, job] of jobs.entries()) {
     body: JSON.stringify({
       text: speakable(job.text),
       model_id: MODEL,
+      ...(prevJob ? { previous_text: speakable(prevJob.text) } : {}),
+      ...(nextJob ? { next_text: speakable(nextJob.text) } : {}),
+      ...(priorIds.length ? { previous_request_ids: priorIds.slice(-3) } : {}),
       voice_settings: { stability: 0.5, similarity_boost: 0.75, use_speaker_boost: true },
     }),
   });
   if (!res.ok) { console.error(`${job.id}: FEHLER ${res.status} ${(await res.text()).slice(0, 200)}`); process.exit(1); }
+  const requestId = res.headers.get('request-id');
+  if (requestId) chain.set(job.chapter, [...priorIds, requestId]);
   const raw = target + '.raw.mp3';
   fs.writeFileSync(raw, Buffer.from(await res.arrayBuffer()));
 
@@ -76,7 +94,7 @@ for (const [i, job] of jobs.entries()) {
   // Ohne das Trimmen entstehen zwischen den Sätzen hörbare Löcher.
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', raw, '-af',
     'silenceremove=start_periods=1:start_silence=0:start_threshold=-50dB,'
-    + 'areverse,silenceremove=start_periods=1:start_silence=0.10:start_threshold=-50dB,areverse,'
+    + 'areverse,silenceremove=start_periods=1:start_silence=0.22:start_threshold=-50dB,areverse,'
     + `atempo=${TEMPO},loudnorm=I=-16:TP=-1.5:LRA=11`,
     '-codec:a', 'libmp3lame', '-q:a', '2', target]);
   fs.rmSync(raw);
