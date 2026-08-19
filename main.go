@@ -4,6 +4,8 @@ import (
 	"embed"
 	"io/fs"
 	"log"
+	"path/filepath"
+	"runtime"
 
 	"github.com/aleksandrsultanov/azure-blob-logviewer/backend/app"
 	"github.com/wailsapp/wails/v2"
@@ -15,15 +17,40 @@ import (
 var assetsFS embed.FS
 
 func main() {
+	logFile, logPath, loggingErr := configureApplicationLogging()
+	if loggingErr != nil {
+		log.Printf("application file logging unavailable: %v", loggingErr)
+	} else {
+		defer func() {
+			_ = logFile.Close()
+		}()
+	}
+
+	info, err := loadBuildInfo()
+	if err != nil {
+		log.Fatalf("failed to load build metadata: %v", err)
+	}
+	log.Printf(
+		"application starting version=%s os=%s arch=%s log_file=%q",
+		info.ProductVersion,
+		runtime.GOOS,
+		runtime.GOARCH,
+		logPath,
+	)
+
 	dist, err := fs.Sub(assetsFS, "frontend/dist/browser")
 	if err != nil {
 		log.Fatalf("failed to locate frontend assets: %v", err)
 	}
 
-	application := app.New()
+	logDirectory := ""
+	if logPath != "" {
+		logDirectory = filepath.Dir(logPath)
+	}
+	application := app.New(info.ProductVersion, logDirectory)
 
 	err = wails.Run(&options.App{
-		Title:     "Azure Blob Log Viewer",
+		Title:     info.ProductName,
 		Width:     1280,
 		Height:    800,
 		MinWidth:  1280,
@@ -46,4 +73,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to run wails application: %v", err)
 	}
+	log.Printf("application stopped")
 }

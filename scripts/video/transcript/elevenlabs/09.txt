@@ -1,0 +1,1 @@
+Wird das Fenster schmaler, rücken Aktualisieren, Download und der Live-Schalter in ein Menü hinter den drei Punkten. Dort steht auch, ob der Live-Modus gerade an oder aus ist. Oben links führt Zurück wieder ins Dashboard. Die Titelleiste gehört zur App: verschieben, minimieren, maximieren, schließen.

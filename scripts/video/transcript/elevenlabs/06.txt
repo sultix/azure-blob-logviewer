@@ -1,0 +1,1 @@
+In eine Datei, die gerade beschrieben wird, können Sie live hineinsehen. Der Schalter Live oben rechts schaltet den Tail-Modus ein. Neue Zeilen laufen automatisch unten ein, die Ansicht folgt mit. Wie oft nachgeladen wird, legen Sie in den Einstellungen fest, zwischen einer und sechzig Sekunden. Ein erneuter Klick schaltet zurück auf die feste Momentaufnahme.

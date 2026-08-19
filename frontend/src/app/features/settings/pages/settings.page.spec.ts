@@ -37,9 +37,8 @@ class SettingsServiceStub implements Partial<SettingsService> {
     appearance: 'system' as const,
   });
   readonly logs = signal<LogsPreferences>({
-    wordWrapEnabled: false,
     logLevelHighlightingEnabled: true,
-    tailRefreshIntervalSeconds: 10,
+    liveRefreshIntervalSeconds: 10,
     sortBasis: LogSortBasis.LastModified,
   });
   updateGeneral = vi.fn();
@@ -68,6 +67,7 @@ class ConnectionsServiceStub implements Partial<ConnectionsService> {
 
 class AppApiServiceStub implements Partial<AppApiService> {
   getVersion = vi.fn<() => Promise<string>>(async () => '0.1.1');
+  openLogsDirectory = vi.fn<() => Promise<void>>(async () => undefined);
   importConnectionsFile = vi.fn<() => Promise<{ cancelled: boolean; content: string }>>(
     async () => ({
       cancelled: false,
@@ -164,16 +164,16 @@ describe('SettingsPage', () => {
     );
   });
 
-  it('renders and updates the tail refresh interval preference', () => {
+  it('renders and updates the live refresh interval preference', () => {
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Tail Refresh Interval');
-    const intervalButton = getButtonByText(fixture, '30s');
+    expect(fixture.nativeElement.textContent).toContain('Live Refresh Interval');
+    const intervalButton = getButtonByText(fixture, '5s');
     intervalButton.click();
 
     const settings = TestBed.inject(SettingsService) as unknown as SettingsServiceStub;
     expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
-      tailRefreshIntervalSeconds: 30,
+      liveRefreshIntervalSeconds: 5,
     });
   });
 
@@ -212,6 +212,32 @@ describe('SettingsPage', () => {
       'Manage connections in the Dashboard',
     );
     expect(fixture.nativeElement.textContent).not.toContain('AUTH EXPIRED');
+  });
+
+  it('opens the application logs directory from the diagnostics block', async () => {
+    fixture.detectChanges();
+
+    const openButton = getButtonByText(fixture, 'Open logs directory');
+    openButton.click();
+    await fixture.whenStable();
+
+    expect(api.openLogsDirectory).toHaveBeenCalledOnce();
+    expect(fixture.componentInstance.logsDirectoryOpening()).toBe(false);
+  });
+
+  it('shows an error when the application logs directory cannot be opened', async () => {
+    api.openLogsDirectory.mockRejectedValueOnce(new Error('explorer unavailable'));
+    fixture.detectChanges();
+
+    const openButton = getButtonByText(fixture, 'Open logs directory');
+    openButton.click();
+    await fixture.whenStable();
+
+    expect(messageService.add).toHaveBeenCalledWith({
+      severity: 'error',
+      summary: 'Logs directory could not be opened',
+      detail: 'The file explorer could not be started for the local logs directory.',
+    });
   });
 
   it('disables export when no saved connections exist', () => {

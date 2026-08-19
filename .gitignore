@@ -34,8 +34,12 @@ go.work.sum
 # Wails build output
 build/bin/
 build/darwin/
-build/windows/
+build/windows/*
+!build/windows/installer/
+build/windows/installer/*
+!build/windows/installer/project.nsi
 build/linux/
+build/.DS_Store
 
 # Frontend build output
 frontend/dist/*
@@ -53,3 +57,8 @@ frontend/.angular/
 frontend/wailsjs/
 
 .DS_Store
+
+# Local release artifacts
+release/
+
+node_modules/

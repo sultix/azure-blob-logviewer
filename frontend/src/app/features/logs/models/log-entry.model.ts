@@ -9,6 +9,11 @@ export interface LogEntry {
   size: number;
   contentType?: string;
   isLive?: boolean;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  remainingRetentionDays?: number;
+  versionId?: string;
+  hasVersionsOnly?: boolean;
   path?: string;
   createdRelative?: string;
   storageAccountName?: string;

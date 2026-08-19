@@ -1,0 +1,42 @@
+[
+  {
+    "id": "01",
+    "title": "Kapitel 1 — Anmeldung an Azure"
+  },
+  {
+    "id": "02",
+    "title": "Kapitel 2 — Verbindungen verwalten"
+  },
+  {
+    "id": "03",
+    "title": "Kapitel 3 — Logdateien finden"
+  },
+  {
+    "id": "04",
+    "title": "Kapitel 4 — Logs lesen und durchsuchen"
+  },
+  {
+    "id": "05",
+    "title": "Kapitel 5 — Sehr große Dateien"
+  },
+  {
+    "id": "06",
+    "title": "Kapitel 6 — Live-Modus"
+  },
+  {
+    "id": "07",
+    "title": "Kapitel 7 — Dateien zusammenführen"
+  },
+  {
+    "id": "08",
+    "title": "Kapitel 8 — Gelöschte Dateien"
+  },
+  {
+    "id": "09",
+    "title": "Kapitel 9 — Kompaktes Fenster"
+  },
+  {
+    "id": "10",
+    "title": "Kapitel 10 — Einstellungen"
+  }
+]

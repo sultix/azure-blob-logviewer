@@ -1,0 +1,788 @@
+{
+  "fps": 25,
+  "width": 1920,
+  "height": 1080,
+  "transitionInFrames": 12,
+  "chapters": [
+    {
+      "id": "00-intro",
+      "kind": "intro",
+      "durationInFrames": 137,
+      "audio": "audio/00-intro.mp3"
+    },
+    {
+      "id": "01",
+      "kind": "clip",
+      "title": "Kapitel 1 — Anmeldung an Azure",
+      "clip": "clips/01.webm",
+      "clipFrames": 564,
+      "clipWidth": 1920,
+      "clipHeight": 1080,
+      "durationInFrames": 443,
+      "slices": [
+        {
+          "videoFrom": 0,
+          "videoTo": 220,
+          "shown": 129,
+          "rate": 1.7,
+          "hold": 0,
+          "text": "Los geht es mit der Anmeldung, oben rechts über die Einstellungen.",
+          "audio": "audio/lines/01-00.mp3"
+        },
+        {
+          "videoFrom": 220,
+          "videoTo": 315,
+          "shown": 95,
+          "rate": 1,
+          "hold": 4,
+          "text": "Solange keine Verbindung besteht, meldet der Status: getrennt.",
+          "audio": "audio/lines/01-01.mp3"
+        },
+        {
+          "videoFrom": 315,
+          "videoTo": 398,
+          "shown": 83,
+          "rate": 1,
+          "hold": 8,
+          "text": "Voraussetzung ist eine angemeldete Azure-Kommandozeile.",
+          "audio": "audio/lines/01-02.mp3"
+        },
+        {
+          "videoFrom": 398,
+          "videoTo": 488,
+          "shown": 57,
+          "rate": 1.579,
+          "hold": 0,
+          "text": "Ein Klick übernimmt die vorhandene Sitzung.",
+          "audio": "audio/lines/01-03.mp3"
+        },
+        {
+          "videoFrom": 488,
+          "videoTo": 564,
+          "shown": 59,
+          "rate": 1.288,
+          "hold": 8,
+          "text": "Damit ist die App authentifiziert.",
+          "audio": "audio/lines/01-04.mp3"
+        }
+      ]
+    },
+    {
+      "id": "02",
+      "kind": "clip",
+      "title": "Kapitel 2 — Verbindungen verwalten",
+      "clip": "clips/02.webm",
+      "clipFrames": 1112,
+      "clipWidth": 1920,
+      "clipHeight": 1080,
+      "durationInFrames": 795,
+      "slices": [
+        {
+          "videoFrom": 0,
+          "videoTo": 160,
+          "shown": 70,
+          "rate": 2.3,
+          "hold": 0,
+          "text": "Im Dashboard liegen alle Storage-Verbindungen.",
+          "audio": "audio/lines/02-00.mp3"
+        },
+        {
+          "videoFrom": 160,
+          "videoTo": 210,
+          "shown": 50,
+          "rate": 1,
+          "hold": 34,
+          "text": "Eine neue Verbindung entsteht in wenigen Schritten.",
+          "audio": "audio/lines/02-01.mp3"
+        },
+        {
+          "videoFrom": 210,
+          "videoTo": 273,
+          "shown": 57,
+          "rate": 1.105,
+          "hold": 0,
+          "text": "Zuerst ein frei wählbarer Name.",
+          "audio": "audio/lines/02-02.mp3"
+        },
+        {
+          "videoFrom": 273,
+          "videoTo": 318,
+          "shown": 45,
+          "rate": 1,
+          "hold": 46,
+          "text": "Optional kommt eine Kategorie dazu, die später gruppiert.",
+          "audio": "audio/lines/02-03.mp3"
+        },
+        {
+          "videoFrom": 318,
+          "videoTo": 378,
+          "shown": 56,
+          "rate": 1.071,
+          "hold": 0,
+          "text": "Danach kommt das Abonnement an die Reihe.",
+          "audio": "audio/lines/02-04.mp3"
+        },
+        {
+          "videoFrom": 378,
+          "videoTo": 438,
+          "shown": 56,
+          "rate": 1.071,
+          "hold": 0,
+          "text": "Anschließend folgt das Speicherkonto.",
+          "audio": "audio/lines/02-05.mp3"
+        },
+        {
+          "videoFrom": 438,
+          "videoTo": 538,
+          "shown": 49,
+          "rate": 2.041,
+          "hold": 0,
+          "text": "Zuletzt fehlt nur noch der Container.",
+          "audio": "audio/lines/02-06.mp3"
+        },
+        {
+          "videoFrom": 538,
+          "videoTo": 635,
+          "shown": 88,
+          "rate": 1.102,
+          "hold": 0,
+          "text": "Gespeichert erscheint die Verbindung als Karte im Dashboard.",
+          "audio": "audio/lines/02-07.mp3"
+        },
+        {
+          "videoFrom": 635,
+          "videoTo": 733,
+          "shown": 65,
+          "rate": 1.508,
+          "hold": 0,
+          "text": "Wächst die Liste, hilft das Suchfeld darüber.",
+          "audio": "audio/lines/02-08.mp3"
+        },
+        {
+          "videoFrom": 733,
+          "videoTo": 925,
+          "shown": 90,
+          "rate": 2.133,
+          "hold": 0,
+          "text": "Über das Drei-Punkte-Menü lässt sich jede Verbindung bearbeiten.",
+          "audio": "audio/lines/02-09.mp3"
+        },
+        {
+          "videoFrom": 925,
+          "videoTo": 1112,
+          "shown": 81,
+          "rate": 2.3,
+          "hold": 8,
+          "text": "Entfernen lässt sie sich ebenso.",
+          "audio": "audio/lines/02-10.mp3"
+        }
+      ]
+    },
+    {
+      "id": "03",
+      "kind": "clip",
+      "title": "Kapitel 3 — Logdateien finden",
+      "clip": "clips/03.webm",
+      "clipFrames": 1039,
+      "clipWidth": 1920,
+      "clipHeight": 1080,
+      "durationInFrames": 739,
+      "slices": [
+        {
+          "videoFrom": 0,
+          "videoTo": 145,
+          "shown": 63,
+          "rate": 2.3,
+          "hold": 0,
+          "text": "Logs öffnen führt in den Container.",
+          "audio": "audio/lines/03-00.mp3"
+        },
+        {
+          "videoFrom": 145,
+          "videoTo": 223,
+          "shown": 74,
+          "rate": 1.054,
+          "hold": 0,
+          "text": "Links liegen alle Dateien mit Datum und Größe.",
+          "audio": "audio/lines/03-01.mp3"
+        },
+        {
+          "videoFrom": 223,
+          "videoTo": 343,
+          "shown": 60,
+          "rate": 2,
+          "hold": 0,
+          "text": "Oben filtert die Suche nach Dateinamen.",
+          "audio": "audio/lines/03-02.mp3"
+        },
+        {
+          "videoFrom": 343,
+          "videoTo": 475,
+          "shown": 77,
+          "rate": 1.714,
+          "hold": 0,
+          "text": "Das Datumsfeld grenzt auf einen einzelnen Tag ein.",
+          "audio": "audio/lines/03-03.mp3"
+        },
+        {
+          "videoFrom": 475,
+          "videoTo": 613,
+          "shown": 74,
+          "rate": 1.865,
+          "hold": 0,
+          "text": "Darunter lässt sich ein ganzer Zeitraum eingrenzen.",
+          "audio": "audio/lines/03-04.mp3"
+        },
+        {
+          "videoFrom": 613,
+          "videoTo": 698,
+          "shown": 60,
+          "rate": 1.417,
+          "hold": 0,
+          "text": "Filter löschen setzt beides zurück.",
+          "audio": "audio/lines/03-05.mp3"
+        },
+        {
+          "videoFrom": 698,
+          "videoTo": 758,
+          "shown": 60,
+          "rate": 1,
+          "hold": 33,
+          "text": "Sortiert wird wahlweise neueste oder älteste zuerst.",
+          "audio": "audio/lines/03-06.mp3"
+        },
+        {
+          "videoFrom": 758,
+          "videoTo": 898,
+          "shown": 92,
+          "rate": 1.522,
+          "hold": 0,
+          "text": "Im Menü daneben wechselt man zwischen Erstell- und Änderungsdatum.",
+          "audio": "audio/lines/03-07.mp3"
+        },
+        {
+          "videoFrom": 898,
+          "videoTo": 965,
+          "shown": 58,
+          "rate": 1.155,
+          "hold": 0,
+          "text": "Aktualisieren lädt die Liste neu.",
+          "audio": "audio/lines/03-08.mp3"
+        },
+        {
+          "videoFrom": 965,
+          "videoTo": 1039,
+          "shown": 74,
+          "rate": 1,
+          "hold": 14,
+          "text": "In der Fußzeile stehen Verbindung und Stand der Liste.",
+          "audio": "audio/lines/03-09.mp3"
+        }
+      ]
+    },
+    {
+      "id": "04",
+      "kind": "clip",
+      "title": "Kapitel 4 — Logs lesen und durchsuchen",
+      "clip": "clips/04.webm",
+      "clipFrames": 794,
+      "clipWidth": 1920,
+      "clipHeight": 1080,
+      "durationInFrames": 743,
+      "slices": [
+        {
+          "videoFrom": 0,
+          "videoTo": 200,
+          "shown": 154,
+          "rate": 1.3,
+          "hold": 0,
+          "text": "Angeklickt, erscheint der Inhalt sofort im Viewer.",
+          "audio": "audio/lines/04-00.mp3"
+        },
+        {
+          "videoFrom": 200,
+          "videoTo": 288,
+          "shown": 69,
+          "rate": 1.275,
+          "hold": 0,
+          "text": "Oben stehen Größe und Zeitstempel der Datei.",
+          "audio": "audio/lines/04-01.mp3"
+        },
+        {
+          "videoFrom": 288,
+          "videoTo": 358,
+          "shown": 63,
+          "rate": 1.111,
+          "hold": 0,
+          "text": "Log-Level werden farbig hervorgehoben.",
+          "audio": "audio/lines/04-02.mp3"
+        },
+        {
+          "videoFrom": 358,
+          "videoTo": 460,
+          "shown": 92,
+          "rate": 1.109,
+          "hold": 0,
+          "text": "Ab drei Zeichen sucht die App im Inhalt und zählt die Treffer.",
+          "audio": "audio/lines/04-03.mp3"
+        },
+        {
+          "videoFrom": 460,
+          "videoTo": 588,
+          "shown": 98,
+          "rate": 1.3,
+          "hold": 0,
+          "text": "Mit den Pfeilen geht es von Treffer zu Treffer.",
+          "audio": "audio/lines/04-04.mp3"
+        },
+        {
+          "videoFrom": 588,
+          "videoTo": 630,
+          "shown": 42,
+          "rate": 1,
+          "hold": 32,
+          "text": "Jeder Treffer wird im Text markiert.",
+          "audio": "audio/lines/04-05.mp3"
+        },
+        {
+          "videoFrom": 630,
+          "videoTo": 688,
+          "shown": 58,
+          "rate": 1,
+          "hold": 28,
+          "text": "Zurückgesetzt wird die Suche über das Kreuz im Feld.",
+          "audio": "audio/lines/04-06.mp3"
+        },
+        {
+          "videoFrom": 688,
+          "videoTo": 794,
+          "shown": 99,
+          "rate": 1.071,
+          "hold": 8,
+          "text": "Unten stehen Zeilenzahl, Inhaltstyp und Zeilenende.",
+          "audio": "audio/lines/04-07.mp3"
+        }
+      ]
+    },
+    {
+      "id": "05",
+      "kind": "clip",
+      "title": "Kapitel 5 — Sehr große Dateien",
+      "clip": "clips/05.webm",
+      "clipFrames": 628,
+      "clipWidth": 1920,
+      "clipHeight": 1080,
+      "durationInFrames": 565,
+      "slices": [
+        {
+          "videoFrom": 0,
+          "videoTo": 175,
+          "shown": 135,
+          "rate": 1.3,
+          "hold": 0,
+          "text": "Diese Datei bringt rund fünfundzwanzig Megabyte mit.",
+          "audio": "audio/lines/05-00.mp3"
+        },
+        {
+          "videoFrom": 175,
+          "videoTo": 263,
+          "shown": 77,
+          "rate": 1.143,
+          "hold": 0,
+          "text": "Ab zwanzig Megabyte übernimmt ein Streaming-Viewer.",
+          "audio": "audio/lines/05-01.mp3"
+        },
+        {
+          "videoFrom": 263,
+          "videoTo": 350,
+          "shown": 87,
+          "rate": 1,
+          "hold": 20,
+          "text": "Das Ende der Datei steht sofort bereit, der Rest lädt im Hintergrund nach.",
+          "audio": "audio/lines/05-02.mp3"
+        },
+        {
+          "videoFrom": 350,
+          "videoTo": 428,
+          "shown": 74,
+          "rate": 1.054,
+          "hold": 0,
+          "text": "Wie viel bereits geladen ist, steht über dem Text.",
+          "audio": "audio/lines/05-03.mp3"
+        },
+        {
+          "videoFrom": 428,
+          "videoTo": 525,
+          "shown": 75,
+          "rate": 1.3,
+          "hold": 0,
+          "text": "Gescrollt wird trotzdem flüssig.",
+          "audio": "audio/lines/05-04.mp3"
+        },
+        {
+          "videoFrom": 525,
+          "videoTo": 628,
+          "shown": 89,
+          "rate": 1.157,
+          "hold": 8,
+          "text": "Noch fehlende Bereiche zeigen Platzhalter, bis sie da sind.",
+          "audio": "audio/lines/05-05.mp3"
+        }
+      ]
+    },
+    {
+      "id": "06",
+      "kind": "clip",
+      "title": "Kapitel 6 — Live-Modus",
+      "clip": "clips/06.webm",
+      "clipFrames": 759,
+      "clipWidth": 1920,
+      "clipHeight": 1080,
+      "durationInFrames": 668,
+      "slices": [
+        {
+          "videoFrom": 0,
+          "videoTo": 220,
+          "shown": 169,
+          "rate": 1.3,
+          "hold": 0,
+          "text": "In eine Datei, die gerade beschrieben wird, sieht man live hinein.",
+          "audio": "audio/lines/06-00.mp3"
+        },
+        {
+          "videoFrom": 220,
+          "videoTo": 300,
+          "shown": 79,
+          "rate": 1.013,
+          "hold": 0,
+          "text": "Oben rechts sitzt der Schalter für den Live-Modus.",
+          "audio": "audio/lines/06-01.mp3"
+        },
+        {
+          "videoFrom": 300,
+          "videoTo": 388,
+          "shown": 73,
+          "rate": 1.205,
+          "hold": 0,
+          "text": "Neue Zeilen laufen automatisch unten ein.",
+          "audio": "audio/lines/06-02.mp3"
+        },
+        {
+          "videoFrom": 388,
+          "videoTo": 450,
+          "shown": 62,
+          "rate": 1,
+          "hold": 15,
+          "text": "Darüber weist ein Banner auf den laufenden Live-Modus hin.",
+          "audio": "audio/lines/06-03.mp3"
+        },
+        {
+          "videoFrom": 450,
+          "videoTo": 525,
+          "shown": 59,
+          "rate": 1.271,
+          "hold": 0,
+          "text": "Der Viewer scrollt dabei von selbst mit.",
+          "audio": "audio/lines/06-04.mp3"
+        },
+        {
+          "videoFrom": 525,
+          "videoTo": 638,
+          "shown": 110,
+          "rate": 1.027,
+          "hold": 0,
+          "text": "Nachgeladen wird alle fünf bis sechzig Sekunden, je nach Einstellung.",
+          "audio": "audio/lines/06-05.mp3"
+        },
+        {
+          "videoFrom": 638,
+          "videoTo": 759,
+          "shown": 93,
+          "rate": 1.3,
+          "hold": 8,
+          "text": "Derselbe Schalter beendet den Modus wieder.",
+          "audio": "audio/lines/06-06.mp3"
+        }
+      ]
+    },
+    {
+      "id": "07",
+      "kind": "clip",
+      "title": "Kapitel 7 — Dateien zusammenführen",
+      "clip": "clips/07.webm",
+      "clipFrames": 540,
+      "clipWidth": 1920,
+      "clipHeight": 1080,
+      "durationInFrames": 543,
+      "slices": [
+        {
+          "videoFrom": 24,
+          "videoTo": 179,
+          "shown": 91,
+          "rate": 1.7,
+          "hold": 0,
+          "text": "Mehrere Dateien lassen sich zusammenführen.",
+          "audio": "audio/lines/07-00.mp3"
+        },
+        {
+          "videoFrom": 179,
+          "videoTo": 287,
+          "shown": 105,
+          "rate": 1.029,
+          "hold": 0,
+          "text": "Dazu die weiteren mit gedrückter Command- oder Steuerungstaste anklicken.",
+          "audio": "audio/lines/07-01.mp3"
+        },
+        {
+          "videoFrom": 287,
+          "videoTo": 407,
+          "shown": 97,
+          "rate": 1.237,
+          "hold": 0,
+          "text": "Die Reihenfolge der Klicks bestimmt die Reihenfolge im Ergebnis.",
+          "audio": "audio/lines/07-02.mp3"
+        },
+        {
+          "videoFrom": 407,
+          "videoTo": 477,
+          "shown": 70,
+          "rate": 1,
+          "hold": 2,
+          "text": "Zusammengeführt werden bis zu fünf Dateien.",
+          "audio": "audio/lines/07-03.mp3"
+        },
+        {
+          "videoFrom": 477,
+          "videoTo": 532,
+          "shown": 55,
+          "rate": 1,
+          "hold": 31,
+          "text": "Heruntergeladen wird alles als eine einzige Textdatei.",
+          "audio": "audio/lines/07-04.mp3"
+        },
+        {
+          "videoFrom": 532,
+          "videoTo": 540,
+          "shown": 8,
+          "rate": 1,
+          "hold": 84,
+          "text": "Ein Hinweis bestätigt den Download samt Dateinamen.",
+          "audio": "audio/lines/07-05.mp3"
+        }
+      ]
+    },
+    {
+      "id": "08",
+      "kind": "clip",
+      "title": "Kapitel 8 — Gelöschte Dateien",
+      "clip": "clips/08.webm",
+      "clipFrames": 772,
+      "clipWidth": 1920,
+      "clipHeight": 1080,
+      "durationInFrames": 707,
+      "slices": [
+        {
+          "videoFrom": 23,
+          "videoTo": 163,
+          "shown": 104,
+          "rate": 1.346,
+          "hold": 0,
+          "text": "Gelöschte Dateien bleiben erreichbar, solange die Soft-Delete-Frist läuft.",
+          "audio": "audio/lines/08-00.mp3"
+        },
+        {
+          "videoFrom": 163,
+          "videoTo": 253,
+          "shown": 67,
+          "rate": 1.35,
+          "hold": 0,
+          "text": "Sichtbar werden sie über den Schalter Gelöschte.",
+          "audio": "audio/lines/08-01.mp3"
+        },
+        {
+          "videoFrom": 253,
+          "videoTo": 336,
+          "shown": 83,
+          "rate": 1,
+          "hold": 1,
+          "text": "Am roten Kennzeichen steht, wie lange sie noch da sind.",
+          "audio": "audio/lines/08-02.mp3"
+        },
+        {
+          "videoFrom": 336,
+          "videoTo": 436,
+          "shown": 77,
+          "rate": 1.299,
+          "hold": 0,
+          "text": "Beim Öffnen bietet die App an, sie wiederherzustellen.",
+          "audio": "audio/lines/08-03.mp3"
+        },
+        {
+          "videoFrom": 436,
+          "videoTo": 536,
+          "shown": 83,
+          "rate": 1.205,
+          "hold": 0,
+          "text": "Wird bestätigt, holt die App die Datei zurück und öffnet sie.",
+          "audio": "audio/lines/08-04.mp3"
+        },
+        {
+          "videoFrom": 536,
+          "videoTo": 608,
+          "shown": 72,
+          "rate": 1,
+          "hold": 17,
+          "text": "Von manchen gelöschten Dateien liegt noch eine Version im Speicher.",
+          "audio": "audio/lines/08-05.mp3"
+        },
+        {
+          "videoFrom": 608,
+          "videoTo": 688,
+          "shown": 80,
+          "rate": 1,
+          "hold": 22,
+          "text": "Solche öffnen sich sofort und schreibgeschützt, ganz ohne Rückfrage.",
+          "audio": "audio/lines/08-06.mp3"
+        },
+        {
+          "videoFrom": 688,
+          "videoTo": 772,
+          "shown": 84,
+          "rate": 1,
+          "hold": 17,
+          "text": "Im Kopf steht dann: gelöschte Version, schreibgeschützt.",
+          "audio": "audio/lines/08-07.mp3"
+        }
+      ]
+    },
+    {
+      "id": "09",
+      "kind": "clip",
+      "title": "Kapitel 9 — Kompaktes Fenster",
+      "clip": "clips/09.webm",
+      "clipFrames": 458,
+      "clipWidth": 1512,
+      "clipHeight": 945,
+      "durationInFrames": 441,
+      "slices": [
+        {
+          "videoFrom": 0,
+          "videoTo": 183,
+          "shown": 108,
+          "rate": 1.7,
+          "hold": 0,
+          "text": "Auch in einem kleineren Fenster bleibt alles erreichbar.",
+          "audio": "audio/lines/09-00.mp3"
+        },
+        {
+          "videoFrom": 183,
+          "videoTo": 233,
+          "shown": 50,
+          "rate": 1,
+          "hold": 31,
+          "text": "Im schmalen Fenster rücken die Aktionen in ein Menü.",
+          "audio": "audio/lines/09-01.mp3"
+        },
+        {
+          "videoFrom": 233,
+          "videoTo": 320,
+          "shown": 65,
+          "rate": 1.338,
+          "hold": 0,
+          "text": "Geöffnet wird es über das Drei-Punkte-Symbol.",
+          "audio": "audio/lines/09-02.mp3"
+        },
+        {
+          "videoFrom": 320,
+          "videoTo": 400,
+          "shown": 80,
+          "rate": 1,
+          "hold": 31,
+          "text": "Aktualisieren, Herunterladen und der Live-Modus stehen dort zusammen.",
+          "audio": "audio/lines/09-03.mp3"
+        },
+        {
+          "videoFrom": 400,
+          "videoTo": 458,
+          "shown": 58,
+          "rate": 1,
+          "hold": 18,
+          "text": "Zurück geht es über die Schaltfläche links oben.",
+          "audio": "audio/lines/09-04.mp3"
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "kind": "clip",
+      "title": "Kapitel 10 — Einstellungen",
+      "clip": "clips/10.webm",
+      "clipFrames": 877,
+      "clipWidth": 1920,
+      "clipHeight": 1080,
+      "durationInFrames": 559,
+      "slices": [
+        {
+          "videoFrom": 0,
+          "videoTo": 308,
+          "shown": 134,
+          "rate": 2.3,
+          "hold": 0,
+          "text": "Beim Erscheinungsbild folgt die App dem System oder wird fest auf hell oder dunkel gestellt.",
+          "audio": "audio/lines/10-00.mp3"
+        },
+        {
+          "videoFrom": 308,
+          "videoTo": 465,
+          "shown": 68,
+          "rate": 2.3,
+          "hold": 0,
+          "text": "Umschalten lässt sich auch die Sprache.",
+          "audio": "audio/lines/10-01.mp3"
+        },
+        {
+          "videoFrom": 465,
+          "videoTo": 590,
+          "shown": 81,
+          "rate": 1.543,
+          "hold": 0,
+          "text": "Wie oft der Live-Modus nachlädt, steuert das Intervall.",
+          "audio": "audio/lines/10-02.mp3"
+        },
+        {
+          "videoFrom": 590,
+          "videoTo": 715,
+          "shown": 84,
+          "rate": 1.488,
+          "hold": 0,
+          "text": "Wer es ruhiger mag, schaltet die Log-Level-Einfärbung ab.",
+          "audio": "audio/lines/10-03.mp3"
+        },
+        {
+          "videoFrom": 715,
+          "videoTo": 793,
+          "shown": 78,
+          "rate": 1,
+          "hold": 23,
+          "text": "Verbindungen lassen sich als JSON exportieren und importieren.",
+          "audio": "audio/lines/10-04.mp3"
+        },
+        {
+          "videoFrom": 793,
+          "videoTo": 877,
+          "shown": 83,
+          "rate": 1.012,
+          "hold": 8,
+          "text": "Unter Diagnose öffnet sich das Logverzeichnis der App.",
+          "audio": "audio/lines/10-05.mp3"
+        }
+      ]
+    },
+    {
+      "id": "11-outro",
+      "kind": "outro",
+      "durationInFrames": 200,
+      "audio": "audio/11-outro.mp3"
+    }
+  ]
+}

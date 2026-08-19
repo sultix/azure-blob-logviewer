@@ -10,6 +10,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { MessageService } from 'primeng/api';
+import { ConfirmationService } from 'primeng/api';
+import { ConfirmDialog } from 'primeng/confirmdialog';
 import { distinctUntilChanged, map } from 'rxjs';
 
 import { AppI18nService } from '@app/core/i18n/app-i18n.service';
@@ -20,6 +22,7 @@ import { SettingsService } from '@app/features/settings/services/settings.servic
 import { LogsDetailPanelComponent } from '../components/logs-detail-panel/logs-detail-panel.component';
 import { LogsFileListComponent } from '../components/logs-file-list/logs-file-list.component';
 import { LogsFiltersComponent } from '../components/logs-filters/logs-filters.component';
+import type { LogEntry } from '../models/log-entry.model';
 import type {
   LogCreatedRange,
   LogFileSelectionEvent,
@@ -56,8 +59,13 @@ const MIN_CONTENT_SEARCH_QUERY_LENGTH = 3;
 
 @Component({
   selector: 'app-logs-page',
-  imports: [LogsFiltersComponent, LogsFileListComponent, LogsDetailPanelComponent],
-  providers: [LogsService],
+  imports: [
+    ConfirmDialog,
+    LogsFiltersComponent,
+    LogsFileListComponent,
+    LogsDetailPanelComponent,
+  ],
+  providers: [ConfirmationService, LogsService],
   templateUrl: './logs.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -67,12 +75,14 @@ export class LogsPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly connectionsService = inject(ConnectionsService);
   private readonly messageService = inject(MessageService);
+  private readonly confirmationService = inject(ConfirmationService);
   private readonly i18n = inject(AppI18nService);
   private readonly settings = inject(SettingsService);
   private routeLoadToken = 0;
   private readonly currentConnection = signal<StorageConnection | null>(null);
   private readonly sidebarLastUpdatedAt = signal<Date | null>(null);
   private readonly sidebarRefreshing = signal(false);
+  readonly liveModeUpdating = signal(false);
 
   readonly status = this.logs.status;
   readonly errorMessage = this.logs.errorMessage;
@@ -93,6 +103,7 @@ export class LogsPage implements OnInit {
   readonly sortBasis = signal<LogSortBasis>(this.settings.logs().sortBasis);
   readonly createdOn = signal<Date | null>(null);
   readonly createdRange = signal<LogCreatedRange>(null);
+  readonly includeDeleted = signal(false);
 
   readonly preparedRows = computed<PreparedLogFileRowVm[]>(() =>
     this.logs.entries().map((entry) => ({
@@ -103,15 +114,35 @@ export class LogsPage implements OnInit {
       lastModifiedLabel: entry.lastModifiedLabel,
       sizeLabel: this.formatSize(entry.size),
       isLive: entry.isLive === true,
+      isDeleted: entry.isDeleted === true,
+      deletedLabel: entry.isDeleted
+        ? this.buildDeletedLabel(entry.remainingRetentionDays)
+        : undefined,
       createdAtTs: toTimestamp(entry.createdAt),
       lastModifiedAtTs: toTimestamp(entry.lastModified),
     })),
   );
 
-  readonly rows = computed<LogFileRowVm[]>(() => {
-    const term = this.searchTerm().trim().toLowerCase();
+  readonly sortedRows = computed<PreparedLogFileRowVm[]>(() => {
     const dir = this.sortDir();
     const sortBasis = this.sortBasis();
+    const mult = dir === 'asc' ? 1 : -1;
+
+    return [...this.preparedRows()].sort((a, b) => {
+      const dateCmp =
+        sortBasis === LogSortBasis.Created
+          ? a.createdAtTs - b.createdAtTs
+          : a.lastModifiedAtTs - b.lastModifiedAtTs;
+      if (dateCmp !== 0) {
+        return dateCmp * mult;
+      }
+
+      return a.blobNameLower.localeCompare(b.blobNameLower) * mult;
+    });
+  });
+
+  readonly rows = computed<LogFileRowVm[]>(() => {
+    const term = this.searchTerm().trim().toLowerCase();
     const createdOn = this.createdOn();
     const createdRange = this.createdRange();
     const rangeStart = isCompleteCreatedRange(createdRange)
@@ -121,7 +152,7 @@ export class LogsPage implements OnInit {
       ? endOfDayExclusiveTimestamp(createdRange[1])
       : Number.POSITIVE_INFINITY;
 
-    const filteredRows = this.preparedRows().filter((row) => {
+    return this.sortedRows().filter((row) => {
       if (term && !row.blobNameLower.includes(term)) {
         return false;
       }
@@ -137,19 +168,6 @@ export class LogsPage implements OnInit {
       }
 
       return true;
-    });
-
-    const mult = dir === 'asc' ? 1 : -1;
-    return [...filteredRows].sort((a, b) => {
-      const dateCmp =
-        sortBasis === LogSortBasis.Created
-          ? a.createdAtTs - b.createdAtTs
-          : a.lastModifiedAtTs - b.lastModifiedAtTs;
-      if (dateCmp !== 0) {
-        return dateCmp * mult;
-      }
-
-      return a.blobNameLower.localeCompare(b.blobNameLower) * mult;
     });
   });
 
@@ -181,21 +199,26 @@ export class LogsPage implements OnInit {
 
     const entry = this.selectedEntry();
     if (!entry) return null;
+    const metaBadges = [
+      this.i18n.translate('logs.detail.size', {
+        value: this.formatSize(entry.size),
+      }),
+      this.i18n.translate('logs.detail.created', {
+        value: this.formatDetailTimestamp(entry.createdAt),
+      }),
+      this.i18n.translate('logs.detail.modified', {
+        value: this.formatDetailTimestamp(entry.lastModified),
+      }),
+    ];
+    if (entry.isDeleted && entry.versionId) {
+      metaBadges.unshift(this.i18n.translate('logs.detail.deletedVersionReadOnly'));
+    }
+
     return {
       connectionName,
       title: entry.blobName,
       subtitle: entry.path ?? `/${entry.container}/${entry.blobName}`,
-      metaBadges: [
-        this.i18n.translate('logs.detail.size', {
-          value: this.formatSize(entry.size),
-        }),
-        this.i18n.translate('logs.detail.created', {
-          value: this.formatDetailTimestamp(entry.createdAt),
-        }),
-        this.i18n.translate('logs.detail.modified', {
-          value: this.formatDetailTimestamp(entry.lastModified),
-        }),
-      ],
+      metaBadges,
     };
   });
 
@@ -228,12 +251,19 @@ export class LogsPage implements OnInit {
   readonly sidebarLoading = computed(
     () => this.status() === 'loading' || this.sidebarRefreshing(),
   );
-  readonly tailAvailable = computed(
-    () => this.selectedEntryIds().length === 1 && this.contentMode() === 'single',
-  );
-  readonly tailEnabled = computed(() => this.logs.isTailMode());
-  readonly tailRefreshIntervalSeconds = computed(
-    () => this.settings.logs().tailRefreshIntervalSeconds,
+  readonly liveAvailable = computed(() => {
+    const entry = this.selectedEntry();
+    return (
+      this.selectedEntryIds().length === 1 &&
+      this.contentMode() === 'single' &&
+      entry !== null &&
+      !entry.isDeleted &&
+      !entry.versionId
+    );
+  });
+  readonly liveEnabled = computed(() => this.logs.isLiveMode());
+  readonly liveRefreshIntervalSeconds = computed(
+    () => this.settings.logs().liveRefreshIntervalSeconds,
   );
   readonly largeViewer = computed<LogLargeViewerVm | null>(() => {
     const status = this.largeViewerStatus();
@@ -256,8 +286,8 @@ export class LogsPage implements OnInit {
         total: this.formatProgressSize(status.blobSize),
       }),
       statusLabel:
-        status.mode === 'tail'
-          ? this.i18n.translate('logs.detail.viewer.tailActive')
+        status.mode === 'live'
+          ? this.i18n.translate('logs.detail.viewer.liveActive')
           : status.isComplete
             ? this.i18n.translate('logs.detail.viewer.complete')
             : this.i18n.translate('logs.detail.viewer.backgroundLoading'),
@@ -265,7 +295,7 @@ export class LogsPage implements OnInit {
       searchQuery: this.logs.largeViewerSearchQuery(),
       matchCount: this.logs.largeViewerSearchMatches().length,
       activeMatchLineNumber: this.logs.largeViewerActiveMatchLine(),
-      requestedScrollLine: this.logs.largeViewerRequestedScrollLine(),
+      scrollCommand: this.logs.largeViewerScrollCommand(),
       topSpacerPx,
       bottomSpacerPx,
       lines: lines.map((line) => ({
@@ -273,15 +303,16 @@ export class LogsPage implements OnInit {
         content: line.content,
       })),
       totalLines,
-      tailPreviewLines: this.logs.largeViewerTailPreviewLines(),
-      pendingBeforeLabel: status.mode !== 'tail' && status.hasPendingBefore
-        ? this.i18n.translate('logs.detail.viewer.pendingBefore')
-        : null,
-      pendingAfterLabel: status.mode !== 'tail' && status.hasPendingAfter
-        ? this.i18n.translate('logs.detail.viewer.pendingAfter')
-        : null,
-      canEnableWordWrap: status.canEnableWordWrap,
-      downloadDisabled: status.mode === 'tail' || !status.isComplete,
+      livePreviewLines: this.logs.largeViewerLivePreviewLines(),
+      pendingBeforeLabel:
+        status.mode !== 'live' && status.hasPendingBefore
+          ? this.i18n.translate('logs.detail.viewer.pendingBefore')
+          : null,
+      pendingAfterLabel:
+        status.mode !== 'live' && status.hasPendingAfter
+          ? this.i18n.translate('logs.detail.viewer.pendingAfter')
+          : null,
+      downloadDisabled: status.mode === 'live' || !status.isComplete,
     };
   });
   readonly downloadDisabled = computed(
@@ -299,7 +330,7 @@ export class LogsPage implements OnInit {
           count: status.indexedLineCount,
         }),
         lineEndingsLabel:
-          status.mode === 'tail'
+          status.mode === 'live'
             ? null
             : status.isComplete
               ? this.i18n.translate('logs.detail.footer.lineEndings.unknown')
@@ -400,6 +431,25 @@ export class LogsPage implements OnInit {
   }
 
   async select(event: LogFileSelectionEvent): Promise<void> {
+    let entry = this.logs.entries().find((candidate) => candidate.id === event.id);
+    if (entry?.isDeleted && entry.hasVersionsOnly && !entry.versionId) {
+      const resolved = await this.logs.resolveDeletedVersion(entry.id);
+      if (!resolved) {
+        this.messageService.add({
+          severity: 'error',
+          summary: this.i18n.translate('logs.deletedVersion.failedTitle'),
+          detail: this.i18n.translate('logs.deletedVersion.failed'),
+          life: 3500,
+        });
+        return;
+      }
+      entry = this.logs.entries().find((candidate) => candidate.id === event.id);
+    }
+    if (entry?.isDeleted && !entry.versionId) {
+      this.requestRestoreAndOpen(entry);
+      return;
+    }
+
     await this.updateSelection(event.id, event.additive);
   }
 
@@ -410,14 +460,14 @@ export class LogsPage implements OnInit {
     }
   }
 
-  async refreshList(): Promise<void> {
+  async refreshList(): Promise<boolean> {
     const connection = this.currentConnection();
     if (
       !connection?.storageAccountName ||
       !connection.containerName ||
       this.sidebarRefreshing()
     ) {
-      return;
+      return false;
     }
 
     this.sidebarRefreshing.set(true);
@@ -425,19 +475,42 @@ export class LogsPage implements OnInit {
       const refreshed = await this.logs.refreshEntriesForConnection(
         connection.storageAccountName,
         connection.containerName,
+        this.includeDeleted(),
       );
       if (!refreshed || this.currentConnection()?.id !== connection.id) {
-        return;
+        return false;
       }
 
       this.sidebarLastUpdatedAt.set(new Date());
+      return true;
     } finally {
       this.sidebarRefreshing.set(false);
     }
   }
 
-  onLargeViewportChange(event: { startLine: number; lineCount: number }): void {
-    void this.logs.updateLargeViewport(event.startLine, event.lineCount);
+  async onIncludeDeletedChange(includeDeleted: boolean): Promise<void> {
+    if (includeDeleted === this.includeDeleted() || this.sidebarRefreshing()) {
+      return;
+    }
+
+    const previousValue = this.includeDeleted();
+    this.includeDeleted.set(includeDeleted);
+    const refreshed = await this.refreshList();
+    if (!refreshed) {
+      this.includeDeleted.set(previousValue);
+    }
+  }
+
+  onLargeViewportChange(event: {
+    startLine: number;
+    lineCount: number;
+    nearBottom: boolean;
+  }): void {
+    void this.logs.updateLargeViewport(
+      event.startLine,
+      event.lineCount,
+      event.nearBottom,
+    );
   }
 
   onLargeSearchChange(query: string): void {
@@ -453,15 +526,30 @@ export class LogsPage implements OnInit {
   }
 
   onLargeScrollHandled(): void {
-    this.logs.clearRequestedScrollLine();
+    this.logs.clearLargeViewerScrollCommand();
   }
 
-  onTailToggled(enabled: boolean): void {
-    if (enabled) {
-      this.settings.updateLogsPreferences({ wordWrapEnabled: false });
+  async onLiveToggled(enabled: boolean): Promise<void> {
+    if (this.liveModeUpdating()) {
+      return;
     }
 
-    void this.logs.setTailMode(enabled);
+    this.liveModeUpdating.set(true);
+    try {
+      const updated = await this.logs.setLiveMode(enabled);
+      if (updated) {
+        return;
+      }
+
+      this.messageService.add({
+        severity: 'error',
+        summary: this.i18n.translate('logs.detail.toast.liveModeFailedTitle'),
+        detail: this.i18n.translate('logs.detail.toast.liveModeFailedDetail'),
+        life: 4000,
+      });
+    } finally {
+      this.liveModeUpdating.set(false);
+    }
   }
 
   async download(): Promise<void> {
@@ -567,6 +655,7 @@ export class LogsPage implements OnInit {
     await this.logs.loadForConnection(
       connection.storageAccountName,
       connection.containerName,
+      this.includeDeleted(),
     );
     if (!this.isActiveRouteLoad(routeLoadToken) || this.logs.status() !== 'success') {
       return;
@@ -580,6 +669,62 @@ export class LogsPage implements OnInit {
     this.showSelectionMessage(result);
   }
 
+  private requestRestoreAndOpen(entry: LogEntry): void {
+    this.confirmationService.confirm({
+      header: this.i18n.translate('logs.restore.title'),
+      message: this.i18n.translate('logs.restore.message', {
+        name: entry.blobName,
+      }),
+      icon: 'pi pi-history',
+      acceptLabel: this.i18n.translate('logs.restore.accept'),
+      rejectLabel: this.i18n.translate('common.actions.cancel'),
+      rejectButtonStyleClass: 'p-button-text',
+      closeOnEscape: true,
+      dismissableMask: true,
+      accept: () => {
+        void this.restoreAndOpen(entry);
+      },
+    });
+  }
+
+  private async restoreAndOpen(entry: LogEntry): Promise<void> {
+    const restored = await this.logs.restoreDeletedEntry(entry.id);
+    if (!restored) {
+      this.showRestoreToast('error', 'logs.restore.failedTitle', 'logs.restore.failed');
+      return;
+    }
+
+    const refreshed = await this.refreshList();
+    if (!refreshed) {
+      this.showRestoreToast(
+        'warn',
+        'logs.restore.restoredTitle',
+        'logs.restore.refreshFailed',
+      );
+      return;
+    }
+
+    await this.updateSelection(entry.blobName, false);
+    this.showRestoreToast(
+      'success',
+      'logs.restore.restoredTitle',
+      'logs.restore.restored',
+    );
+  }
+
+  private showRestoreToast(
+    severity: 'success' | 'warn' | 'error',
+    summaryKey: string,
+    detailKey: string,
+  ): void {
+    this.messageService.add({
+      severity,
+      summary: this.i18n.translate(summaryKey),
+      detail: this.i18n.translate(detailKey),
+      life: 3500,
+    });
+  }
+
   private resetPageState(): void {
     this.logs.reset();
     this.currentConnection.set(null);
@@ -590,6 +735,7 @@ export class LogsPage implements OnInit {
     this.sortBasis.set(this.settings.logs().sortBasis);
     this.createdOn.set(null);
     this.createdRange.set(null);
+    this.includeDeleted.set(false);
   }
 
   private async ensureConnectionsLoaded(): Promise<void> {
@@ -623,6 +769,19 @@ export class LogsPage implements OnInit {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  private buildDeletedLabel(remainingRetentionDays: number | undefined): string {
+    if (remainingRetentionDays === undefined) {
+      return this.i18n.translate('logs.fileList.deleted');
+    }
+
+    return this.i18n.translate(
+      remainingRetentionDays === 1
+        ? 'logs.fileList.deletedRetentionDay'
+        : 'logs.fileList.deletedRetentionDays',
+      { count: remainingRetentionDays },
+    );
   }
 
   private isActiveRouteLoad(routeLoadToken: number): boolean {
@@ -682,12 +841,13 @@ export class LogsPage implements OnInit {
         : this.i18n.translate('logs.detail.viewer.searchPartialZero');
     }
 
-    const activeMatchIndex = activeMatchLine === null
-      ? 0
-      : Math.max(
-          matches.findIndex((match) => match.lineNumber === activeMatchLine),
-          0,
-        );
+    const activeMatchIndex =
+      activeMatchLine === null
+        ? 0
+        : Math.max(
+            matches.findIndex((match) => match.lineNumber === activeMatchLine),
+            0,
+          );
 
     return `${activeMatchIndex + 1} / ${matches.length}`;
   }

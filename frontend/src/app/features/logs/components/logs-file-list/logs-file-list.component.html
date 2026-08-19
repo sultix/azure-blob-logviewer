@@ -1,19 +1,35 @@
-<div class="flex shrink-0 items-center justify-between gap-3 ps-6 pe-3 pb-0">
+<div class="flex shrink-0 items-center justify-between gap-3 ps-6 pe-5 pb-2">
   <h2
     class="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant"
   >
     {{ 'logs.fileList.title' | translate }}
   </h2>
-  <p-button
-    icon="pi pi-refresh"
-    size="small"
-    variant="text"
-    severity="secondary"
-    (click)="refresh()"
-    [disabled]="loading()"
-    [attr.aria-label]="'logs.fileList.refreshAriaLabel' | translate"
-    [title]="'common.actions.refresh' | translate"
-  />
+  <div class="flex items-center gap-2">
+    <label
+      for="logs-include-deleted"
+      class="flex items-center gap-1.5 text-[10px] font-medium text-on-surface-variant"
+    >
+      <span>{{ 'logs.fileList.includeDeleted' | translate }}</span>
+      <p-toggleswitch
+        inputId="logs-include-deleted"
+        styleClass="origin-right scale-[0.85]"
+        [ngModel]="includeDeleted()"
+        (ngModelChange)="onIncludeDeletedChange($event)"
+        [disabled]="loading()"
+        [ariaLabel]="'logs.fileList.includeDeletedAriaLabel' | translate"
+      />
+    </label>
+    <p-button
+      icon="pi pi-refresh"
+      size="small"
+      variant="text"
+      severity="secondary"
+      (click)="refresh()"
+      [disabled]="loading()"
+      [attr.aria-label]="'logs.fileList.refreshAriaLabel' | translate"
+      [title]="'common.actions.refresh' | translate"
+    />
+  </div>
 </div>
 
 @if (loading()) {
@@ -23,45 +39,73 @@
     {{ 'logs.fileList.loading' | translate }}
   </div>
 } @else {
-  <ul class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-5">
-    @for (row of rows(); track row.id) {
-      <li>
-        <button
-          type="button"
-          (click)="onEntryClick($event, row.id)"
-          class="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left transition-colors cursor-pointer hover:bg-surface-container-high"
-          [class.bg-surface-container-highest]="selectedEntryIdSet().has(row.id)"
-          [class.hover:bg-surface-container]="!selectedEntryIdSet().has(row.id)"
-          [attr.aria-pressed]="selectedEntryIdSet().has(row.id)"
-        >
-          <div class="flex items-center justify-between gap-2">
-            <span class="truncate font-mono text-xs text-on-surface">
-              {{ row.blobName }}
-            </span>
-            @if (row.isLive) {
-              <span
-                class="shrink-0 rounded-full bg-tertiary-container px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-on-surface"
-              >
-                {{ 'logs.fileList.live' | translate }}
+  @if (rows().length > 0) {
+    <p-scroller
+      #scroller
+      styleClass="h-full"
+      class="min-h-0 flex-1"
+      scrollHeight="100%"
+      role="list"
+      [items]="rows()"
+      [itemSize]="64"
+      [trackBy]="trackRow"
+    >
+      <ng-template #item let-row>
+        <div role="listitem" class="h-16 px-3 pb-1">
+          <button
+            type="button"
+            (click)="onEntryClick($event, row.id)"
+            class="flex h-[60px] w-full cursor-pointer flex-col justify-center gap-1 rounded-lg px-3 text-left transition-colors"
+            [class.bg-error-container/10]="row.isDeleted"
+            [class.ring-1]="row.isDeleted"
+            [class.ring-inset]="row.isDeleted"
+            [class.ring-error/30]="row.isDeleted"
+            [class.bg-surface-container-highest]="selectedEntryIdSet().has(row.id)"
+            [class.hover:bg-surface-container]="
+              !selectedEntryIdSet().has(row.id) && !row.isDeleted
+            "
+            [attr.aria-pressed]="selectedEntryIdSet().has(row.id)"
+            [title]="row.deletedLabel ?? ''"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="truncate font-mono text-xs text-on-surface">
+                {{ row.blobName }}
               </span>
-            }
-          </div>
-          <div class="flex items-center gap-3 text-[10px] text-on-surface-variant">
-            <span class="min-w-0 truncate">
-              {{ 'logs.fileList.createdMetaLabel' | translate }} {{ row.createdLabel }}
-            </span>
-            <span class="min-w-0 truncate">
-              {{ 'logs.fileList.modifiedMetaLabel' | translate }}
-              {{ row.lastModifiedLabel }}
-            </span>
-            <span class="ms-auto shrink-0">{{ row.sizeLabel }}</span>
-          </div>
-        </button>
-      </li>
-    } @empty {
-      <li class="px-3 py-6 text-center text-xs text-on-surface-variant">
-        {{ 'logs.fileList.empty' | translate }}
-      </li>
-    }
-  </ul>
+              @if (row.isLive) {
+                <span
+                  class="shrink-0 rounded-full bg-tertiary-container px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-on-surface"
+                >
+                  {{ 'logs.fileList.live' | translate }}
+                </span>
+              }
+              @if (row.isDeleted) {
+                <span
+                  class="flex shrink-0 items-center gap-1 rounded-full bg-error-container/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-error"
+                >
+                  <i class="pi pi-trash text-[8px]" aria-hidden="true"></i>
+                  {{ row.deletedLabel }}
+                </span>
+              }
+            </div>
+            <div class="flex items-center gap-3 text-[10px] text-on-surface-variant">
+              <span class="min-w-0 truncate">
+                {{ 'logs.fileList.createdMetaLabel' | translate }} {{ row.createdLabel }}
+              </span>
+              <span class="min-w-0 truncate">
+                {{ 'logs.fileList.modifiedMetaLabel' | translate }}
+                {{ row.lastModifiedLabel }}
+              </span>
+              <span class="ms-auto shrink-0">{{ row.sizeLabel }}</span>
+            </div>
+          </button>
+        </div>
+      </ng-template>
+    </p-scroller>
+  } @else {
+    <div
+      class="flex min-h-0 flex-1 items-center justify-center px-3 py-6 text-center text-xs text-on-surface-variant"
+    >
+      {{ 'logs.fileList.empty' | translate }}
+    </div>
+  }
 }

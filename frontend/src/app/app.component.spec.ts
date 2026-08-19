@@ -12,6 +12,7 @@ import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/tr
 import { AppComponent } from './app.component';
 
 class AzureServiceStub implements Partial<AzureService> {
+  readonly authInProgress = signal(false);
   initializeStartupAuth = vi.fn<() => Promise<void>>(async () => undefined);
 }
 

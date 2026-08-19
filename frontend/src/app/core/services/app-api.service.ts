@@ -13,10 +13,12 @@ import type {
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
 import type {
   AzureAuthState,
+  AzureBlobIdentityRequest,
   AzureBlobItem,
   AzureBlobTextChunk,
   AzureBlobTextChunkRequest,
   AzureContainer,
+  RestoreAzureBlobRequest,
   AzureStorageAccount,
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
@@ -32,6 +34,7 @@ export interface ConnectionsExportResult {
 
 export interface AppApi {
   getVersion(): Promise<string>;
+  openLogsDirectory(): Promise<void>;
   listLogEntries(): Promise<LogEntry[]>;
   getLogEntry(id: string): Promise<LogEntry | null>;
   startAzureLogin(): Promise<AzureAuthState>;
@@ -40,13 +43,33 @@ export interface AppApi {
   getAzureAuthState(): Promise<AzureAuthState>;
   listSubscriptions(): Promise<AzureSubscription[]>;
   listStorageAccounts(subscriptionId: string): Promise<AzureStorageAccount[]>;
-  listContainers(subscriptionId: string, resourceGroup: string, accountName: string): Promise<AzureContainer[]>;
-  listBlobs(accountName: string, containerName: string, prefix: string): Promise<AzureBlobItem[]>;
+  listContainers(
+    subscriptionId: string,
+    resourceGroup: string,
+    accountName: string,
+  ): Promise<AzureContainer[]>;
+  listBlobs(
+    accountName: string,
+    containerName: string,
+    prefix: string,
+    includeDeleted?: boolean,
+  ): Promise<AzureBlobItem[]>;
+  resolveDeletedBlobVersion(request: AzureBlobIdentityRequest): Promise<AzureBlobItem>;
   readBlobTextChunk(request: AzureBlobTextChunkRequest): Promise<AzureBlobTextChunk>;
-  openBlobViewSession(request: OpenBlobViewSessionRequest): Promise<BlobViewSessionStatus>;
+  restoreBlob(request: RestoreAzureBlobRequest): Promise<void>;
+  openBlobViewSession(
+    request: OpenBlobViewSessionRequest,
+  ): Promise<BlobViewSessionStatus>;
   getBlobViewStatus(sessionId: string): Promise<BlobViewSessionStatus>;
-  setBlobViewSessionMode(sessionId: string, mode: BlobViewMode): Promise<BlobViewSessionStatus>;
-  getBlobViewLines(sessionId: string, startLine: number, lineCount: number): Promise<BlobViewLinesResponse>;
+  setBlobViewSessionMode(
+    sessionId: string,
+    mode: BlobViewMode,
+  ): Promise<BlobViewSessionStatus>;
+  getBlobViewLines(
+    sessionId: string,
+    startLine: number,
+    lineCount: number,
+  ): Promise<BlobViewLinesResponse>;
   searchBlobView(request: BlobViewSearchRequest): Promise<BlobViewSearchResponse>;
   exportBlobViewSession(sessionId: string): Promise<BlobViewExportResult>;
   closeBlobViewSession(sessionId: string): Promise<void>;
@@ -56,6 +79,7 @@ export interface AppApi {
 
 interface WailsAppBridge {
   GetVersion(): Promise<string>;
+  OpenLogsDirectory(): Promise<void>;
   ListLogEntries(): Promise<LogEntry[] | null>;
   GetLogEntry(id: string): Promise<LogEntry | null>;
   StartAzureLogin(): Promise<AzureAuthState | null>;
@@ -64,13 +88,37 @@ interface WailsAppBridge {
   GetAzureAuthState(): Promise<AzureAuthState | null>;
   ListSubscriptions(): Promise<AzureSubscription[] | null>;
   ListStorageAccounts(subscriptionId: string): Promise<AzureStorageAccount[] | null>;
-  ListContainers(subscriptionId: string, resourceGroup: string, accountName: string): Promise<AzureContainer[] | null>;
-  ListBlobs(accountName: string, containerName: string, prefix: string): Promise<AzureBlobItem[] | null>;
-  ReadBlobTextChunk(request: AzureBlobTextChunkRequest): Promise<AzureBlobTextChunk | null>;
-  OpenBlobViewSession(request: OpenBlobViewSessionRequest): Promise<BlobViewSessionStatus | null>;
+  ListContainers(
+    subscriptionId: string,
+    resourceGroup: string,
+    accountName: string,
+  ): Promise<AzureContainer[] | null>;
+  ListBlobs(
+    accountName: string,
+    containerName: string,
+    prefix: string,
+    includeDeleted: boolean,
+  ): Promise<AzureBlobItem[] | null>;
+  ResolveDeletedBlobVersion(
+    request: AzureBlobIdentityRequest,
+  ): Promise<AzureBlobItem | null>;
+  ReadBlobTextChunk(
+    request: AzureBlobTextChunkRequest,
+  ): Promise<AzureBlobTextChunk | null>;
+  RestoreBlob(request: RestoreAzureBlobRequest): Promise<void>;
+  OpenBlobViewSession(
+    request: OpenBlobViewSessionRequest,
+  ): Promise<BlobViewSessionStatus | null>;
   GetBlobViewStatus(sessionId: string): Promise<BlobViewSessionStatus | null>;
-  SetBlobViewSessionMode(sessionId: string, mode: BlobViewMode): Promise<BlobViewSessionStatus | null>;
-  GetBlobViewLines(sessionId: string, startLine: number, lineCount: number): Promise<BlobViewLinesResponse | null>;
+  SetBlobViewSessionMode(
+    sessionId: string,
+    mode: BlobViewMode,
+  ): Promise<BlobViewSessionStatus | null>;
+  GetBlobViewLines(
+    sessionId: string,
+    startLine: number,
+    lineCount: number,
+  ): Promise<BlobViewLinesResponse | null>;
   SearchBlobView(request: BlobViewSearchRequest): Promise<BlobViewSearchResponse | null>;
   ExportBlobViewSession(sessionId: string): Promise<BlobViewExportResult | null>;
   CloseBlobViewSession(sessionId: string): Promise<void>;
@@ -94,6 +142,10 @@ export class AppApiService implements AppApi {
     return this.bridge().GetVersion();
   }
 
+  async openLogsDirectory(): Promise<void> {
+    return this.bridge().OpenLogsDirectory();
+  }
+
   async listLogEntries(): Promise<LogEntry[]> {
     const result = await this.bridge().ListLogEntries();
     return result ?? [];
@@ -105,10 +157,12 @@ export class AppApiService implements AppApi {
 
   async startAzureLogin(): Promise<AzureAuthState> {
     const result = await this.bridge().StartAzureLogin();
-    return result ?? {
-      authenticated: false,
-      errorMessage: this.i18n.translate('common.errors.noResponseFromBackend'),
-    };
+    return (
+      result ?? {
+        authenticated: false,
+        errorMessage: this.i18n.translate('common.errors.noResponseFromBackend'),
+      }
+    );
   }
 
   async restoreAzureSession(): Promise<AzureAuthState> {
@@ -135,17 +189,47 @@ export class AppApiService implements AppApi {
     return result ?? [];
   }
 
-  async listContainers(subscriptionId: string, resourceGroup: string, accountName: string): Promise<AzureContainer[]> {
-    const result = await this.bridge().ListContainers(subscriptionId, resourceGroup, accountName);
+  async listContainers(
+    subscriptionId: string,
+    resourceGroup: string,
+    accountName: string,
+  ): Promise<AzureContainer[]> {
+    const result = await this.bridge().ListContainers(
+      subscriptionId,
+      resourceGroup,
+      accountName,
+    );
     return result ?? [];
   }
 
-  async listBlobs(accountName: string, containerName: string, prefix: string): Promise<AzureBlobItem[]> {
-    const result = await this.bridge().ListBlobs(accountName, containerName, prefix);
+  async listBlobs(
+    accountName: string,
+    containerName: string,
+    prefix: string,
+    includeDeleted = false,
+  ): Promise<AzureBlobItem[]> {
+    const result = await this.bridge().ListBlobs(
+      accountName,
+      containerName,
+      prefix,
+      includeDeleted,
+    );
     return result ?? [];
   }
 
-  async readBlobTextChunk(request: AzureBlobTextChunkRequest): Promise<AzureBlobTextChunk> {
+  async resolveDeletedBlobVersion(
+    request: AzureBlobIdentityRequest,
+  ): Promise<AzureBlobItem> {
+    const result = await this.bridge().ResolveDeletedBlobVersion(request);
+    if (!result) {
+      throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
+    }
+    return result;
+  }
+
+  async readBlobTextChunk(
+    request: AzureBlobTextChunkRequest,
+  ): Promise<AzureBlobTextChunk> {
     const result = await this.bridge().ReadBlobTextChunk(request);
     if (!result) {
       throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
@@ -153,7 +237,13 @@ export class AppApiService implements AppApi {
     return result;
   }
 
-  async openBlobViewSession(request: OpenBlobViewSessionRequest): Promise<BlobViewSessionStatus> {
+  async restoreBlob(request: RestoreAzureBlobRequest): Promise<void> {
+    return this.bridge().RestoreBlob(request);
+  }
+
+  async openBlobViewSession(
+    request: OpenBlobViewSessionRequest,
+  ): Promise<BlobViewSessionStatus> {
     const result = await this.bridge().OpenBlobViewSession(request);
     if (!result) {
       throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
@@ -180,7 +270,11 @@ export class AppApiService implements AppApi {
     return normalizeBlobViewSessionStatus(result);
   }
 
-  async getBlobViewLines(sessionId: string, startLine: number, lineCount: number): Promise<BlobViewLinesResponse> {
+  async getBlobViewLines(
+    sessionId: string,
+    startLine: number,
+    lineCount: number,
+  ): Promise<BlobViewLinesResponse> {
     const result = await this.bridge().GetBlobViewLines(sessionId, startLine, lineCount);
     if (!result) {
       throw new Error(this.i18n.translate('common.errors.noResponseFromBackend'));
@@ -224,22 +318,28 @@ export class AppApiService implements AppApi {
   }
 }
 
-function normalizeBlobViewSessionStatus(status: BlobViewSessionStatus): BlobViewSessionStatus {
+function normalizeBlobViewSessionStatus(
+  status: BlobViewSessionStatus,
+): BlobViewSessionStatus {
   return {
     ...status,
     mode: status.mode ?? 'snapshot',
-    tailPreviewLines: status.tailPreviewLines ?? [],
+    livePreviewLines: status.livePreviewLines ?? [],
   };
 }
 
-function normalizeBlobViewLinesResponse(response: BlobViewLinesResponse): BlobViewLinesResponse {
+function normalizeBlobViewLinesResponse(
+  response: BlobViewLinesResponse,
+): BlobViewLinesResponse {
   return {
     ...response,
     lines: response.lines ?? [],
   };
 }
 
-function normalizeBlobViewSearchResponse(response: BlobViewSearchResponse): BlobViewSearchResponse {
+function normalizeBlobViewSearchResponse(
+  response: BlobViewSearchResponse,
+): BlobViewSearchResponse {
   return {
     ...response,
     matches: response.matches ?? [],

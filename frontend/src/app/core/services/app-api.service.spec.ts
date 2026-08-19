@@ -17,28 +17,44 @@ import type {
   AzureStorageAccount,
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
-import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
+import {
+  initializeI18nForTests,
+  provideTranslateTesting,
+} from '@app/testing/translate-testing';
 
 import { AppApiService } from './app-api.service';
 
 interface MockBridge {
   GetVersion: ReturnType<typeof vi.fn<() => Promise<string>>>;
+  OpenLogsDirectory: ReturnType<typeof vi.fn<() => Promise<void>>>;
   ListLogEntries: ReturnType<typeof vi.fn<() => Promise<LogEntry[] | null>>>;
   GetLogEntry: ReturnType<typeof vi.fn<(id: string) => Promise<LogEntry | null>>>;
   StartAzureLogin: ReturnType<
     typeof vi.fn<
-      () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: string } | null>
+      () => Promise<{
+        authenticated: boolean;
+        errorMessage?: string;
+        failureReason?: string;
+      } | null>
     >
   >;
   RestoreAzureSession: ReturnType<
     typeof vi.fn<
-      () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: string } | null>
+      () => Promise<{
+        authenticated: boolean;
+        errorMessage?: string;
+        failureReason?: string;
+      } | null>
     >
   >;
   AzureLogout: ReturnType<typeof vi.fn<() => Promise<void>>>;
   GetAzureAuthState: ReturnType<
     typeof vi.fn<
-      () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: string } | null>
+      () => Promise<{
+        authenticated: boolean;
+        errorMessage?: string;
+        failureReason?: string;
+      } | null>
     >
   >;
   ListSubscriptions: ReturnType<typeof vi.fn<() => Promise<AzureSubscription[] | null>>>;
@@ -47,17 +63,50 @@ interface MockBridge {
   >;
   ListContainers: ReturnType<
     typeof vi.fn<
-      (subscriptionId: string, resourceGroup: string, accountName: string) => Promise<AzureContainer[] | null>
+      (
+        subscriptionId: string,
+        resourceGroup: string,
+        accountName: string,
+      ) => Promise<AzureContainer[] | null>
     >
   >;
   ListBlobs: ReturnType<
-    typeof vi.fn<(accountName: string, containerName: string, prefix: string) => Promise<AzureBlobItem[] | null>>
+    typeof vi.fn<
+      (
+        accountName: string,
+        containerName: string,
+        prefix: string,
+        includeDeleted: boolean,
+      ) => Promise<AzureBlobItem[] | null>
+    >
+  >;
+  ResolveDeletedBlobVersion: ReturnType<
+    typeof vi.fn<
+      (request: {
+        accountName: string;
+        containerName: string;
+        blobName: string;
+      }) => Promise<AzureBlobItem | null>
+    >
   >;
   ReadBlobTextChunk: ReturnType<
-    typeof vi.fn<(request: AzureBlobTextChunkRequest) => Promise<AzureBlobTextChunk | null>>
+    typeof vi.fn<
+      (request: AzureBlobTextChunkRequest) => Promise<AzureBlobTextChunk | null>
+    >
+  >;
+  RestoreBlob: ReturnType<
+    typeof vi.fn<
+      (request: {
+        accountName: string;
+        containerName: string;
+        blobName: string;
+      }) => Promise<void>
+    >
   >;
   OpenBlobViewSession: ReturnType<
-    typeof vi.fn<(request: OpenBlobViewSessionRequest) => Promise<BlobViewSessionStatus | null>>
+    typeof vi.fn<
+      (request: OpenBlobViewSessionRequest) => Promise<BlobViewSessionStatus | null>
+    >
   >;
   GetBlobViewStatus: ReturnType<
     typeof vi.fn<(sessionId: string) => Promise<BlobViewSessionStatus | null>>
@@ -69,11 +118,21 @@ interface MockBridge {
   >;
   GetBlobViewLines: ReturnType<
     typeof vi.fn<
-      (sessionId: string, startLine: number, lineCount: number) => Promise<BlobViewLinesResponse | null>
+      (
+        sessionId: string,
+        startLine: number,
+        lineCount: number,
+      ) => Promise<BlobViewLinesResponse | null>
     >
   >;
   SearchBlobView: ReturnType<
-    typeof vi.fn<(request: { sessionId: string; query: string; cursor: number }) => Promise<BlobViewSearchResponse | null>>
+    typeof vi.fn<
+      (request: {
+        sessionId: string;
+        query: string;
+        cursor: number;
+      }) => Promise<BlobViewSearchResponse | null>
+    >
   >;
   ExportBlobViewSession: ReturnType<
     typeof vi.fn<(sessionId: string) => Promise<{ cancelled: boolean } | null>>
@@ -147,11 +206,15 @@ describe('AppApiService', () => {
       authenticated: false,
       errorMessage: 'No response from backend',
     });
-    await expect(service.restoreAzureSession()).resolves.toEqual({ authenticated: false });
+    await expect(service.restoreAzureSession()).resolves.toEqual({
+      authenticated: false,
+    });
     await expect(service.getAzureAuthState()).resolves.toEqual({ authenticated: false });
     await expect(service.listSubscriptions()).resolves.toEqual([]);
     await expect(service.listStorageAccounts('sub-1')).resolves.toEqual([]);
-    await expect(service.listContainers('sub-1', 'rg-1', 'storage-a')).resolves.toEqual([]);
+    await expect(service.listContainers('sub-1', 'rg-1', 'storage-a')).resolves.toEqual(
+      [],
+    );
     await expect(service.listBlobs('storage-a', 'logs', 'prefix/')).resolves.toEqual([]);
     await expect(
       service.readBlobTextChunk({
@@ -160,8 +223,13 @@ describe('AppApiService', () => {
         blobName: 'app.log',
       }),
     ).rejects.toThrow('No response from backend');
-    await expect(service.importConnectionsFile()).resolves.toEqual({ cancelled: true, content: '' });
-    await expect(service.exportConnectionsFile('[]')).resolves.toEqual({ cancelled: true });
+    await expect(service.importConnectionsFile()).resolves.toEqual({
+      cancelled: true,
+      content: '',
+    });
+    await expect(service.exportConnectionsFile('[]')).resolves.toEqual({
+      cancelled: true,
+    });
   });
 
   it('passes through non-null bridge responses and forwards method arguments', async () => {
@@ -199,6 +267,9 @@ describe('AppApiService', () => {
         createdAt: '2026-04-13T10:00:00Z',
         lastModified: '2026-04-13T10:30:00Z',
         blobType: 'BlockBlob',
+        deleted: false,
+        deletedAt: '',
+        remainingRetentionDays: 0,
       },
     ];
     const chunk: AzureBlobTextChunk = {
@@ -222,12 +293,11 @@ describe('AppApiService', () => {
       indexedLineCount: 2,
       indexedThrough: 1024,
       isComplete: true,
-      canEnableWordWrap: true,
       hasPendingBefore: false,
       hasPendingAfter: false,
       mode: 'snapshot',
       focus: 'start',
-      tailPreviewLines: [],
+      livePreviewLines: [],
     };
     const linesResponse: BlobViewLinesResponse = {
       startLine: 0,
@@ -243,39 +313,77 @@ describe('AppApiService', () => {
     };
 
     bridge.GetVersion.mockResolvedValue('0.1.1');
+    bridge.OpenLogsDirectory.mockResolvedValue(undefined);
     bridge.ListLogEntries.mockResolvedValue([entry]);
     bridge.GetLogEntry.mockResolvedValue(entry);
     bridge.StartAzureLogin.mockResolvedValue({ authenticated: true, failureReason: '' });
-    bridge.RestoreAzureSession.mockResolvedValue({ authenticated: true, failureReason: '' });
-    bridge.GetAzureAuthState.mockResolvedValue({ authenticated: true, failureReason: '' });
+    bridge.RestoreAzureSession.mockResolvedValue({
+      authenticated: true,
+      failureReason: '',
+    });
+    bridge.GetAzureAuthState.mockResolvedValue({
+      authenticated: true,
+      failureReason: '',
+    });
     bridge.ListSubscriptions.mockResolvedValue(subscriptions);
     bridge.ListStorageAccounts.mockResolvedValue(accounts);
     bridge.ListContainers.mockResolvedValue(containers);
     bridge.ListBlobs.mockResolvedValue(blobs);
+    bridge.ResolveDeletedBlobVersion.mockResolvedValue({
+      ...blobs[0],
+      deleted: true,
+      hasVersionsOnly: true,
+      versionId: 'version-1',
+    });
     bridge.ReadBlobTextChunk.mockResolvedValue(chunk);
+    bridge.RestoreBlob.mockResolvedValue(undefined);
     bridge.OpenBlobViewSession.mockResolvedValue(sessionStatus);
     bridge.GetBlobViewStatus.mockResolvedValue(sessionStatus);
     bridge.SetBlobViewSessionMode.mockResolvedValue({
       ...sessionStatus,
-      mode: 'tail',
+      mode: 'live',
       focus: 'end',
     });
     bridge.GetBlobViewLines.mockResolvedValue(linesResponse);
     bridge.SearchBlobView.mockResolvedValue(searchResponse);
     bridge.ExportBlobViewSession.mockResolvedValue({ cancelled: false });
-    bridge.ImportConnectionsFile.mockResolvedValue({ cancelled: false, content: '[\n  {}\n]' });
+    bridge.ImportConnectionsFile.mockResolvedValue({
+      cancelled: false,
+      content: '[\n  {}\n]',
+    });
     bridge.ExportConnectionsFile.mockResolvedValue({ cancelled: false });
 
     await expect(service.getVersion()).resolves.toBe('0.1.1');
+    await expect(service.openLogsDirectory()).resolves.toBeUndefined();
     await expect(service.listLogEntries()).resolves.toEqual([entry]);
     await expect(service.getLogEntry('log-1')).resolves.toEqual(entry);
-    await expect(service.startAzureLogin()).resolves.toEqual({ authenticated: true, failureReason: '' });
-    await expect(service.restoreAzureSession()).resolves.toEqual({ authenticated: true, failureReason: '' });
-    await expect(service.getAzureAuthState()).resolves.toEqual({ authenticated: true, failureReason: '' });
+    await expect(service.startAzureLogin()).resolves.toEqual({
+      authenticated: true,
+      failureReason: '',
+    });
+    await expect(service.restoreAzureSession()).resolves.toEqual({
+      authenticated: true,
+      failureReason: '',
+    });
+    await expect(service.getAzureAuthState()).resolves.toEqual({
+      authenticated: true,
+      failureReason: '',
+    });
     await expect(service.listSubscriptions()).resolves.toEqual(subscriptions);
     await expect(service.listStorageAccounts('sub-1')).resolves.toEqual(accounts);
-    await expect(service.listContainers('sub-1', 'rg-1', 'storage-a')).resolves.toEqual(containers);
-    await expect(service.listBlobs('storage-a', 'logs', 'prefix/')).resolves.toEqual(blobs);
+    await expect(service.listContainers('sub-1', 'rg-1', 'storage-a')).resolves.toEqual(
+      containers,
+    );
+    await expect(
+      service.listBlobs('storage-a', 'logs', 'prefix/', true),
+    ).resolves.toEqual(blobs);
+    await expect(
+      service.resolveDeletedBlobVersion({
+        accountName: 'storage-a',
+        containerName: 'logs',
+        blobName: 'app.log',
+      }),
+    ).resolves.toMatchObject({ versionId: 'version-1' });
     await expect(
       service.readBlobTextChunk({
         accountName: 'storage-a',
@@ -283,6 +391,13 @@ describe('AppApiService', () => {
         blobName: 'app.log',
       }),
     ).resolves.toEqual(chunk);
+    await expect(
+      service.restoreBlob({
+        accountName: 'storage-a',
+        containerName: 'logs',
+        blobName: 'deleted.log',
+      }),
+    ).resolves.toBeUndefined();
     await expect(
       service.openBlobViewSession({
         accountName: 'storage-a',
@@ -292,32 +407,49 @@ describe('AppApiService', () => {
       }),
     ).resolves.toEqual(sessionStatus);
     await expect(service.getBlobViewStatus('session-1')).resolves.toEqual(sessionStatus);
-    await expect(service.setBlobViewSessionMode('session-1', 'tail')).resolves.toEqual({
+    await expect(service.setBlobViewSessionMode('session-1', 'live')).resolves.toEqual({
       ...sessionStatus,
-      mode: 'tail',
+      mode: 'live',
       focus: 'end',
     });
-    await expect(service.getBlobViewLines('session-1', 0, 100)).resolves.toEqual(linesResponse);
+    await expect(service.getBlobViewLines('session-1', 0, 100)).resolves.toEqual(
+      linesResponse,
+    );
     await expect(
       service.searchBlobView({ sessionId: 'session-1', query: 'line', cursor: 0 }),
     ).resolves.toEqual(searchResponse);
-    await expect(service.exportBlobViewSession('session-1')).resolves.toEqual({ cancelled: false });
+    await expect(service.exportBlobViewSession('session-1')).resolves.toEqual({
+      cancelled: false,
+    });
     await expect(service.importConnectionsFile()).resolves.toEqual({
       cancelled: false,
       content: '[\n  {}\n]',
     });
-    await expect(service.exportConnectionsFile('[]')).resolves.toEqual({ cancelled: false });
+    await expect(service.exportConnectionsFile('[]')).resolves.toEqual({
+      cancelled: false,
+    });
 
     await service.azureLogout();
 
     expect(bridge.GetLogEntry).toHaveBeenCalledWith('log-1');
+    expect(bridge.OpenLogsDirectory).toHaveBeenCalledOnce();
     expect(bridge.ListStorageAccounts).toHaveBeenCalledWith('sub-1');
     expect(bridge.ListContainers).toHaveBeenCalledWith('sub-1', 'rg-1', 'storage-a');
-    expect(bridge.ListBlobs).toHaveBeenCalledWith('storage-a', 'logs', 'prefix/');
+    expect(bridge.ListBlobs).toHaveBeenCalledWith('storage-a', 'logs', 'prefix/', true);
+    expect(bridge.ResolveDeletedBlobVersion).toHaveBeenCalledWith({
+      accountName: 'storage-a',
+      containerName: 'logs',
+      blobName: 'app.log',
+    });
     expect(bridge.ReadBlobTextChunk).toHaveBeenCalledWith({
       accountName: 'storage-a',
       containerName: 'logs',
       blobName: 'app.log',
+    });
+    expect(bridge.RestoreBlob).toHaveBeenCalledWith({
+      accountName: 'storage-a',
+      containerName: 'logs',
+      blobName: 'deleted.log',
     });
     expect(bridge.OpenBlobViewSession).toHaveBeenCalledWith({
       accountName: 'storage-a',
@@ -326,7 +458,7 @@ describe('AppApiService', () => {
       mode: 'snapshot',
     });
     expect(bridge.GetBlobViewStatus).toHaveBeenCalledWith('session-1');
-    expect(bridge.SetBlobViewSessionMode).toHaveBeenCalledWith('session-1', 'tail');
+    expect(bridge.SetBlobViewSessionMode).toHaveBeenCalledWith('session-1', 'live');
     expect(bridge.GetBlobViewLines).toHaveBeenCalledWith('session-1', 0, 100);
     expect(bridge.SearchBlobView).toHaveBeenCalledWith({
       sessionId: 'session-1',
@@ -348,12 +480,11 @@ describe('AppApiService', () => {
       indexedLineCount: 2,
       indexedThrough: 1024,
       isComplete: true,
-      canEnableWordWrap: true,
       hasPendingBefore: false,
       hasPendingAfter: false,
       mode: 'snapshot',
       focus: 'start',
-      tailPreviewLines: undefined as unknown as string[],
+      livePreviewLines: undefined as unknown as string[],
     });
     bridge.GetBlobViewStatus.mockResolvedValue({
       sessionId: 'session-1',
@@ -364,12 +495,11 @@ describe('AppApiService', () => {
       indexedLineCount: 2,
       indexedThrough: 1024,
       isComplete: true,
-      canEnableWordWrap: true,
       hasPendingBefore: false,
       hasPendingAfter: false,
       mode: 'snapshot',
       focus: 'start',
-      tailPreviewLines: undefined as unknown as string[],
+      livePreviewLines: undefined as unknown as string[],
     });
     bridge.GetBlobViewLines.mockResolvedValue({
       startLine: 0,
@@ -391,9 +521,9 @@ describe('AppApiService', () => {
         blobName: 'app.log',
         mode: 'snapshot',
       }),
-    ).resolves.toMatchObject({ tailPreviewLines: [] });
+    ).resolves.toMatchObject({ livePreviewLines: [] });
     await expect(service.getBlobViewStatus('session-1')).resolves.toMatchObject({
-      tailPreviewLines: [],
+      livePreviewLines: [],
     });
     await expect(service.getBlobViewLines('session-1', 0, 100)).resolves.toMatchObject({
       lines: [],
@@ -409,6 +539,7 @@ describe('AppApiService', () => {
 function createMockBridge(): MockBridge {
   return {
     GetVersion: vi.fn(),
+    OpenLogsDirectory: vi.fn().mockResolvedValue(undefined),
     ListLogEntries: vi.fn(),
     GetLogEntry: vi.fn(),
     StartAzureLogin: vi.fn(),
@@ -419,7 +550,9 @@ function createMockBridge(): MockBridge {
     ListStorageAccounts: vi.fn(),
     ListContainers: vi.fn(),
     ListBlobs: vi.fn(),
+    ResolveDeletedBlobVersion: vi.fn(),
     ReadBlobTextChunk: vi.fn(),
+    RestoreBlob: vi.fn().mockResolvedValue(undefined),
     OpenBlobViewSession: vi.fn(),
     GetBlobViewStatus: vi.fn(),
     SetBlobViewSessionMode: vi.fn(),

@@ -7,11 +7,41 @@ import type {
   AppConfig,
   AzurePreferences,
   GeneralConfig,
+  LiveRefreshIntervalSeconds,
   LogsPreferences,
 } from '../models/app-config.model';
 import { createDefaultAppConfig, isAppAppearance } from '../models/app-config.model';
 
 const STORAGE_KEY = 'obsidian-console:config';
+const LIVE_REFRESH_INTERVALS = [5, 10, 30, 60] as const;
+
+// Persisted shape: the current keys plus the ones retired by past renames.
+type StoredLogsPreferences = Partial<LogsPreferences> & {
+  // Retired when tail mode became live mode; still read once so an upgrading
+  // user keeps the interval they picked.
+  tailRefreshIntervalSeconds?: unknown;
+};
+
+function isLiveRefreshIntervalSeconds(
+  value: unknown,
+): value is LiveRefreshIntervalSeconds {
+  return LIVE_REFRESH_INTERVALS.includes(value as LiveRefreshIntervalSeconds);
+}
+
+function resolveLiveRefreshInterval(
+  stored: StoredLogsPreferences,
+  fallback: LiveRefreshIntervalSeconds,
+): LiveRefreshIntervalSeconds {
+  if (isLiveRefreshIntervalSeconds(stored.liveRefreshIntervalSeconds)) {
+    return stored.liveRefreshIntervalSeconds;
+  }
+
+  if (isLiveRefreshIntervalSeconds(stored.tailRefreshIntervalSeconds)) {
+    return stored.tailRefreshIntervalSeconds;
+  }
+
+  return fallback;
+}
 
 function loadFromStorage(): AppConfig {
   const defaults = createDefaultAppConfig();
@@ -23,6 +53,7 @@ function loadFromStorage(): AppConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return structuredClone(defaults);
     const parsed = JSON.parse(raw) as Partial<AppConfig>;
+    const storedLogs: StoredLogsPreferences = parsed.logs ?? {};
     return {
       azure: { ...defaults.azure, ...(parsed.azure ?? {}) },
       general: {
@@ -35,11 +66,19 @@ function loadFromStorage(): AppConfig {
           ? parsed.general.appearance
           : defaults.general.appearance,
       },
+      // Built key by key rather than spread: a blindly spread legacy key would
+      // be copied into the in-memory object and written back by every persist().
       logs: {
-        ...defaults.logs,
-        ...(parsed.logs ?? {}),
-        sortBasis: isLogSortBasis(parsed.logs?.sortBasis)
-          ? parsed.logs.sortBasis
+        logLevelHighlightingEnabled:
+          typeof storedLogs.logLevelHighlightingEnabled === 'boolean'
+            ? storedLogs.logLevelHighlightingEnabled
+            : defaults.logs.logLevelHighlightingEnabled,
+        liveRefreshIntervalSeconds: resolveLiveRefreshInterval(
+          storedLogs,
+          defaults.logs.liveRefreshIntervalSeconds,
+        ),
+        sortBasis: isLogSortBasis(storedLogs.sortBasis)
+          ? storedLogs.sortBasis
           : defaults.logs.sortBasis,
       },
     };

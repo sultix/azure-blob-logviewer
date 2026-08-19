@@ -1,0 +1,1 @@
+Mehrere Logdateien lassen sich zu einer Ansicht zusammenführen. Dazu klicken Sie die weiteren Dateien mit gedrückter Command- beziehungsweise Steuerungstaste an. Zusammengefügt wird in Klickreihenfolge, bis zu fünf Dateien mit je maximal zwanzig Megabyte. Der Download-Knopf speichert das Ergebnis als eine einzige Textdatei. Eine Meldung bestätigt den fertigen Download.

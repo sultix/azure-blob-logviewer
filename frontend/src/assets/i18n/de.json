@@ -47,6 +47,10 @@
       "settings": "Einstellungen",
       "back": "Zurück"
     },
+    "auth": {
+      "authenticating": "Authentifizierung…",
+      "authenticatingAriaLabel": "Azure-Authentifizierung läuft"
+    },
     "window": {
       "minimize": "Fenster minimieren",
       "maximize": "Fenster maximieren",
@@ -70,8 +74,12 @@
       "addButtonTitleDisabled": "Bitte zuerst in den Einstellungen mit Azure verbinden",
       "editButtonTitleEnabled": "Diese Storage-Verbindung bearbeiten",
       "editButtonTitleDisabled": "Bitte zuerst in den Einstellungen mit Azure verbinden",
+      "openButtonTitleEnabled": "Logs für diese Storage-Verbindung öffnen",
+      "openButtonTitleDisabled": "Bitte zuerst in den Einstellungen mit Azure verbinden",
+      "authInProgressTitle": "Azure-Authentifizierung läuft…",
       "authNoticeBefore": "Bitte verbinden Sie sich zuerst unter ",
       "authNoticeAfter": ", um neue Storage-Verbindungen hinzuzufügen.",
+      "authInProgressNotice": "Die Azure-Authentifizierung läuft. Aktionen sind verfügbar, sobald Ihre Azure-CLI-Sitzung geprüft wurde.",
       "loading": "Verbindungen werden geladen…",
       "emptyTitle": "Noch keine Storage-Verbindungen",
       "emptyDescription": "Fügen Sie Ihre erste Azure-Blob-Storage-Verbindung hinzu, um Logs zu öffnen.",
@@ -134,7 +142,26 @@
       "createdMetaLabel": "Erstellt",
       "modifiedMetaLabel": "Geändert",
       "live": "LIVE",
+      "deleted": "Gelöscht",
+      "deletedRetentionDay": "Gelöscht · noch {{count}} Tag",
+      "deletedRetentionDays": "Gelöscht · noch {{count}} Tage",
+      "includeDeleted": "Gelöschte",
+      "includeDeletedAriaLabel": "Soft-gelöschte Blobs anzeigen",
       "refreshAriaLabel": "Verfügbare Logs aktualisieren"
+    },
+    "deletedVersion": {
+      "failedTitle": "Version nicht verfügbar",
+      "failed": "Es konnte keine lesbare Version dieser gelöschten Datei geöffnet werden."
+    },
+    "restore": {
+      "title": "Datei wiederherstellen",
+      "message": "{{name}} in Azure Storage wiederherstellen und öffnen?",
+      "accept": "Wiederherstellen und öffnen",
+      "failedTitle": "Wiederherstellung fehlgeschlagen",
+      "failed": "Die Datei konnte nicht wiederhergestellt werden. Prüfen Sie Ihre Azure-Berechtigungen.",
+      "restoredTitle": "Datei wiederhergestellt",
+      "refreshFailed": "Die Datei wurde wiederhergestellt. Aktualisieren Sie die Liste erneut, um sie zu öffnen.",
+      "restored": "Die Datei wurde wiederhergestellt und geöffnet."
     },
     "detail": {
       "loading": "Logs werden geladen…",
@@ -145,11 +172,9 @@
       "size": "Größe {{value}}",
       "created": "Erstellt {{value}}",
       "modified": "Geändert {{value}}",
-      "wordWrap": "Zeilenumbruch",
-      "wordWrapToggleAriaLabel": "Zeilenumbruch für Loginhalt umschalten",
-      "tail": "Tail",
-      "tailToggleAriaLabel": "Live-Tail-Modus für Loginhalt umschalten",
-      "wordWrapDisabledInTail": "Der Zeilenumbruch ist deaktiviert, solange der Tail-Modus aktiv ist.",
+      "deletedVersionReadOnly": "Gelöschte Version · schreibgeschützt",
+      "live": "Live",
+      "liveToggleAriaLabel": "Live-Modus für Loginhalt umschalten",
       "searchContentPlaceholder": "Inhalt durchsuchen...",
       "searchContentAriaLabel": "Im Loginhalt suchen",
       "clearSearch": "Suche löschen",
@@ -168,12 +193,11 @@
         "progress": "{{loaded}} / {{total}} geladen",
         "backgroundLoading": "Datei wird im Hintergrund geladen",
         "complete": "Datei vollständig geladen",
-        "tailActive": "Tail-Modus aktiv",
-        "tailRefresh": "Aktualisierung alle {{seconds}}s",
-        "wordWrapUnavailable": "Zeilenumbruch ist für große Dateien nicht verfügbar, damit der Viewer flüssig bleibt.",
+        "liveActive": "Live-Modus aktiv",
+        "liveRefresh": "Aktualisierung alle {{seconds}}s",
         "pendingBefore": "Frühere Zeilen werden noch geladen",
         "pendingAfter": "Spätere Zeilen werden noch geladen",
-        "tailPreview": "Tail zeigt die neuesten Zeilen sofort an. Ältere Teile der Datei werden im Hintergrund nachgeladen.",
+        "livePreview": "Der Live-Modus zeigt die neuesten Zeilen sofort an. Ältere Teile der Datei werden im Hintergrund nachgeladen.",
         "preparingLines": "Sichtbare Zeilen werden vorbereitet…",
         "matches": "{{count}} Treffer",
         "matchesPartial": "{{count}} Treffer bisher",
@@ -191,10 +215,8 @@
       "mobileActions": {
         "refresh": "Aktualisieren",
         "download": "Herunterladen",
-        "wordWrapOn": "Zeilenumbruch: An",
-        "wordWrapOff": "Zeilenumbruch: Aus",
-        "tailOn": "Tail: An",
-        "tailOff": "Tail: Aus"
+        "liveOn": "Live: An",
+        "liveOff": "Live: Aus"
       },
       "footer": {
         "lines": "Zeilen: {{count}}",
@@ -216,7 +238,9 @@
         "selectionLimitTitle": "Auswahllimit erreicht",
         "selectionLimitDetail": "Sie können höchstens {{max}} Dateien zusammenführen.",
         "fileTooLargeTitle": "Datei zu groß für den Merge",
-        "fileTooLargeDetail": "{{name}} überschreitet das Limit von {{maxSize}}."
+        "fileTooLargeDetail": "{{name}} überschreitet das Limit von {{maxSize}}.",
+        "liveModeFailedTitle": "Live-Modus nicht geändert",
+        "liveModeFailedDetail": "Das Backend hat den Moduswechsel nicht bestätigt. Die Ansicht bleibt im bisherigen Modus."
       }
     },
     "service": {
@@ -241,13 +265,22 @@
       },
       "appInfo": "Anwendungsinformationen",
       "appInfoDescription": "Azure Blob Logviewer verbindet sich mit Azure Blob Storage, hilft beim schnellen Auffinden und Prüfen gespeicherter Logs und macht auch größere Logdateien auf dem Desktop übersichtlich lesbar. Die Anwendung unterstützt Sie dabei, Container-Inhalte strukturiert zu durchsuchen, relevante Einträge schneller zu erkennen und typische Analyse- und Monitoring-Aufgaben effizienter im lokalen Workflow zu erledigen.",
+      "diagnostics": {
+        "title": "Diagnose",
+        "description": "Öffnen Sie die lokalen Diagnoseprotokolle, um Fehler zu untersuchen.",
+        "logsTitle": "Anwendungsprotokolle",
+        "logsDescription": "Die aktuelle und die täglich rotierten Logdateien befinden sich im lokalen Logverzeichnis.",
+        "openAction": "Logverzeichnis öffnen",
+        "openFailedTitle": "Logverzeichnis konnte nicht geöffnet werden",
+        "openFailedDetail": "Der Dateiexplorer konnte für das lokale Logverzeichnis nicht gestartet werden."
+      },
       "language": {
         "title": "Sprache",
         "description": "Wählen Sie die Frontend-Sprache für Beschriftungen, Meldungen und Datumsformate."
       },
-      "tailRefreshInterval": {
-        "title": "Tail-Aktualisierungsintervall",
-        "description": "Wie oft der Tail-Modus die neuesten Logzeilen neu lädt.",
+      "liveRefreshInterval": {
+        "title": "Live-Aktualisierungsintervall",
+        "description": "Wie oft der Live-Modus die neuesten Logzeilen neu lädt.",
         "seconds": "{{count}}s",
         "minute": "60s"
       },

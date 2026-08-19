@@ -120,22 +120,22 @@
           </span>
           <div class="flex flex-col">
             <span class="text-sm font-semibold text-on-surface">
-              {{ 'settings.page.tailRefreshInterval.title' | translate }}
+              {{ 'settings.page.liveRefreshInterval.title' | translate }}
             </span>
             <span class="text-[11px] text-on-surface-variant">
-              {{ 'settings.page.tailRefreshInterval.description' | translate }}
+              {{ 'settings.page.liveRefreshInterval.description' | translate }}
             </span>
           </div>
         </div>
         <div class="flex items-center gap-1 rounded-lg bg-surface-container-lowest p-1">
-          @for (opt of tailRefreshIntervalOptions(); track opt.value) {
+          @for (opt of liveRefreshIntervalOptions(); track opt.value) {
           <button
             type="button"
-            (click)="setTailRefreshInterval(opt.value)"
+            (click)="setLiveRefreshInterval(opt.value)"
             class="rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors"
-            [class.bg-surface-container-highest]="logs().tailRefreshIntervalSeconds === opt.value"
-            [class.text-on-surface]="logs().tailRefreshIntervalSeconds === opt.value"
-            [class.text-on-surface-variant]="logs().tailRefreshIntervalSeconds !== opt.value"
+            [class.bg-surface-container-highest]="logs().liveRefreshIntervalSeconds === opt.value"
+            [class.text-on-surface]="logs().liveRefreshIntervalSeconds === opt.value"
+            [class.text-on-surface-variant]="logs().liveRefreshIntervalSeconds !== opt.value"
           >
             {{ opt.label }}
           </button>
@@ -245,6 +245,47 @@
             {{ 'settings.page.savedConnections.exportAction' | translate }}
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Diagnostics -->
+    <div class="flex flex-col gap-4 rounded-xl bg-surface-container p-7">
+      <div class="flex flex-col gap-2">
+        <h2 class="font-display text-base font-semibold text-on-surface">
+          {{ 'settings.page.diagnostics.title' | translate }}
+        </h2>
+        <p class="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+          {{ 'settings.page.diagnostics.description' | translate }}
+        </p>
+      </div>
+
+      <div
+        class="flex flex-col gap-4 rounded-xl bg-surface-container-low p-5 md:flex-row md:items-center md:justify-between"
+      >
+        <div class="flex items-start gap-3">
+          <span
+            class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-high text-tertiary"
+          >
+            <i class="pi pi-file text-sm"></i>
+          </span>
+          <div class="flex flex-col gap-1">
+            <span class="text-sm font-semibold text-on-surface">
+              {{ 'settings.page.diagnostics.logsTitle' | translate }}
+            </span>
+            <span class="text-[11px] text-on-surface-variant">
+              {{ 'settings.page.diagnostics.logsDescription' | translate }}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          (click)="openLogsDirectory()"
+          [disabled]="logsDirectoryOpening()"
+          class="rounded-lg bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wider text-on-primary transition-colors hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60"
+        >
+          {{ 'settings.page.diagnostics.openAction' | translate }}
+        </button>
       </div>
     </div>
 

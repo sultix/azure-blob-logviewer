@@ -1,0 +1,114 @@
+{
+  "video": "out/anleitung-azure-blob-logviewer.mp4",
+  "total": 322.44,
+  "blocks": [
+    {
+      "id": "00-intro",
+      "title": "Titel",
+      "start": 0.0,
+      "slot": 5.0,
+      "words": 11,
+      "estimate": 4.7,
+      "text": "Azure Blob Logviewer. Logdateien direkt aus dem Azure Blob Storage lesen."
+    },
+    {
+      "id": "01",
+      "title": "Kapitel 1 — Anmeldung an Azure",
+      "start": 5.0,
+      "slot": 22.4,
+      "words": 45,
+      "estimate": 19.1,
+      "text": "Los geht es in den Einstellungen. Oben rechts sehen Sie den Verbindungsstatus. Ohne Anmeldung passiert hier nichts: Die App nutzt Ihre Azure-Kommandozeile, Sie müssen sich also vorher im Terminal angemeldet haben. Ein Klick auf Mit Azure verbinden übernimmt diese Sitzung. Zugangsdaten speichert die App nicht."
+    },
+    {
+      "id": "02",
+      "title": "Kapitel 2 — Verbindungen verwalten",
+      "start": 27.4,
+      "slot": 44.52,
+      "words": 87,
+      "estimate": 37.0,
+      "text": "Das Dashboard verwaltet Ihre Storage-Verbindungen. Die Kachel oben zählt alle eingebundenen Container. Für eine neue Verbindung vergeben Sie zuerst einen Namen und optional eine Kategorie. Nach dieser Kategorie gruppiert das Dashboard später. Danach wählen Sie nacheinander Abonnement, Storage-Konto und Blob-Container. Alle drei Listen sind durchsuchbar. Gespeichert wird die Verbindung nur lokal auf Ihrem Rechner. Die fertige Karte zeigt Status, Konto, Container und den Zugriffs-Tier. Das Suchfeld filtert nach Namen, Umgebungen und Kategorien. Über das Drei-Punkte-Menü lässt sich jede Verbindung nachträglich bearbeiten oder wieder entfernen, letzteres mit Sicherheitsabfrage."
+    },
+    {
+      "id": "03",
+      "title": "Kapitel 3 — Logdateien finden",
+      "start": 71.92,
+      "slot": 41.56,
+      "words": 83,
+      "estimate": 35.3,
+      "text": "Logs öffnen führt vom Dashboard in den Container. Links liegen alle Dateien mit Erstell- und Änderungsdatum sowie Größe. Das Suchfeld filtert die Dateinamen. Darunter grenzen zwei Datumsfelder die Liste ein: einmal auf einen einzelnen Tag, einmal auf einen Zeitraum. Filter löschen setzt alles zurück. Rechts daneben steht die Sortierung. Ein Klick dreht die Reihenfolge um, das Menü daneben schaltet zwischen Erstellungs- und Änderungsdatum um. Der Aktualisieren-Knopf lädt die Liste neu. Ganz unten sehen Sie die aktive Verbindung und den Zeitpunkt der letzten Aktualisierung."
+    },
+    {
+      "id": "04",
+      "title": "Kapitel 4 — Logs lesen und durchsuchen",
+      "start": 113.48,
+      "slot": 31.72,
+      "words": 63,
+      "estimate": 26.8,
+      "text": "Ein Klick auf eine Datei öffnet den Inhalt rechts im Viewer. Die Kopfzeile nennt Pfad, Größe sowie Erstell- und Änderungsdatum. Log-Level in eckigen Klammern werden farbig hervorgehoben: Info, Warn und Error. Die Inhaltssuche greift ab drei Zeichen, zählt die Treffer und springt mit den Pfeilen von Fundstelle zu Fundstelle. Das Kreuz leert die Suche. Die Fußzeile zeigt Zeilenzahl, Inhaltstyp und die erkannten Zeilenenden."
+    },
+    {
+      "id": "05",
+      "title": "Kapitel 5 — Sehr große Dateien",
+      "start": 145.2,
+      "slot": 25.08,
+      "words": 47,
+      "estimate": 20.0,
+      "text": "Große Dateien behandelt die App besonders. Ab zwanzig Megabyte übernimmt ein Streaming-Viewer: Das Dateiende ist sofort sichtbar, der Rest wird im Hintergrund nachgeladen. Der Fortschritt steht über dem Inhalt. Gescrollt wird trotzdem flüssig, denn angezeigt wird immer nur der sichtbare Ausschnitt. Hier sind es über zweihundertdreißigtausend Zeilen."
+    },
+    {
+      "id": "06",
+      "title": "Kapitel 6 — Live-Modus",
+      "start": 170.28,
+      "slot": 30.28,
+      "words": 54,
+      "estimate": 23.0,
+      "text": "In eine Datei, die gerade beschrieben wird, können Sie live hineinsehen. Der Schalter Live oben rechts schaltet den Tail-Modus ein. Neue Zeilen laufen automatisch unten ein, die Ansicht folgt mit. Wie oft nachgeladen wird, legen Sie in den Einstellungen fest, zwischen einer und sechzig Sekunden. Ein erneuter Klick schaltet zurück auf die feste Momentaufnahme."
+    },
+    {
+      "id": "07",
+      "title": "Kapitel 7 — Dateien zusammenführen",
+      "start": 200.56,
+      "slot": 24.68,
+      "words": 48,
+      "estimate": 20.4,
+      "text": "Mehrere Logdateien lassen sich zu einer Ansicht zusammenführen. Dazu klicken Sie die weiteren Dateien mit gedrückter Command- beziehungsweise Steuerungstaste an. Zusammengefügt wird in Klickreihenfolge, bis zu fünf Dateien mit je maximal zwanzig Megabyte. Der Download-Knopf speichert das Ergebnis als eine einzige Textdatei. Eine Meldung bestätigt den fertigen Download."
+    },
+    {
+      "id": "08",
+      "title": "Kapitel 8 — Gelöschte Dateien",
+      "start": 225.24,
+      "slot": 21.2,
+      "words": 43,
+      "estimate": 18.3,
+      "text": "Auch gelöschte Dateien bleiben erreichbar, solange die Soft-Delete-Frist von Azure läuft. Der Schalter Gelöschte nimmt sie mit in die Liste auf. Ein rotes Kennzeichen zeigt, wie viele Tage noch bleiben. Beim Anklicken bietet die App an, die Datei wiederherzustellen und direkt zu öffnen."
+    },
+    {
+      "id": "09",
+      "title": "Kapitel 9 — Kompaktes Fenster",
+      "start": 246.44,
+      "slot": 23.88,
+      "words": 44,
+      "estimate": 18.7,
+      "text": "Wird das Fenster schmaler, rücken Aktualisieren, Download und der Live-Schalter in ein Menü hinter den drei Punkten. Dort steht auch, ob der Live-Modus gerade an oder aus ist. Oben links führt Zurück wieder ins Dashboard. Die Titelleiste gehört zur App: verschieben, minimieren, maximieren, schließen."
+    },
+    {
+      "id": "10",
+      "title": "Kapitel 10 — Einstellungen",
+      "start": 270.32,
+      "slot": 44.12,
+      "words": 83,
+      "estimate": 35.3,
+      "text": "Bleiben die Einstellungen. Die Darstellung folgt dem System oder erzwingt das helle beziehungsweise dunkle Design. Die Sprache schaltet die gesamte Oberfläche samt Datumsformaten um, zwischen Deutsch und Englisch. Das Live-Intervall bestimmt, wie oft der Tail-Modus nachlädt. Die Log-Level-Einfärbung lässt sich abschalten, wenn sie stört, und Zurücksetzen stellt alle Standardwerte wieder her. Gespeicherte Verbindungen können Sie als J-SON exportieren und wieder importieren. Beides öffnet den Datei-Dialog des Betriebssystems. Unter Diagnose öffnet ein Klick das lokale Logverzeichnis der App. Ganz unten stehen Kurzbeschreibung und Version."
+    },
+    {
+      "id": "11-outro",
+      "title": "Abspann",
+      "start": 314.44,
+      "slot": 8.0,
+      "words": 12,
+      "estimate": 5.1,
+      "text": "Anmeldung, Filter, Volltextsuche, Live-Modus und Wiederherstellung. Das war der Azure Blob Logviewer."
+    }
+  ]
+}

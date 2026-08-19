@@ -49,8 +49,10 @@ class ConnectionsServiceStub implements Partial<ConnectionsService> {
 
 class AzureServiceStub implements Partial<AzureService> {
   readonly authenticatedState = signal(true);
+  readonly authInProgressState = signal(false);
   readonly azureCliMissingState = signal(false);
   readonly isAuthenticated = computed(() => this.authenticatedState());
+  readonly authInProgress = computed(() => this.authInProgressState());
   readonly azureCliMissing = computed(() => this.azureCliMissingState());
 }
 
@@ -272,6 +274,61 @@ describe('ConnectionsPage', () => {
 
     expect(logLink).toBeDefined();
     expect(logLink?.getAttribute('href')).toContain('/logs/conn-1');
+  });
+
+  it('keeps connections inactive until Azure authentication is available', async () => {
+    connections.connectionsState.set([
+      createConnection({ id: 'conn-1', name: 'prod-logs' }),
+    ]);
+    azure.authenticatedState.set(false);
+
+    fixture.detectChanges();
+
+    const logLink = fixture.debugElement
+      .queryAll(By.css('li a'))
+      .map((item) => item.nativeElement as HTMLAnchorElement)
+      .find((item) => item.textContent?.trim() === 'prod-logs');
+    const openButton = [...fixture.nativeElement.querySelectorAll('li button')].find(
+      (button) => button.textContent?.includes('Open Logs'),
+    ) as HTMLButtonElement | undefined;
+    const card = component.pageVm().cards[0];
+
+    expect(logLink).toBeUndefined();
+    expect(openButton?.disabled).toBe(true);
+    expect(openButton?.title).toBe('Please connect to Azure in Settings first');
+
+    if (card) {
+      component.openLogs(card);
+    }
+    await flushAsync();
+
+    expect(connections.select).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('announces the running Azure authentication instead of the connect notice', () => {
+    connections.connectionsState.set([
+      createConnection({ id: 'conn-1', name: 'prod-logs' }),
+    ]);
+    azure.authenticatedState.set(false);
+    azure.authInProgressState.set(true);
+
+    fixture.detectChanges();
+
+    const notice = fixture.nativeElement.querySelector(
+      '[role="status"]',
+    ) as HTMLElement | null;
+    const addButton = [...fixture.nativeElement.querySelectorAll('button')].find(
+      (button) => button.textContent?.includes('Add New Storage'),
+    ) as HTMLButtonElement | undefined;
+
+    expect(notice?.textContent).toContain('Azure authentication is in progress');
+    expect(notice?.querySelector('svg.animate-spin')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain(
+      'Please connect to Azure in ',
+    );
+    expect(addButton?.disabled).toBe(true);
+    expect(addButton?.title).toBe('Azure authentication in progress\u2026');
   });
 
   it('keeps the list flat when no visible connection has a category', () => {

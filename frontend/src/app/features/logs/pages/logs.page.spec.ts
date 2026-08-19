@@ -1,7 +1,7 @@
 import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, type ParamMap } from '@angular/router';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentFixture } from '@angular/core/testing';
 import { BehaviorSubject } from 'rxjs';
@@ -10,6 +10,7 @@ import type { StorageConnection } from '@app/features/connections/models/storage
 import type { BlobViewSessionStatus } from '@app/features/logs/models/blob-view.model';
 import { ConnectionsService } from '@app/features/connections/services/connections.service';
 import type { LogEntry } from '@app/features/logs/models/log-entry.model';
+import type { LogLargeViewerScrollCommand } from '@app/features/logs/models/logs-view.model';
 import { LogSortBasis } from '@app/features/logs/models/logs-view.model';
 import type { LogsPreferences } from '@app/features/settings/models/app-config.model';
 import { SettingsService } from '@app/features/settings/services/settings.service';
@@ -50,11 +51,12 @@ class LogsServiceStub implements Partial<LogsService> {
     { lineNumber: number; preview: string }[]
   >([]);
   readonly largeViewerSearchIsCompleteState = signal(true);
-  readonly largeViewerRequestedScrollLineState = signal<number | null>(null);
+  readonly largeViewerScrollCommandState = signal<LogLargeViewerScrollCommand | null>(
+    null,
+  );
   readonly largeViewerActiveMatchLineState = signal<number | null>(null);
-  readonly largeViewerTailPreviewLinesState = signal<string[]>([]);
-  readonly largeViewerCanEnableWordWrapState = signal(true);
-  readonly isTailModeState = signal(false);
+  readonly largeViewerLivePreviewLinesState = signal<string[]>([]);
+  readonly isLiveModeState = signal(false);
 
   readonly status = computed(() => this.statusState());
   readonly entries = computed(() => this.entriesState());
@@ -103,25 +105,29 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly largeViewerSearchIsComplete = computed(() =>
     this.largeViewerSearchIsCompleteState(),
   );
-  readonly largeViewerRequestedScrollLine = computed(() =>
-    this.largeViewerRequestedScrollLineState(),
+  readonly largeViewerScrollCommand = computed(() =>
+    this.largeViewerScrollCommandState(),
   );
   readonly largeViewerActiveMatchLine = computed(() =>
     this.largeViewerActiveMatchLineState(),
   );
-  readonly largeViewerTailPreviewLines = computed(() =>
-    this.largeViewerTailPreviewLinesState(),
+  readonly largeViewerLivePreviewLines = computed(() =>
+    this.largeViewerLivePreviewLinesState(),
   );
-  readonly largeViewerCanEnableWordWrap = computed(() =>
-    this.largeViewerCanEnableWordWrapState(),
-  );
-  readonly isTailMode = computed(() => this.isTailModeState());
-
+  readonly isLiveMode = computed(() => this.isLiveModeState());
   readonly loadForConnection = vi.fn<
-    (accountName: string, containerName: string) => Promise<void>
+    (
+      accountName: string,
+      containerName: string,
+      includeDeleted?: boolean,
+    ) => Promise<void>
   >(async () => undefined);
   readonly refreshEntriesForConnection = vi.fn<
-    (accountName: string, containerName: string) => Promise<boolean>
+    (
+      accountName: string,
+      containerName: string,
+      includeDeleted?: boolean,
+    ) => Promise<boolean>
   >(async () => true);
   readonly loadContent = vi.fn<(id: string) => Promise<void>>(async () => undefined);
   readonly selectEntry = vi.fn<(id: string | null) => void>((id) => {
@@ -153,8 +159,19 @@ class LogsServiceStub implements Partial<LogsService> {
     return { kind: 'updated' };
   });
   readonly refreshContent = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly resolveDeletedVersion = vi.fn<(id: string) => Promise<boolean>>(async (id) => {
+    this.entriesState.update((entries) =>
+      entries.map((entry) =>
+        entry.id === id ? { ...entry, versionId: 'resolved-version' } : entry,
+      ),
+    );
+    return true;
+  });
+  readonly restoreDeletedEntry = vi.fn<(id: string) => Promise<boolean>>(
+    async () => true,
+  );
   readonly updateLargeViewport = vi.fn<
-    (startLine: number, lineCount: number) => Promise<void>
+    (startLine: number, lineCount: number, nearBottom: boolean) => Promise<void>
   >(async () => undefined);
   readonly updateLargeSearchQuery = vi.fn<(query: string) => Promise<void>>(
     async () => undefined,
@@ -162,11 +179,12 @@ class LogsServiceStub implements Partial<LogsService> {
   readonly selectPreviousSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly selectNextSearchMatch = vi.fn<() => Promise<void>>(async () => undefined);
   readonly exportLargeViewer = vi.fn<() => Promise<boolean>>(async () => false);
-  readonly setTailMode = vi.fn<(enabled: boolean) => Promise<void>>(async (enabled) => {
-    this.isTailModeState.set(enabled);
+  readonly setLiveMode = vi.fn<(enabled: boolean) => Promise<boolean>>(async (enabled) => {
+    this.isLiveModeState.set(enabled);
+    return true;
   });
-  readonly clearRequestedScrollLine = vi.fn<() => void>(() => {
-    this.largeViewerRequestedScrollLineState.set(null);
+  readonly clearLargeViewerScrollCommand = vi.fn<() => void>(() => {
+    this.largeViewerScrollCommandState.set(null);
   });
   readonly reset = vi.fn<() => void>(() => {
     this.statusState.set('idle');
@@ -188,11 +206,10 @@ class LogsServiceStub implements Partial<LogsService> {
     this.largeViewerSearchQueryState.set('');
     this.largeViewerSearchMatchesState.set([]);
     this.largeViewerSearchIsCompleteState.set(true);
-    this.largeViewerRequestedScrollLineState.set(null);
+    this.largeViewerScrollCommandState.set(null);
     this.largeViewerActiveMatchLineState.set(null);
-    this.largeViewerTailPreviewLinesState.set([]);
-    this.largeViewerCanEnableWordWrapState.set(true);
-    this.isTailModeState.set(false);
+    this.largeViewerLivePreviewLinesState.set([]);
+    this.isLiveModeState.set(false);
   });
   readonly setError = vi.fn<(message: string) => void>((message) => {
     this.statusState.set('error');
@@ -214,11 +231,10 @@ class LogsServiceStub implements Partial<LogsService> {
     this.largeViewerSearchQueryState.set('');
     this.largeViewerSearchMatchesState.set([]);
     this.largeViewerSearchIsCompleteState.set(true);
-    this.largeViewerRequestedScrollLineState.set(null);
+    this.largeViewerScrollCommandState.set(null);
     this.largeViewerActiveMatchLineState.set(null);
-    this.largeViewerTailPreviewLinesState.set([]);
-    this.largeViewerCanEnableWordWrapState.set(true);
-    this.isTailModeState.set(false);
+    this.largeViewerLivePreviewLinesState.set([]);
+    this.isLiveModeState.set(false);
   });
 
   private resolveSelectedEntries(ids: string[]): LogEntry[] {
@@ -259,9 +275,8 @@ class MessageServiceStub implements Partial<MessageService> {
 
 class SettingsServiceStub implements Partial<SettingsService> {
   readonly logsState = signal<LogsPreferences>({
-    wordWrapEnabled: false,
     logLevelHighlightingEnabled: true,
-    tailRefreshIntervalSeconds: 10,
+    liveRefreshIntervalSeconds: 10,
     sortBasis: LogSortBasis.Created,
   });
   readonly logs = computed(() => this.logsState());
@@ -281,6 +296,7 @@ describe('LogsPage', () => {
   let route: ActivatedRoute;
   let routeParamMap$: BehaviorSubject<ParamMap>;
   let messageService: MessageServiceStub;
+  let confirmationService: ConfirmationService;
   let createObjectUrlSpy: ReturnType<typeof vi.fn>;
   let revokeObjectUrlSpy: ReturnType<typeof vi.fn>;
   let anchorClickSpy: ReturnType<typeof vi.spyOn>;
@@ -291,6 +307,14 @@ describe('LogsPage', () => {
     Object.defineProperty(HTMLDivElement.prototype, 'scrollTo', {
       configurable: true,
       value: vi.fn(),
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get: () => 400,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get: () => 300,
     });
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
@@ -336,6 +360,7 @@ describe('LogsPage', () => {
         { provide: SettingsService, useValue: settings },
         { provide: ActivatedRoute, useValue: route },
         { provide: MessageService, useValue: messageService },
+        ConfirmationService,
       ],
     })
       .overrideComponent(LogsPage, {
@@ -345,6 +370,8 @@ describe('LogsPage', () => {
       })
       .compileComponents();
 
+    confirmationService = TestBed.inject(ConfirmationService);
+    vi.spyOn(confirmationService, 'confirm');
     await initializeI18nForTests();
     fixture = TestBed.createComponent(LogsPage);
     component = fixture.componentInstance;
@@ -382,7 +409,7 @@ describe('LogsPage', () => {
 
     expect(connections.load).toHaveBeenCalledOnce();
     expect(connections.getById).toHaveBeenCalledWith('conn-1');
-    expect(logs.loadForConnection).toHaveBeenCalledWith('storage-a', 'logs');
+    expect(logs.loadForConnection).toHaveBeenCalledWith('storage-a', 'logs', false);
     expect(logs.updateSelection).not.toHaveBeenCalled();
     expect(component.hasSelectedEntry()).toBe(false);
     expect(component.sidebarConnectionFooter()).toEqual(
@@ -401,6 +428,18 @@ describe('LogsPage', () => {
       fixture.nativeElement.querySelector('[data-testid="logs-sidebar-footer"]')
         ?.textContent,
     ).toContain('Updated');
+  });
+
+  it('keeps only the sidebar and detail panel as direct grid children', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
+    const layout = fixture.nativeElement.querySelector('section') as HTMLElement;
+
+    expect(Array.from(layout.children).map((child) => child.tagName)).toEqual([
+      'ASIDE',
+      'APP-LOGS-DETAIL-PANEL',
+    ]);
   });
 
   it('does nothing on init when no connection id is present', async () => {
@@ -522,7 +561,12 @@ describe('LogsPage', () => {
     await flushAsync();
     fixture.detectChanges();
 
-    expect(logs.loadForConnection).toHaveBeenNthCalledWith(2, 'storage-a', 'archive');
+    expect(logs.loadForConnection).toHaveBeenNthCalledWith(
+      2,
+      'storage-a',
+      'archive',
+      false,
+    );
     expect(logs.updateSelection).not.toHaveBeenCalled();
     expect(component.hasSelectedEntry()).toBe(false);
     expect(component.sidebarConnectionFooter()).toEqual(
@@ -622,8 +666,6 @@ describe('LogsPage', () => {
         `Modified ${formatDetailTimestamp('2026-04-13T09:30:00Z')}`,
       ],
     });
-    expect(fixture.nativeElement.textContent).toContain('Created Today, 09:00');
-    expect(fixture.nativeElement.textContent).toContain('Modified Today, 09:30');
     expect(component.footer()).toEqual({
       typeLabel: 'text/plain',
       lineCountLabel: 'Lines: 2',
@@ -664,6 +706,44 @@ describe('LogsPage', () => {
     expect(settings.updateLogsPreferences).toHaveBeenCalledWith({
       sortBasis: LogSortBasis.LastModified,
     });
+  });
+
+  it('searches, filters, and sorts across entries beyond the former page boundary', async () => {
+    fixture.detectChanges();
+    await flushAsync();
+
+    const entries = Array.from({ length: 450 }, (_, index) =>
+      createLogEntry({
+        id: `entry-${index}`,
+        blobName: `ordinary-${index.toString().padStart(3, '0')}.log`,
+        createdAt: '2026-04-11T08:00:00Z',
+        lastModified: '2026-04-11T09:00:00Z',
+      }),
+    );
+    entries[449] = createLogEntry({
+      id: 'entry-449',
+      blobName: 'global-target.log',
+      createdAt: '2026-04-15T10:00:00Z',
+      lastModified: '2026-04-16T11:00:00Z',
+    });
+    logs.statusState.set('success');
+    logs.entriesState.set(entries);
+    const sortedRows = component.sortedRows();
+
+    component.onSearch('global-target');
+    expect(component.sortedRows()).toBe(sortedRows);
+    expect(component.rows().map((row) => row.blobName)).toEqual(['global-target.log']);
+
+    component.onSearch('');
+    component.onCreatedOnChange(new Date('2026-04-15T00:00:00Z'));
+    expect(component.rows().map((row) => row.blobName)).toEqual(['global-target.log']);
+
+    component.clearFilters();
+    expect(component.rows()).toHaveLength(450);
+    expect(component.rows()[0]?.blobName).toBe('global-target.log');
+
+    component.onSortBasisChange(LogSortBasis.LastModified);
+    expect(component.rows()[0]?.blobName).toBe('global-target.log');
   });
 
   it('reads the initial sort basis from persisted logs settings', async () => {
@@ -903,7 +983,11 @@ describe('LogsPage', () => {
 
     await component.refreshList();
 
-    expect(logs.refreshEntriesForConnection).toHaveBeenCalledWith('storage-a', 'logs');
+    expect(logs.refreshEntriesForConnection).toHaveBeenCalledWith(
+      'storage-a',
+      'logs',
+      false,
+    );
     expect(logs.updateSelection).not.toHaveBeenCalled();
     expect(logs.selectedContent()).toBe('preserved content');
     expect(component.selectedEntry()?.id).toBe('entry-2');
@@ -929,6 +1013,137 @@ describe('LogsPage', () => {
 
     expect(component.hasSelectedEntry()).toBe(false);
     expect(logs.updateSelection).not.toHaveBeenCalled();
+  });
+
+  it('reloads the sidebar with soft-deleted blobs when the switch changes', async () => {
+    setRouteConnectionId('conn-1', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection());
+    logs.loadForConnection.mockImplementationOnce(async () => {
+      logs.statusState.set('success');
+    });
+    logs.refreshEntriesForConnection.mockResolvedValueOnce(true);
+
+    fixture.detectChanges();
+    await flushAsync();
+
+    await component.onIncludeDeletedChange(true);
+    fixture.detectChanges();
+
+    expect(component.includeDeleted()).toBe(true);
+    expect(logs.refreshEntriesForConnection).toHaveBeenCalledWith(
+      'storage-a',
+      'logs',
+      true,
+    );
+    expect(fixture.nativeElement.textContent).toContain('Deleted');
+  });
+
+  it('opens a deleted version read-only without restoring it', async () => {
+    const deletedVersion = createLogEntry({
+      id: 'archive.log::deleted::version-1',
+      blobName: 'archive.log',
+      isDeleted: true,
+      versionId: 'version-1',
+    });
+    fixture.detectChanges();
+    await flushAsync();
+    logs.statusState.set('success');
+    logs.entriesState.set([deletedVersion]);
+
+    await component.select({ id: deletedVersion.id, additive: false });
+    fixture.detectChanges();
+
+    expect(confirmationService.confirm).not.toHaveBeenCalled();
+    expect(logs.restoreDeletedEntry).not.toHaveBeenCalled();
+    expect(logs.updateSelection).toHaveBeenCalledWith(deletedVersion.id, false);
+    expect(component.liveAvailable()).toBe(false);
+    expect(component.toolbar()?.metaBadges).toContain('Deleted version · read-only');
+  });
+
+  it('does not offer live mode for an explicitly versioned blob', async () => {
+    const versionedEntry = createLogEntry({
+      id: 'archive.log::version-1',
+      blobName: 'archive.log',
+      versionId: 'version-1',
+    });
+    fixture.detectChanges();
+    await flushAsync();
+    logs.statusState.set('success');
+    logs.entriesState.set([versionedEntry]);
+
+    await component.select({ id: versionedEntry.id, additive: false });
+    fixture.detectChanges();
+
+    expect(component.liveAvailable()).toBe(false);
+  });
+
+  it('resolves a versioned deletion before selecting it', async () => {
+    const deletedVersion = createLogEntry({
+      id: 'archive.log::deleted::soft-delete',
+      blobName: 'archive.log',
+      isDeleted: true,
+      hasVersionsOnly: true,
+    });
+    fixture.detectChanges();
+    await flushAsync();
+    logs.statusState.set('success');
+    logs.entriesState.set([deletedVersion]);
+
+    await component.select({ id: deletedVersion.id, additive: false });
+
+    expect(logs.resolveDeletedVersion).toHaveBeenCalledWith(deletedVersion.id);
+    expect(confirmationService.confirm).not.toHaveBeenCalled();
+    expect(logs.updateSelection).toHaveBeenCalledWith(deletedVersion.id, false);
+  });
+
+  it('restores a soft-deleted blob after confirmation and opens it', async () => {
+    const deletedEntry = createLogEntry({
+      id: 'archive.log::deleted::soft-delete',
+      blobName: 'archive.log',
+      isDeleted: true,
+    });
+    setRouteConnectionId('conn-1', routeParamMap$);
+    connections.getById.mockReturnValue(createConnection());
+    logs.loadForConnection.mockImplementationOnce(async () => {
+      logs.statusState.set('success');
+      logs.entriesState.set([deletedEntry]);
+    });
+    logs.refreshEntriesForConnection.mockImplementationOnce(async () => {
+      logs.entriesState.set([
+        createLogEntry({ id: 'archive.log', blobName: 'archive.log' }),
+      ]);
+      return true;
+    });
+
+    fixture.detectChanges();
+    await flushAsync();
+
+    await component.select({ id: deletedEntry.id, additive: false });
+
+    expect(confirmationService.confirm).toHaveBeenCalledOnce();
+    const confirmation = vi.mocked(confirmationService.confirm).mock.calls[0]?.[0];
+    expect(confirmation?.message).toBe(
+      'Restore archive.log in Azure Storage and open it?',
+    );
+    expect(logs.restoreDeletedEntry).not.toHaveBeenCalled();
+
+    confirmation?.accept?.();
+    await flushAsync();
+
+    expect(logs.restoreDeletedEntry).toHaveBeenCalledWith(deletedEntry.id);
+    expect(logs.refreshEntriesForConnection).toHaveBeenCalledWith(
+      'storage-a',
+      'logs',
+      false,
+    );
+    expect(logs.updateSelection).toHaveBeenCalledWith('archive.log', false);
+    expect(messageService.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        severity: 'success',
+        summary: 'File restored',
+        detail: 'The file was restored and opened.',
+      }),
+    );
   });
 
   it('keeps the current detail content when the selected file disappears from the refreshed list', async () => {
@@ -1280,7 +1495,7 @@ describe('LogsPage', () => {
     });
   });
 
-  it('suppresses redundant pending and footer status text in tail mode', async () => {
+  it('suppresses redundant pending and footer status text in live mode', async () => {
     fixture.detectChanges();
     await flushAsync();
 
@@ -1295,20 +1510,20 @@ describe('LogsPage', () => {
     logs.selectEntry('entry-1');
     logs.largeViewerStatusState.set(
       createLargeViewerStatus({
-        mode: 'tail',
+        mode: 'live',
         isComplete: false,
         indexedLineCount: 200,
         hasPendingBefore: true,
         hasPendingAfter: true,
-        tailPreviewLines: ['tail line 1', 'tail line 2'],
+        livePreviewLines: ['live line 1', 'live line 2'],
       }),
     );
-    logs.isTailModeState.set(true);
+    logs.isLiveModeState.set(true);
 
     fixture.detectChanges();
 
     expect(component.largeViewer()).toMatchObject({
-      mode: 'tail',
+      mode: 'live',
       pendingBeforeLabel: null,
       pendingAfterLabel: null,
     });
@@ -1318,7 +1533,22 @@ describe('LogsPage', () => {
     });
   });
 
-  it('keeps pending and footer loading text for non-tail large viewer states', async () => {
+  it('shows an error when the backend does not confirm live mode', async () => {
+    logs.setLiveMode.mockResolvedValueOnce(false);
+
+    await component.onLiveToggled(true);
+
+    expect(component.liveModeUpdating()).toBe(false);
+    expect(messageService.add).toHaveBeenCalledWith({
+      severity: 'error',
+      summary: 'Live mode not changed',
+      detail:
+        'The backend did not confirm the mode change. The viewer remains in its previous mode.',
+      life: 4000,
+    });
+  });
+
+  it('keeps pending and footer loading text for non-live large viewer states', async () => {
     fixture.detectChanges();
     await flushAsync();
 
@@ -1449,12 +1679,11 @@ function createLargeViewerStatus(
     indexedLineCount: 100,
     indexedThrough: 20_000_000,
     isComplete: true,
-    canEnableWordWrap: true,
     hasPendingBefore: false,
     hasPendingAfter: false,
     mode: 'snapshot',
     focus: 'start',
-    tailPreviewLines: [],
+    livePreviewLines: [],
     ...overrides,
   };
 }

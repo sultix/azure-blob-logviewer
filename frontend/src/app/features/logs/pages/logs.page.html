@@ -1,3 +1,5 @@
+<p-confirmdialog appendTo="body" />
+
 <section
   class="grid h-full min-h-0 grid-cols-[var(--layout-sidebar-width)_1fr] overflow-hidden"
 >
@@ -21,8 +23,10 @@
     <app-logs-file-list
       [rows]="rows()"
       [loading]="sidebarLoading()"
+      [includeDeleted]="includeDeleted()"
       [selectedEntryIds]="selectedEntryIds()"
       (entrySelected)="select($event)"
+      (includeDeletedChanged)="onIncludeDeletedChange($event)"
       (refreshRequested)="refreshList()"
     />
 
@@ -57,9 +61,10 @@
     [status]="status()"
     [errorMessage]="errorMessage()"
     [hasSelection]="hasSelectedEntry()"
-    [tailAvailable]="tailAvailable()"
-    [tailEnabled]="tailEnabled()"
-    [tailRefreshIntervalSeconds]="tailRefreshIntervalSeconds()"
+    [liveAvailable]="liveAvailable()"
+    [liveEnabled]="liveEnabled()"
+    [liveUpdating]="liveModeUpdating()"
+    [liveRefreshIntervalSeconds]="liveRefreshIntervalSeconds()"
     [selectionKey]="detailSelectionKey()"
     [toolbar]="toolbar()"
     [largeViewer]="largeViewer()"
@@ -74,7 +79,7 @@
     (nextLargeMatchRequested)="onNextLargeMatch()"
     (largeViewportChanged)="onLargeViewportChange($event)"
     (largeScrollHandled)="onLargeScrollHandled()"
-    (tailToggled)="onTailToggled($event)"
+    (liveToggled)="onLiveToggled($event)"
     (refreshRequested)="refresh()"
   />
 </section>

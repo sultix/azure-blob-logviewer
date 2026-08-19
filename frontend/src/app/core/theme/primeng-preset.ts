@@ -258,6 +258,98 @@ const darkPalette = {
  */
 export const ObsidianConsolePreset = definePreset(Aura, {
   components: {
+    toast: {
+      colorScheme: {
+        light: {
+          success: {
+            background: '#f0fdf4',
+            borderColor: '#bbf7d0',
+            color: '#166534',
+            detailColor: '#334155',
+            shadow: '0 12px 30px rgba(15, 23, 42, 0.16)',
+            closeButton: {
+              hoverBackground: '#dcfce7',
+              focusRing: {
+                color: '#15803d',
+                shadow: '0 0 0 2px rgba(21, 128, 61, 0.2)',
+              },
+            },
+          },
+          warn: {
+            background: '#fffbeb',
+            borderColor: '#fde68a',
+            color: '#92400e',
+            detailColor: '#334155',
+            shadow: '0 12px 30px rgba(15, 23, 42, 0.16)',
+            closeButton: {
+              hoverBackground: '#fef3c7',
+              focusRing: {
+                color: '#b45309',
+                shadow: '0 0 0 2px rgba(180, 83, 9, 0.2)',
+              },
+            },
+          },
+          error: {
+            background: '#fff1f2',
+            borderColor: '#fecdd3',
+            color: '#9f1239',
+            detailColor: '#334155',
+            shadow: '0 12px 30px rgba(15, 23, 42, 0.16)',
+            closeButton: {
+              hoverBackground: '#ffe4e6',
+              focusRing: {
+                color: '#be123c',
+                shadow: '0 0 0 2px rgba(190, 18, 60, 0.2)',
+              },
+            },
+          },
+        },
+        dark: {
+          success: {
+            background: '#0f2a1c',
+            borderColor: '#166534',
+            color: '#86efac',
+            detailColor: '#f1f5f9',
+            shadow: '0 12px 30px rgba(0, 0, 0, 0.38)',
+            closeButton: {
+              hoverBackground: '#17452b',
+              focusRing: {
+                color: '#86efac',
+                shadow: '0 0 0 2px rgba(134, 239, 172, 0.25)',
+              },
+            },
+          },
+          warn: {
+            background: '#3a2a0c',
+            borderColor: '#854d0e',
+            color: '#fcd34d',
+            detailColor: '#f1f5f9',
+            shadow: '0 12px 30px rgba(0, 0, 0, 0.38)',
+            closeButton: {
+              hoverBackground: '#4d380f',
+              focusRing: {
+                color: '#fcd34d',
+                shadow: '0 0 0 2px rgba(252, 211, 77, 0.25)',
+              },
+            },
+          },
+          error: {
+            background: '#3b1118',
+            borderColor: '#7f1d1d',
+            color: '#fda4af',
+            detailColor: '#f1f5f9',
+            shadow: '0 12px 30px rgba(0, 0, 0, 0.38)',
+            closeButton: {
+              hoverBackground: '#5f1722',
+              focusRing: {
+                color: '#fda4af',
+                shadow: '0 0 0 2px rgba(253, 164, 175, 0.25)',
+              },
+            },
+          },
+        },
+      },
+    },
     datepicker: {
       panel: {
         padding: '0.625rem',

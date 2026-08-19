@@ -53,12 +53,24 @@ type AzureContainer struct {
 
 // AzureBlobItem represents a single blob inside a container.
 type AzureBlobItem struct {
-	Name         string `json:"name"`
-	Size         int64  `json:"size"`
-	ContentType  string `json:"contentType"`
-	CreatedAt    string `json:"createdAt"`
-	LastModified string `json:"lastModified"`
-	BlobType     string `json:"blobType"`
+	Name                   string `json:"name"`
+	Size                   int64  `json:"size"`
+	ContentType            string `json:"contentType"`
+	CreatedAt              string `json:"createdAt"`
+	LastModified           string `json:"lastModified"`
+	BlobType               string `json:"blobType"`
+	Deleted                bool   `json:"deleted"`
+	DeletedAt              string `json:"deletedAt"`
+	RemainingRetentionDays int32  `json:"remainingRetentionDays"`
+	VersionID              string `json:"versionId,omitempty"`
+	HasVersionsOnly        bool   `json:"hasVersionsOnly,omitempty"`
+}
+
+// AzureBlobIdentityRequest identifies one blob without exposing a general storage API.
+type AzureBlobIdentityRequest struct {
+	AccountName   string `json:"accountName"`
+	ContainerName string `json:"containerName"`
+	BlobName      string `json:"blobName"`
 }
 
 // AzureBlobTextChunkRequest describes a chunked text read against a blob.
@@ -66,8 +78,16 @@ type AzureBlobTextChunkRequest struct {
 	AccountName   string `json:"accountName"`
 	ContainerName string `json:"containerName"`
 	BlobName      string `json:"blobName"`
+	VersionID     string `json:"versionId,omitempty"`
 	StartOffset   *int64 `json:"startOffset,omitempty"`
 	Count         *int64 `json:"count,omitempty"`
+}
+
+// RestoreAzureBlobRequest identifies one soft-deleted base blob to restore.
+type RestoreAzureBlobRequest struct {
+	AccountName   string `json:"accountName"`
+	ContainerName string `json:"containerName"`
+	BlobName      string `json:"blobName"`
 }
 
 // AzureBlobTextChunk contains a text preview window plus blob metadata.

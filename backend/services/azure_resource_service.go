@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/aleksandrsultanov/azure-blob-logviewer/backend/models"
 )
 
@@ -24,6 +25,17 @@ const (
 	defaultBlobChunkSizeBytes int64 = 512 * 1024
 	maxBlobTextChunkBytes     int64 = 20 * 1024 * 1024
 )
+
+type listedBlobItem struct {
+	item             models.AzureBlobItem
+	hasVersionsOnly  bool
+	isCurrentVersion bool
+}
+
+type blobPagePager interface {
+	More() bool
+	NextPage(context.Context) (azblob.ListBlobsFlatResponse, error)
+}
 
 func NewAzureResourceService(auth *AzureAuthService) *AzureResourceService {
 	return &AzureResourceService{auth: auth}
@@ -149,7 +161,7 @@ func (s *AzureResourceService) ListContainers(ctx context.Context, subscriptionI
 }
 
 // ListBlobs returns blobs in the given container (data plane via azblob).
-func (s *AzureResourceService) ListBlobs(ctx context.Context, accountName, containerName, prefix string) ([]models.AzureBlobItem, error) {
+func (s *AzureResourceService) ListBlobs(ctx context.Context, accountName, containerName, prefix string, includeDeleted bool) ([]models.AzureBlobItem, error) {
 	cred, err := s.auth.GetCredential()
 	if err != nil {
 		return nil, sanitizeAuthError(err)
@@ -161,45 +173,263 @@ func (s *AzureResourceService) ListBlobs(ctx context.Context, accountName, conta
 		return nil, fmt.Errorf("failed to create blob client: %w", err)
 	}
 
-	var opts *azblob.ListBlobsFlatOptions
-	if prefix != "" {
-		opts = &azblob.ListBlobsFlatOptions{Prefix: &prefix}
+	pager := client.NewListBlobsFlatPager(
+		containerName,
+		buildListBlobsFlatOptions(prefix, includeDeleted),
+	)
+	listedItems, err := collectListedBlobItems(ctx, pager)
+	if err != nil {
+		logDetailedError("list blobs failed", err)
+		return nil, fmt.Errorf("failed to list blobs")
 	}
+	return collapseListedBlobs(listedItems, includeDeleted), nil
+}
 
-	var result []models.AzureBlobItem
-	pager := client.NewListBlobsFlatPager(containerName, opts)
+func collectListedBlobItems(ctx context.Context, pager blobPagePager) ([]listedBlobItem, error) {
+	var listedItems []listedBlobItem
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			logDetailedError("list blobs failed", err)
-			return nil, fmt.Errorf("failed to list blobs")
+			return nil, err
 		}
-		for _, blob := range page.Segment.BlobItems {
-			if blob == nil || blob.Name == nil {
-				continue
+		if page.Segment == nil {
+			continue
+		}
+		listedItems = append(listedItems, mapListedBlobItems(page.Segment.BlobItems)...)
+	}
+	return listedItems, nil
+}
+
+// ResolveDeletedBlobVersion finds the newest readable version for one exact blob name.
+func (s *AzureResourceService) ResolveDeletedBlobVersion(
+	ctx context.Context,
+	request models.AzureBlobIdentityRequest,
+) (*models.AzureBlobItem, error) {
+	client, err := s.newBlobClient(request.AccountName)
+	if err != nil {
+		return nil, err
+	}
+
+	prefix := request.BlobName
+	pager := client.NewListBlobsFlatPager(request.ContainerName, &azblob.ListBlobsFlatOptions{
+		Prefix: &prefix,
+		Include: azblob.ListBlobsInclude{
+			Versions: true,
+		},
+	})
+	var newest *models.AzureBlobItem
+	for pager.More() {
+		page, pageErr := pager.NextPage(ctx)
+		if pageErr != nil {
+			logDetailedError("resolve deleted blob version failed", pageErr)
+			return nil, fmt.Errorf("failed to resolve deleted blob version")
+		}
+		newest = selectNewestReadableVersion(
+			newest,
+			mapListedBlobItems(page.Segment.BlobItems),
+			request.BlobName,
+		)
+	}
+
+	if newest == nil {
+		return nil, fmt.Errorf("no readable blob version found")
+	}
+	newest.Deleted = true
+	newest.HasVersionsOnly = true
+	return newest, nil
+}
+
+func selectNewestReadableVersion(
+	current *models.AzureBlobItem,
+	items []listedBlobItem,
+	blobName string,
+) *models.AzureBlobItem {
+	newest := current
+	for _, listed := range items {
+		item := listed.item
+		if item.Name != blobName || item.VersionID == "" || item.Deleted {
+			continue
+		}
+		if newest == nil || item.VersionID > newest.VersionID {
+			candidate := item
+			newest = &candidate
+		}
+	}
+	return newest
+}
+
+func (s *AzureResourceService) newBlobClient(accountName string) (*azblob.Client, error) {
+	cred, err := s.auth.GetCredential()
+	if err != nil {
+		return nil, sanitizeAuthError(err)
+	}
+	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
+	client, err := azblob.NewClient(serviceURL, cred, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create blob client: %w", err)
+	}
+	return client, nil
+}
+
+func mapListedBlobItems(blobItems []*container.BlobItem) []listedBlobItem {
+	listedItems := make([]listedBlobItem, 0, len(blobItems))
+	for _, blob := range blobItems {
+		if blob == nil || blob.Name == nil {
+			continue
+		}
+		item := models.AzureBlobItem{
+			Name:            *blob.Name,
+			Deleted:         isDeletedBlob(blob.Deleted, blob.HasVersionsOnly),
+			VersionID:       derefStr(blob.VersionID),
+			HasVersionsOnly: derefBool(blob.HasVersionsOnly),
+		}
+		if blob.Properties != nil {
+			if blob.Properties.ContentLength != nil {
+				item.Size = *blob.Properties.ContentLength
 			}
-			item := models.AzureBlobItem{
-				Name: *blob.Name,
+			if blob.Properties.ContentType != nil {
+				item.ContentType = *blob.Properties.ContentType
 			}
-			if blob.Properties != nil {
-				if blob.Properties.ContentLength != nil {
-					item.Size = *blob.Properties.ContentLength
-				}
-				if blob.Properties.ContentType != nil {
-					item.ContentType = *blob.Properties.ContentType
-				}
-				item.CreatedAt = formatTimePtr(blob.Properties.CreationTime)
-				if blob.Properties.LastModified != nil {
-					item.LastModified = blob.Properties.LastModified.UTC().Format("2006-01-02T15:04:05Z")
-				}
-				if blob.Properties.BlobType != nil {
-					item.BlobType = string(*blob.Properties.BlobType)
-				}
+			item.CreatedAt = formatTimePtr(blob.Properties.CreationTime)
+			if blob.Properties.LastModified != nil {
+				item.LastModified = blob.Properties.LastModified.UTC().Format("2006-01-02T15:04:05Z")
+			}
+			if blob.Properties.BlobType != nil {
+				item.BlobType = string(*blob.Properties.BlobType)
+			}
+			item.DeletedAt = formatTimePtr(blob.Properties.DeletedTime)
+			item.RemainingRetentionDays = derefInt32(blob.Properties.RemainingRetentionDays)
+		}
+		listedItems = append(listedItems, listedBlobItem{
+			item:             item,
+			hasVersionsOnly:  derefBool(blob.HasVersionsOnly),
+			isCurrentVersion: derefBool(blob.IsCurrentVersion),
+		})
+	}
+	return listedItems
+}
+
+func buildListBlobsFlatOptions(prefix string, includeDeleted bool) *azblob.ListBlobsFlatOptions {
+	if prefix == "" && !includeDeleted {
+		return nil
+	}
+
+	options := &azblob.ListBlobsFlatOptions{
+		Include: azblob.ListBlobsInclude{
+			Deleted:             includeDeleted,
+			DeletedWithVersions: includeDeleted,
+		},
+	}
+	if prefix != "" {
+		options.Prefix = &prefix
+	}
+
+	return options
+}
+
+func isDeletedBlob(deleted, hasVersionsOnly *bool) bool {
+	return derefBool(deleted) || derefBool(hasVersionsOnly)
+}
+
+func collapseListedBlobs(items []listedBlobItem, includeDeleted bool) []models.AzureBlobItem {
+	if !includeDeleted {
+		result := make([]models.AzureBlobItem, 0, len(items))
+		for _, listed := range items {
+			item := listed.item
+			// Azure may expose the current version ID even when historical versions
+			// were not requested. The regular blob entry must address the live blob,
+			// otherwise the viewer treats it as an immutable historical version and
+			// deliberately falls back from live mode to snapshot mode.
+			if !item.Deleted {
+				item.VersionID = ""
 			}
 			result = append(result, item)
 		}
+		return result
 	}
-	return result, nil
+
+	groups := make(map[string][]listedBlobItem)
+	order := make([]string, 0, len(items))
+	for _, listed := range items {
+		if _, exists := groups[listed.item.Name]; !exists {
+			order = append(order, listed.item.Name)
+		}
+		groups[listed.item.Name] = append(groups[listed.item.Name], listed)
+	}
+
+	result := make([]models.AzureBlobItem, 0, len(order))
+	for _, name := range order {
+		if item, ok := collapseListedBlobGroup(groups[name]); ok {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func collapseListedBlobGroup(group []listedBlobItem) (models.AzureBlobItem, bool) {
+	var active *listedBlobItem
+	var deletedBase *listedBlobItem
+	var versionsOnly *listedBlobItem
+	var latestReadableVersion *listedBlobItem
+
+	for index := range group {
+		listed := &group[index]
+		switch {
+		case !listed.item.Deleted && !listed.hasVersionsOnly &&
+			(listed.item.VersionID == "" || listed.isCurrentVersion):
+			active = listed
+		case listed.hasVersionsOnly:
+			versionsOnly = listed
+		case listed.item.Deleted && listed.item.VersionID == "":
+			deletedBase = listed
+		case !listed.item.Deleted && listed.item.VersionID != "":
+			if latestReadableVersion == nil ||
+				listed.item.LastModified > latestReadableVersion.item.LastModified {
+				latestReadableVersion = listed
+			}
+		}
+	}
+
+	if active != nil {
+		item := active.item
+		item.Deleted = false
+		item.VersionID = ""
+		return item, true
+	}
+
+	if versionsOnly != nil {
+		return buildDeletedVersionItem(versionsOnly.item, latestReadableVersion), true
+	}
+
+	if deletedBase != nil {
+		return deletedBase.item, true
+	}
+
+	if latestReadableVersion != nil {
+		return buildDeletedVersionItem(models.AzureBlobItem{
+			Name:    latestReadableVersion.item.Name,
+			Deleted: true,
+		}, latestReadableVersion), true
+	}
+
+	return models.AzureBlobItem{}, false
+}
+
+func buildDeletedVersionItem(
+	marker models.AzureBlobItem,
+	readableVersion *listedBlobItem,
+) models.AzureBlobItem {
+	if readableVersion == nil {
+		marker.Deleted = true
+		return marker
+	}
+
+	item := readableVersion.item
+	item.Deleted = true
+	item.HasVersionsOnly = true
+	item.DeletedAt = marker.DeletedAt
+	item.RemainingRetentionDays = marker.RemainingRetentionDays
+	return item
 }
 
 // ReadBlobTextChunk downloads a bounded text window from a blob.
@@ -217,6 +447,17 @@ func (s *AzureResourceService) ReadBlobTextChunk(ctx context.Context, request mo
 	}
 
 	blobClient := client.ServiceClient().NewContainerClient(request.ContainerName).NewBlobClient(request.BlobName)
+	if request.VersionID != "" {
+		blobClient, err = blobClient.WithVersionID(request.VersionID)
+		if err != nil {
+			logDetailedError("create versioned blob client failed", err)
+			return buildBlobTextChunkFailureResponse(
+				0,
+				"",
+				models.BlobFailureReasonDownloadFailed,
+			), nil
+		}
+	}
 	props, err := blobClient.GetProperties(ctx, nil)
 	if err != nil {
 		logDetailedError("get blob properties failed", err)
@@ -280,6 +521,31 @@ func (s *AzureResourceService) ReadBlobTextChunk(ctx context.Context, request mo
 		TruncatedEnd:       window.startOffset+window.count < blobSize,
 		IsLargeBlob:        blobSize > largeBlobThresholdBytes,
 	}, nil
+}
+
+// RestoreBlob restores one soft-deleted base blob and its soft-deleted snapshots.
+func (s *AzureResourceService) RestoreBlob(
+	ctx context.Context,
+	request models.RestoreAzureBlobRequest,
+) error {
+	cred, err := s.auth.GetCredential()
+	if err != nil {
+		return sanitizeAuthError(err)
+	}
+
+	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net", request.AccountName)
+	client, err := azblob.NewClient(serviceURL, cred, nil)
+	if err != nil {
+		return sanitizeBlobError(err)
+	}
+
+	blobClient := client.ServiceClient().NewContainerClient(request.ContainerName).NewBlobClient(request.BlobName)
+	if _, err := blobClient.Undelete(ctx, nil); err != nil {
+		logDetailedError("restore soft-deleted blob failed", err)
+		return sanitizeBlobError(err)
+	}
+
+	return nil
 }
 
 func buildBlobTextChunkFailureResponse(
@@ -395,6 +661,20 @@ func maxInt64(a, b int64) int64 {
 func derefInt64(value *int64) int64 {
 	if value == nil {
 		return 0
+	}
+	return *value
+}
+
+func derefInt32(value *int32) int32 {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func derefBool(value *bool) bool {
+	if value == nil {
+		return false
 	}
 	return *value
 }

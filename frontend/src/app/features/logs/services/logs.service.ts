@@ -11,9 +11,15 @@ import type {
   BlobViewSessionStatus,
   BlobViewLinesResponse,
 } from '@app/features/logs/models/blob-view.model';
-import type { LogContentMode } from '@app/features/logs/models/logs-view.model';
+import type {
+  LogContentMode,
+  LogLargeViewerScrollCommand,
+} from '@app/features/logs/models/logs-view.model';
 import { SettingsService } from '@app/features/settings/services/settings.service';
-import type { AzureBlobItem, AzureBlobTextChunk } from '@app/features/settings/models/azure.model';
+import type {
+  AzureBlobItem,
+  AzureBlobTextChunk,
+} from '@app/features/settings/models/azure.model';
 
 import type { LogEntry } from '../models/log-entry.model';
 
@@ -46,15 +52,26 @@ interface LargeViewerState {
   linesResponse: BlobViewLinesResponse | null;
   viewportStartLine: number;
   viewportLineCount: number;
+  loadedViewportStartLine: number | null;
+  loadedViewportLineCount: number | null;
   searchQuery: string;
   searchMatches: BlobViewSearchMatch[];
   searchNextCursor: number;
   searchIsComplete: boolean;
   activeMatchIndex: number;
-  requestedScrollLine: number | null;
+  scrollCommand: LogLargeViewerScrollCommand | null;
+  livePhase: LivePhase | null;
+  liveFollowMode: LiveFollowMode | null;
 }
 
-const INLINE_BLOB_PREVIEW_LIMIT_BYTES = 13 * 1024 * 1024;
+type LivePhase = 'preview' | 'indexed';
+type LiveFollowMode = 'following' | 'paused-by-user' | 'paused-by-navigation';
+
+// Above this size a blob is served by the virtualized session viewer instead of
+// being rendered into a single element: inline content costs a full escape pass
+// and a DOM node per line, which stops being affordable well before the size
+// the backend is willing to stream.
+const INLINE_BLOB_PREVIEW_LIMIT_BYTES = 2 * 1024 * 1024;
 const MAX_MERGED_BLOB_SIZE_BYTES = 20 * 1024 * 1024;
 const MAX_MERGED_SELECTION_COUNT = 5;
 const SNAPSHOT_VIEW_POLL_INTERVAL_MS = 700;
@@ -82,6 +99,8 @@ export class LogsService implements OnDestroy {
   private connectionLoadToken = 0;
   private contentLoadToken = 0;
   private entriesRefreshToken = 0;
+  private nextLargeViewerScrollCommandId = 0;
+  private viewportRequestToken = 0;
   private statusPollTimer: ReturnType<typeof setInterval> | null = null;
 
   readonly status = computed(() => this.state().status);
@@ -99,7 +118,6 @@ export class LogsService implements OnDestroy {
   readonly isEmpty = computed(
     () => this.status() === 'success' && this.entries().length === 0,
   );
-
   readonly selectedEntryIds = this.selectedEntryIdsState.asReadonly();
   readonly selectedEntries = computed<LogEntry[]>(() =>
     this.resolveEntriesForIds(this.selectedEntryIdsState()),
@@ -149,14 +167,16 @@ export class LogsService implements OnDestroy {
     );
   });
 
-  readonly selectedContentError = computed<string | null>(() => this.selectedContentErrorState());
+  readonly selectedContentError = computed<string | null>(() =>
+    this.selectedContentErrorState(),
+  );
   readonly contentLoading = this._contentLoading.asReadonly();
 
   readonly contentWindow = computed(() => {
     const largeViewerState = this.largeViewerState();
     if (largeViewerState) {
       const startOffset =
-        largeViewerState.mode === 'tail'
+        largeViewerState.mode === 'live'
           ? Math.max(
               largeViewerState.status.blobSize - largeViewerState.status.bytesDownloaded,
               0,
@@ -165,7 +185,7 @@ export class LogsService implements OnDestroy {
       return {
         startOffset,
         endOffsetExclusive:
-          largeViewerState.mode === 'tail'
+          largeViewerState.mode === 'live'
             ? largeViewerState.status.blobSize
             : largeViewerState.status.bytesDownloaded,
         blobSize: largeViewerState.status.blobSize,
@@ -201,32 +221,87 @@ export class LogsService implements OnDestroy {
     return this.selectedChunk()?.blobSize ?? 0;
   });
 
-  readonly isLargeBlob = computed(() => this.largeViewerState() !== null || (this.selectedChunk()?.isLargeBlob ?? false));
-  readonly hasOlderContent = computed(() => this.contentWindow()?.hasOlderContent ?? false);
-  readonly hasNewerContent = computed(() => this.contentWindow()?.hasNewerContent ?? false);
+  readonly isLargeBlob = computed(
+    () =>
+      this.largeViewerState() !== null || (this.selectedChunk()?.isLargeBlob ?? false),
+  );
+  readonly hasOlderContent = computed(
+    () => this.contentWindow()?.hasOlderContent ?? false,
+  );
+  readonly hasNewerContent = computed(
+    () => this.contentWindow()?.hasNewerContent ?? false,
+  );
 
   readonly largeViewerStatus = computed(() => this.largeViewerState()?.status ?? null);
   readonly largeViewerMode = computed<BlobViewMode | null>(
     () => this.largeViewerState()?.mode ?? null,
   );
-  readonly largeViewerLines = computed(() => this.largeViewerState()?.linesResponse?.lines ?? []);
-  readonly largeViewerViewportStartLine = computed(() => this.largeViewerState()?.viewportStartLine ?? 0);
-  readonly largeViewerViewportLineCount = computed(() => this.largeViewerState()?.viewportLineCount ?? DEFAULT_LINE_WINDOW_SIZE);
-  readonly largeViewerTotalLines = computed(() => this.largeViewerState()?.linesResponse?.totalLines ?? this.largeViewerState()?.status.indexedLineCount ?? 0);
-  readonly largeViewerSearchQuery = computed(() => this.largeViewerState()?.searchQuery ?? '');
-  readonly largeViewerSearchMatches = computed(() => this.largeViewerState()?.searchMatches ?? []);
-  readonly largeViewerSearchIsComplete = computed(() => this.largeViewerState()?.searchIsComplete ?? true);
-  readonly largeViewerRequestedScrollLine = computed(() => this.largeViewerState()?.requestedScrollLine ?? null);
+  readonly largeViewerLines = computed(
+    () => this.largeViewerState()?.linesResponse?.lines ?? [],
+  );
+  readonly largeViewerViewportStartLine = computed(() => {
+    const viewer = this.largeViewerState();
+    if (!viewer) {
+      return 0;
+    }
+
+    if (viewer.linesResponse) {
+      return viewer.loadedViewportStartLine ?? viewer.viewportStartLine;
+    }
+
+    return viewer.viewportStartLine;
+  });
+  readonly largeViewerViewportLineCount = computed(() => {
+    const viewer = this.largeViewerState();
+    if (!viewer) {
+      return DEFAULT_LINE_WINDOW_SIZE;
+    }
+
+    if (viewer.linesResponse) {
+      return viewer.loadedViewportLineCount ?? viewer.viewportLineCount;
+    }
+
+    return viewer.viewportLineCount;
+  });
+  readonly largeViewerTotalLines = computed(
+    () =>
+      this.largeViewerState()?.linesResponse?.totalLines ??
+      this.largeViewerState()?.status.indexedLineCount ??
+      0,
+  );
+  readonly largeViewerSearchQuery = computed(
+    () => this.largeViewerState()?.searchQuery ?? '',
+  );
+  readonly largeViewerSearchMatches = computed(
+    () => this.largeViewerState()?.searchMatches ?? [],
+  );
+  readonly largeViewerSearchIsComplete = computed(
+    () => this.largeViewerState()?.searchIsComplete ?? true,
+  );
+  readonly largeViewerScrollCommand = computed(
+    () => this.largeViewerState()?.scrollCommand ?? null,
+  );
   readonly largeViewerActiveMatchLine = computed<number | null>(() => {
     const viewer = this.largeViewerState();
-    if (!viewer || viewer.activeMatchIndex < 0 || viewer.activeMatchIndex >= viewer.searchMatches.length) {
+    if (
+      !viewer ||
+      viewer.activeMatchIndex < 0 ||
+      viewer.activeMatchIndex >= viewer.searchMatches.length
+    ) {
       return null;
     }
     return viewer.searchMatches[viewer.activeMatchIndex]?.lineNumber ?? null;
   });
-  readonly largeViewerTailPreviewLines = computed(() => this.largeViewerState()?.status.tailPreviewLines ?? []);
-  readonly largeViewerCanEnableWordWrap = computed(() => this.largeViewerState()?.status.canEnableWordWrap ?? false);
-  readonly isTailMode = computed(() => this.largeViewerMode() === 'tail');
+  readonly largeViewerLivePreviewLines = computed(
+    () => this.largeViewerState()?.status.livePreviewLines ?? [],
+  );
+  readonly largeViewerLivePhase = computed(
+    () => this.largeViewerState()?.livePhase ?? null,
+  );
+  readonly largeViewerLiveFollowMode = computed(
+    () => this.largeViewerState()?.liveFollowMode ?? null,
+  );
+  readonly isLiveMode = computed(() => this.largeViewerMode() === 'live');
 
   ngOnDestroy(): void {
     void this.closeLargeViewer();
@@ -258,7 +333,11 @@ export class LogsService implements OnDestroy {
     this.state.set({ status: 'error', message });
   }
 
-  async loadForConnection(accountName: string, containerName: string): Promise<void> {
+  async loadForConnection(
+    accountName: string,
+    containerName: string,
+    includeDeleted = false,
+  ): Promise<void> {
     const token = ++this.connectionLoadToken;
     const refreshToken = ++this.entriesRefreshToken;
     this.contentLoadToken += 1;
@@ -271,15 +350,28 @@ export class LogsService implements OnDestroy {
     await this.closeLargeViewer();
 
     try {
-      const blobs = await this.api.listBlobs(accountName, containerName, '');
-      if (token !== this.connectionLoadToken || refreshToken !== this.entriesRefreshToken) {
+      const blobs = await this.api.listBlobs(
+        accountName,
+        containerName,
+        '',
+        includeDeleted,
+      );
+      if (
+        token !== this.connectionLoadToken ||
+        refreshToken !== this.entriesRefreshToken
+      ) {
         return;
       }
 
-      const entries = blobs.map((blob) => this.mapBlobToEntry(blob, accountName, containerName));
+      const entries = blobs.map((blob) =>
+        this.mapBlobToEntry(blob, accountName, containerName),
+      );
       this.state.set({ status: 'success', entries });
     } catch {
-      if (token !== this.connectionLoadToken || refreshToken !== this.entriesRefreshToken) {
+      if (
+        token !== this.connectionLoadToken ||
+        refreshToken !== this.entriesRefreshToken
+      ) {
         return;
       }
 
@@ -293,12 +385,17 @@ export class LogsService implements OnDestroy {
   async refreshEntriesForConnection(
     accountName: string,
     containerName: string,
+    includeDeleted = false,
   ): Promise<boolean> {
     const connectionLoadToken = this.connectionLoadToken;
     const refreshToken = ++this.entriesRefreshToken;
-
     try {
-      const blobs = await this.api.listBlobs(accountName, containerName, '');
+      const blobs = await this.api.listBlobs(
+        accountName,
+        containerName,
+        '',
+        includeDeleted,
+      );
       if (
         connectionLoadToken !== this.connectionLoadToken ||
         refreshToken !== this.entriesRefreshToken
@@ -306,7 +403,9 @@ export class LogsService implements OnDestroy {
         return false;
       }
 
-      const entries = blobs.map((blob) => this.mapBlobToEntry(blob, accountName, containerName));
+      const entries = blobs.map((blob) =>
+        this.mapBlobToEntry(blob, accountName, containerName),
+      );
       this.state.set({ status: 'success', entries });
       this.syncSelectedEntriesSnapshot(entries);
       return true;
@@ -322,6 +421,53 @@ export class LogsService implements OnDestroy {
     }
   }
 
+  async resolveDeletedVersion(id: string): Promise<boolean> {
+    const entry = this.resolveEntriesForIds([id])[0];
+    if (
+      !entry?.isDeleted ||
+      !entry.hasVersionsOnly ||
+      entry.versionId ||
+      !entry.storageAccountName ||
+      !entry.containerName
+    ) {
+      return Boolean(entry?.versionId);
+    }
+
+    try {
+      const blob = await this.api.resolveDeletedBlobVersion({
+        accountName: entry.storageAccountName,
+        containerName: entry.containerName,
+        blobName: entry.blobName,
+      });
+      const resolved = this.mapBlobToEntry(
+        blob,
+        entry.storageAccountName,
+        entry.containerName,
+      );
+      this.state.update((current) =>
+        current.status !== 'success'
+          ? current
+          : {
+              status: 'success',
+              entries: current.entries.map((candidate) =>
+                candidate.id === id
+                  ? {
+                      ...candidate,
+                      ...resolved,
+                      id,
+                      deletedAt: candidate.deletedAt,
+                      remainingRetentionDays: candidate.remainingRetentionDays,
+                    }
+                  : candidate,
+              ),
+            },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   selectEntry(id: string | null): void {
     void this.updateSelection(id, false);
   }
@@ -330,6 +476,11 @@ export class LogsService implements OnDestroy {
     id: string | null,
     additive: boolean,
   ): Promise<LogSelectionUpdateResult> {
+    const requestedEntry = id ? this.resolveEntriesForIds([id])[0] : undefined;
+    if (requestedEntry?.isDeleted && !requestedEntry.versionId) {
+      return { kind: 'updated' };
+    }
+
     const nextSelection = this.buildNextSelection(id, additive);
     const validation = this.validateSelection(nextSelection);
     if (validation.kind !== 'updated') {
@@ -361,7 +512,7 @@ export class LogsService implements OnDestroy {
     }
 
     const viewer = this.largeViewerState();
-    if (viewer?.entryId === entry.id && viewer.mode === 'tail') {
+    if (viewer?.entryId === entry.id && viewer.mode === 'live') {
       await this.refreshLargeViewerStatus(viewer.sessionId);
       return;
     }
@@ -374,27 +525,134 @@ export class LogsService implements OnDestroy {
     await this.loadContentChunk(entry.id);
   }
 
-  async setTailMode(enabled: boolean): Promise<void> {
+  async restoreDeletedEntry(id: string): Promise<boolean> {
+    const entry = this.resolveEntriesForIds([id])[0];
+    if (
+      !entry?.isDeleted ||
+      entry.versionId ||
+      !entry.storageAccountName ||
+      !entry.containerName
+    ) {
+      return false;
+    }
+
+    try {
+      await this.api.restoreBlob({
+        accountName: entry.storageAccountName,
+        containerName: entry.containerName,
+        blobName: entry.blobName,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async setLiveMode(enabled: boolean): Promise<boolean> {
     const entry = this.selectedEntry();
     if (!entry || this.selectionCount() !== 1) {
+      return false;
+    }
+
+    try {
+      const viewer = this.largeViewerState();
+      if (viewer?.entryId === entry.id) {
+        const requestedMode: BlobViewMode = enabled ? 'live' : 'snapshot';
+        const status = await this.api.setBlobViewSessionMode(
+          viewer.sessionId,
+          requestedMode,
+        );
+        const livePhase = status.mode === 'live' ? resolveLivePhase(status) : null;
+        const liveFollowMode = status.mode === 'live' ? 'following' : null;
+        const nextViewportLineCount = viewer.viewportLineCount;
+        const nextViewportStartLine =
+          status.mode === 'live' && livePhase === 'indexed'
+            ? calculateBottomViewportStartLine(
+                status.indexedLineCount,
+                nextViewportLineCount,
+              )
+            : viewer.viewportStartLine;
+
+        this.largeViewerState.update((current) => {
+          if (!current || current.sessionId !== viewer.sessionId) {
+            return current;
+          }
+
+          const isIndexedLiveMode = status.mode === 'live' && livePhase === 'indexed';
+          return {
+            ...current,
+            mode: status.mode,
+            status,
+            viewportStartLine: nextViewportStartLine,
+            linesResponse: isIndexedLiveMode ? null : current.linesResponse,
+            loadedViewportStartLine: isIndexedLiveMode
+              ? null
+              : current.loadedViewportStartLine,
+            loadedViewportLineCount: isIndexedLiveMode
+              ? null
+              : current.loadedViewportLineCount,
+            scrollCommand:
+              status.mode === 'live' ? this.createBottomScrollCommand() : null,
+            livePhase,
+            liveFollowMode,
+          };
+        });
+
+        if (status.mode === 'snapshot' && status.isComplete) {
+          this.stopStatusPolling();
+        } else {
+          this.startStatusPolling(viewer.sessionId, status.mode);
+        }
+
+        if (status.mode === 'live' && livePhase === 'indexed') {
+          await this.loadLargeViewerViewport(
+            viewer.sessionId,
+            nextViewportStartLine,
+            nextViewportLineCount,
+          );
+        }
+
+        const activeQuery = this.largeViewerSearchQuery().trim();
+        if (activeQuery.length > 0) {
+          if (status.livePreviewLines.length > 0) {
+            this.applyLivePreviewSearch(viewer.sessionId, activeQuery, false);
+          } else {
+            await this.loadSearchResults(viewer.sessionId, activeQuery);
+          }
+        }
+        return status.mode === requestedMode;
+      }
+
+      if (enabled) {
+        await this.openLargeViewer(entry, 'live', true);
+        return this.largeViewerMode() === 'live';
+      }
+
+      await this.applySelection([entry.id]);
+      return !this.isLiveMode();
+    } catch {
+      return false;
+    }
+  }
+
+  async updateLargeViewport(
+    startLine: number,
+    lineCount: number,
+    nearBottom: boolean,
+  ): Promise<void> {
+    const viewer = this.largeViewerState();
+    if (!viewer) {
       return;
     }
 
-    const viewer = this.largeViewerState();
-    if (viewer?.entryId === entry.id) {
-      const status = await this.api.setBlobViewSessionMode(
-        viewer.sessionId,
-        enabled ? 'tail' : 'snapshot',
-      );
-      const targetScrollLine =
-        enabled && status.tailPreviewLines.length === 0 && status.indexedLineCount > 0
-          ? status.indexedLineCount - 1
-          : null;
-      const nextViewportStartLine =
-        targetScrollLine !== null
-          ? Math.max(targetScrollLine - Math.floor(viewer.viewportLineCount / 2), 0)
-          : viewer.viewportStartLine;
+    const normalizedStartLine = Math.max(0, startLine);
+    const normalizedLineCount = Math.max(1, lineCount);
 
+    if (viewer.mode === 'live') {
+      const liveFollowMode = resolveLiveFollowModeFromViewport(
+        viewer.liveFollowMode,
+        nearBottom,
+      );
       this.largeViewerState.update((current) => {
         if (!current || current.sessionId !== viewer.sessionId) {
           return current;
@@ -402,83 +660,22 @@ export class LogsService implements OnDestroy {
 
         return {
           ...current,
-          mode: status.mode,
-          status,
-          viewportStartLine: nextViewportStartLine,
-          requestedScrollLine: targetScrollLine,
+          viewportStartLine: normalizedStartLine,
+          viewportLineCount: normalizedLineCount,
+          liveFollowMode,
         };
       });
+    }
 
-      if (status.mode === 'snapshot' && status.isComplete) {
-        this.stopStatusPolling();
-      } else {
-        this.startStatusPolling(viewer.sessionId, status.mode);
-      }
-
-      if (status.tailPreviewLines.length === 0 && status.indexedLineCount > 0) {
-        await this.updateLargeViewport(nextViewportStartLine, viewer.viewportLineCount);
-      }
-
-      const activeQuery = this.largeViewerSearchQuery().trim();
-      if (activeQuery.length > 0) {
-        if (status.tailPreviewLines.length > 0) {
-          this.applyTailPreviewSearch(viewer.sessionId, activeQuery, false);
-        } else {
-          await this.loadSearchResults(viewer.sessionId, activeQuery);
-        }
-      }
+    if (viewer.status.livePreviewLines.length > 0) {
       return;
     }
 
-    if (enabled) {
-      await this.openLargeViewer(entry, 'tail', true);
-      return;
-    }
-
-    await this.applySelection([entry.id]);
-  }
-
-  async updateLargeViewport(startLine: number, lineCount: number): Promise<void> {
-    const viewer = this.largeViewerState();
-    if (!viewer) {
-      return;
-    }
-
-    if (viewer.status.tailPreviewLines.length > 0) {
-      return;
-    }
-
-    const normalizedStartLine = Math.max(0, startLine);
-    const normalizedLineCount = Math.max(1, lineCount);
-    if (
-      viewer.linesResponse &&
-      viewer.viewportStartLine === normalizedStartLine &&
-      viewer.viewportLineCount === normalizedLineCount &&
-      !(
-        viewer.linesResponse.lines.length === 0 &&
-        viewer.status.indexedLineCount > 0
-      )
-    ) {
-      return;
-    }
-
-    const response = await this.api.getBlobViewLines(
+    await this.loadLargeViewerViewport(
       viewer.sessionId,
       normalizedStartLine,
       normalizedLineCount,
     );
-
-    this.largeViewerState.update((current) => {
-      if (!current || current.sessionId !== viewer.sessionId) {
-        return current;
-      }
-      return {
-        ...current,
-        viewportStartLine: normalizedStartLine,
-        viewportLineCount: normalizedLineCount,
-        linesResponse: response,
-      };
-    });
   }
 
   async updateLargeSearchQuery(query: string): Promise<void> {
@@ -499,7 +696,7 @@ export class LogsService implements OnDestroy {
         searchNextCursor: 0,
         searchIsComplete: normalizedQuery.length === 0,
         activeMatchIndex: -1,
-        requestedScrollLine: null,
+        scrollCommand: null,
       };
     });
 
@@ -507,8 +704,8 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (viewer.status.tailPreviewLines.length > 0) {
-      this.applyTailPreviewSearch(viewer.sessionId, normalizedQuery, false);
+    if (viewer.status.livePreviewLines.length > 0) {
+      this.applyLivePreviewSearch(viewer.sessionId, normalizedQuery, false);
       return;
     }
 
@@ -525,7 +722,7 @@ export class LogsService implements OnDestroy {
 
   async exportLargeViewer(): Promise<boolean> {
     const viewer = this.largeViewerState();
-    if (!viewer || viewer.mode === 'tail' || !viewer.status.isComplete) {
+    if (!viewer || viewer.mode === 'live' || !viewer.status.isComplete) {
       return false;
     }
 
@@ -533,10 +730,72 @@ export class LogsService implements OnDestroy {
     return result.cancelled === false;
   }
 
-  clearRequestedScrollLine(): void {
+  clearLargeViewerScrollCommand(): void {
     this.largeViewerState.update((current) =>
-      current ? { ...current, requestedScrollLine: null } : current,
+      current ? { ...current, scrollCommand: null } : current,
     );
+  }
+
+  private async loadLargeViewerViewport(
+    sessionId: string,
+    startLine: number,
+    lineCount: number,
+    forceReload = false,
+  ): Promise<void> {
+    const viewer = this.largeViewerState();
+    if (!viewer || viewer.sessionId !== sessionId) {
+      return;
+    }
+
+    const indexedLinesChanged =
+      viewer.status.livePreviewLines.length === 0 &&
+      viewer.linesResponse?.totalLines !== viewer.status.indexedLineCount;
+
+    const isRequestedViewportLoaded =
+      viewer.loadedViewportStartLine === startLine &&
+      viewer.loadedViewportLineCount === lineCount;
+
+    if (
+      viewer.linesResponse &&
+      isRequestedViewportLoaded &&
+      !forceReload &&
+      !indexedLinesChanged &&
+      !(viewer.linesResponse.lines.length === 0 && viewer.status.indexedLineCount > 0)
+    ) {
+      return;
+    }
+
+    // Viewport reads overlap while scrolling; a slower earlier response must
+    // never overwrite the window the user has already scrolled to.
+    const requestToken = ++this.viewportRequestToken;
+    const response = await this.api.getBlobViewLines(
+      viewer.sessionId,
+      startLine,
+      lineCount,
+    );
+    if (requestToken !== this.viewportRequestToken) {
+      return;
+    }
+
+    this.largeViewerState.update((current) => {
+      if (!current || current.sessionId !== viewer.sessionId) {
+        return current;
+      }
+      return {
+        ...current,
+        viewportStartLine: startLine,
+        viewportLineCount: lineCount,
+        linesResponse: response,
+        loadedViewportStartLine: startLine,
+        loadedViewportLineCount: lineCount,
+        scrollCommand:
+          current.mode === 'live' &&
+          current.livePhase === 'indexed' &&
+          current.liveFollowMode === 'following'
+            ? this.createBottomScrollCommand()
+            : current.scrollCommand,
+      };
+    });
   }
 
   private buildNextSelection(id: string | null, additive: boolean): string[] {
@@ -625,13 +884,17 @@ export class LogsService implements OnDestroy {
       return;
     }
 
-    if (viewer.status.tailPreviewLines.length > 0) {
-      this.moveTailPreviewSearchMatch(viewer, direction);
+    if (viewer.status.livePreviewLines.length > 0) {
+      this.moveLivePreviewSearchMatch(viewer, direction);
       return;
     }
 
     let nextIndex = viewer.activeMatchIndex + direction;
-    if (direction > 0 && nextIndex >= viewer.searchMatches.length && !viewer.searchIsComplete) {
+    if (
+      direction > 0 &&
+      nextIndex >= viewer.searchMatches.length &&
+      !viewer.searchIsComplete
+    ) {
       await this.loadSearchResults(
         viewer.sessionId,
         viewer.searchQuery.trim(),
@@ -661,14 +924,23 @@ export class LogsService implements OnDestroy {
         ? {
             ...current,
             activeMatchIndex: nextIndex,
-            requestedScrollLine: activeMatch.lineNumber,
+            scrollCommand: this.createLineScrollCommand(activeMatch.lineNumber),
+            liveFollowMode:
+              current.mode === 'live' ? 'paused-by-navigation' : current.liveFollowMode,
           }
         : current,
     );
 
-    if (updatedViewer.mode !== 'tail' && updatedViewer.status.tailPreviewLines.length === 0) {
-      const startLine = Math.max(activeMatch.lineNumber - Math.floor(updatedViewer.viewportLineCount / 2), 0);
-      await this.updateLargeViewport(startLine, updatedViewer.viewportLineCount);
+    if (updatedViewer.status.livePreviewLines.length === 0) {
+      const startLine = Math.max(
+        activeMatch.lineNumber - Math.floor(updatedViewer.viewportLineCount / 2),
+        0,
+      );
+      await this.loadLargeViewerViewport(
+        updatedViewer.sessionId,
+        startLine,
+        updatedViewer.viewportLineCount,
+      );
     }
   }
 
@@ -703,10 +975,13 @@ export class LogsService implements OnDestroy {
         accountName: entry.storageAccountName,
         containerName: entry.containerName,
         blobName: entry.blobName,
+        ...(entry.versionId ? { versionId: entry.versionId } : {}),
         mode,
       });
       if (status.failureReason) {
-        this.selectedContentErrorState.set(getBlobFailureMessage(this.i18n, status.failureReason));
+        this.selectedContentErrorState.set(
+          getBlobFailureMessage(this.i18n, status.failureReason),
+        );
         return;
       }
 
@@ -718,13 +993,13 @@ export class LogsService implements OnDestroy {
         return;
       }
 
-      const initialScrollLine =
-        status.mode === 'tail' && status.tailPreviewLines.length === 0 && status.indexedLineCount > 0
-          ? status.indexedLineCount - 1
-          : null;
+      const livePhase = status.mode === 'live' ? resolveLivePhase(status) : null;
       const initialViewportStartLine =
-        initialScrollLine !== null
-          ? Math.max(initialScrollLine - Math.floor(DEFAULT_LINE_WINDOW_SIZE / 2), 0)
+        status.mode === 'live' && livePhase === 'indexed'
+          ? calculateBottomViewportStartLine(
+              status.indexedLineCount,
+              DEFAULT_LINE_WINDOW_SIZE,
+            )
           : 0;
 
       this.largeViewerState.set({
@@ -735,21 +1010,37 @@ export class LogsService implements OnDestroy {
         linesResponse: null,
         viewportStartLine: initialViewportStartLine,
         viewportLineCount: DEFAULT_LINE_WINDOW_SIZE,
+        loadedViewportStartLine: null,
+        loadedViewportLineCount: null,
         searchQuery: '',
         searchMatches: [],
         searchNextCursor: 0,
         searchIsComplete: true,
         activeMatchIndex: -1,
-        requestedScrollLine: initialScrollLine,
+        scrollCommand: status.mode === 'live' ? this.createBottomScrollCommand() : null,
+        livePhase,
+        liveFollowMode: status.mode === 'live' ? 'following' : null,
       });
 
       this.startStatusPolling(status.sessionId, status.mode);
 
-      if (status.tailPreviewLines.length === 0 && status.indexedLineCount > 0) {
-        await this.updateLargeViewport(initialViewportStartLine, DEFAULT_LINE_WINDOW_SIZE);
+      if (status.mode === 'live' && livePhase === 'indexed') {
+        await this.loadLargeViewerViewport(
+          status.sessionId,
+          initialViewportStartLine,
+          DEFAULT_LINE_WINDOW_SIZE,
+        );
+      } else if (status.livePreviewLines.length === 0 && status.indexedLineCount > 0) {
+        await this.loadLargeViewerViewport(
+          status.sessionId,
+          initialViewportStartLine,
+          DEFAULT_LINE_WINDOW_SIZE,
+        );
       }
     } catch {
-      this.selectedContentErrorState.set(this.i18n.translate('logs.service.loadContentFailedGeneric'));
+      this.selectedContentErrorState.set(
+        this.i18n.translate('logs.service.loadContentFailedGeneric'),
+      );
     } finally {
       if (
         connectionLoadToken === this.connectionLoadToken &&
@@ -762,57 +1053,81 @@ export class LogsService implements OnDestroy {
 
   private async refreshLargeViewerStatus(sessionId: string): Promise<void> {
     const status = await this.api.getBlobViewStatus(sessionId);
+    const currentViewer = this.largeViewerState();
     const viewerMode =
-      this.largeViewerState()?.sessionId === sessionId
-        ? this.largeViewerState()?.mode ?? status.mode
-        : status.mode;
+      currentViewer?.sessionId === sessionId ? currentViewer.mode : status.mode;
     const activeQuery = this.largeViewerSearchQuery().trim();
-    const previousTailPreviewLength = this.largeViewerState()?.status.tailPreviewLines.length ?? 0;
+    const previousLivePreviewLength =
+      currentViewer?.sessionId === sessionId
+        ? currentViewer.status.livePreviewLines.length
+        : 0;
+    const nextLivePhase = status.mode === 'live' ? resolveLivePhase(status) : null;
 
     let needsViewportRefresh = false;
+    let blobSizeChanged = false;
     let nextViewportStartLine = 0;
     let nextViewportLineCount = DEFAULT_LINE_WINDOW_SIZE;
-    let shouldScrollToBottom = false;
+    let nextLiveFollowMode: LiveFollowMode | null = null;
 
     this.largeViewerState.update((current) => {
       if (!current || current.sessionId !== sessionId) {
         return current;
       }
 
+      blobSizeChanged = current.status.blobSize !== status.blobSize;
       needsViewportRefresh =
+        blobSizeChanged ||
         current.status.indexedLineCount !== status.indexedLineCount ||
-        current.status.isComplete !== status.isComplete;
-      shouldScrollToBottom =
-        status.mode === 'tail' &&
-        previousTailPreviewLength > 0 &&
-        status.tailPreviewLines.length === 0 &&
-        status.indexedLineCount > 0;
-      nextViewportStartLine = shouldScrollToBottom
-        ? Math.max(
-            status.indexedLineCount - Math.max(current.viewportLineCount, DEFAULT_LINE_WINDOW_SIZE),
-            0,
-          )
-        : current.viewportStartLine;
+        current.status.isComplete !== status.isComplete ||
+        current.livePhase !== nextLivePhase;
+      nextLiveFollowMode =
+        status.mode === 'live' ? (current.liveFollowMode ?? 'following') : null;
       nextViewportLineCount = current.viewportLineCount;
+      nextViewportStartLine =
+        status.mode === 'live' &&
+        nextLivePhase === 'indexed' &&
+        nextLiveFollowMode === 'following'
+          ? calculateBottomViewportStartLine(
+              status.indexedLineCount,
+              nextViewportLineCount,
+            )
+          : current.viewportStartLine;
+      const shouldInvalidateIndexedLiveLines =
+        status.mode === 'live' &&
+        nextLivePhase === 'indexed' &&
+        current.livePhase !== 'indexed';
 
       return {
         ...current,
         mode: status.mode,
         status,
         viewportStartLine: nextViewportStartLine,
-        requestedScrollLine:
-          shouldScrollToBottom ? status.indexedLineCount - 1 : current.requestedScrollLine,
+        linesResponse: shouldInvalidateIndexedLiveLines ? null : current.linesResponse,
+        loadedViewportStartLine: shouldInvalidateIndexedLiveLines
+          ? null
+          : current.loadedViewportStartLine,
+        loadedViewportLineCount: shouldInvalidateIndexedLiveLines
+          ? null
+          : current.loadedViewportLineCount,
+        scrollCommand:
+          status.mode === 'live' && nextLiveFollowMode === 'following'
+            ? this.createBottomScrollCommand()
+            : current.scrollCommand,
+        livePhase: nextLivePhase,
+        liveFollowMode: nextLiveFollowMode,
       };
     });
 
     if (status.failureReason) {
-      this.selectedContentErrorState.set(getBlobFailureMessage(this.i18n, status.failureReason));
+      this.selectedContentErrorState.set(
+        getBlobFailureMessage(this.i18n, status.failureReason),
+      );
       this.stopStatusPolling();
       return;
     }
 
     if (status.errorMessage?.trim()) {
-      this.stopStatusPolling()
+      this.stopStatusPolling();
       return;
     }
 
@@ -821,24 +1136,30 @@ export class LogsService implements OnDestroy {
     }
 
     if (
-      status.tailPreviewLines.length === 0 &&
-      (needsViewportRefresh || shouldScrollToBottom || this.largeViewerLines().length === 0)
+      status.livePreviewLines.length === 0 &&
+      (needsViewportRefresh || this.largeViewerLines().length === 0)
     ) {
-      await this.updateLargeViewport(nextViewportStartLine, nextViewportLineCount);
+      await this.loadLargeViewerViewport(
+        sessionId,
+        nextViewportStartLine,
+        nextViewportLineCount,
+        blobSizeChanged,
+      );
     }
 
     if (activeQuery.length === 0) {
       return;
     }
 
-    if (status.tailPreviewLines.length > 0) {
-      this.applyTailPreviewSearch(sessionId, activeQuery, true);
+    if (status.livePreviewLines.length > 0) {
+      this.applyLivePreviewSearch(sessionId, activeQuery, true);
       return;
     }
 
     const searchNeedsRefresh =
       this.largeViewerState()?.sessionId === sessionId &&
-      (needsViewportRefresh || previousTailPreviewLength !== status.tailPreviewLines.length);
+      (needsViewportRefresh ||
+        previousLivePreviewLength !== status.livePreviewLines.length);
     if (!searchNeedsRefresh) {
       return;
     }
@@ -849,8 +1170,8 @@ export class LogsService implements OnDestroy {
   private startStatusPolling(sessionId: string, mode: BlobViewMode): void {
     this.stopStatusPolling();
     const intervalMs =
-      mode === 'tail'
-        ? this.settings.logs().tailRefreshIntervalSeconds * 1000
+      mode === 'live'
+        ? this.settings.logs().liveRefreshIntervalSeconds * 1000
         : SNAPSHOT_VIEW_POLL_INTERVAL_MS;
     this.statusPollTimer = setInterval(() => {
       void this.refreshLargeViewerStatus(sessionId);
@@ -886,7 +1207,11 @@ export class LogsService implements OnDestroy {
         return;
       }
 
-      if (response.isComplete || response.nextCursor < 0 || response.nextCursor <= nextCursor) {
+      if (
+        response.isComplete ||
+        response.nextCursor < 0 ||
+        response.nextCursor <= nextCursor
+      ) {
         return;
       }
 
@@ -909,10 +1234,14 @@ export class LogsService implements OnDestroy {
         ? response.matches
         : [...current.searchMatches, ...response.matches];
       const nextActiveMatchIndex =
-        matches.length > 0 ? Math.max(Math.min(current.activeMatchIndex, matches.length - 1), 0) : -1;
+        matches.length > 0
+          ? Math.max(Math.min(current.activeMatchIndex, matches.length - 1), 0)
+          : -1;
       const hadActiveMatch =
-        current.activeMatchIndex >= 0 && current.activeMatchIndex < current.searchMatches.length;
-      const shouldScrollToFirstMatch = nextActiveMatchIndex >= 0 && (replace || !hadActiveMatch);
+        current.activeMatchIndex >= 0 &&
+        current.activeMatchIndex < current.searchMatches.length;
+      const shouldScrollToFirstMatch =
+        nextActiveMatchIndex >= 0 && (replace || !hadActiveMatch);
 
       return {
         ...current,
@@ -920,10 +1249,13 @@ export class LogsService implements OnDestroy {
         searchNextCursor: response.nextCursor,
         searchIsComplete: response.isComplete,
         activeMatchIndex: nextActiveMatchIndex,
-        requestedScrollLine:
-          shouldScrollToFirstMatch
-            ? matches[nextActiveMatchIndex]?.lineNumber ?? null
-            : current.requestedScrollLine,
+        scrollCommand: shouldScrollToFirstMatch
+          ? this.createLineScrollCommand(matches[nextActiveMatchIndex]?.lineNumber ?? 0)
+          : current.scrollCommand,
+        liveFollowMode:
+          shouldScrollToFirstMatch && current.mode === 'live'
+            ? 'paused-by-navigation'
+            : current.liveFollowMode,
       };
     });
   }
@@ -933,7 +1265,7 @@ export class LogsService implements OnDestroy {
     return viewer?.sessionId === sessionId && viewer.searchQuery.trim() === query.trim();
   }
 
-  private applyTailPreviewSearch(
+  private applyLivePreviewSearch(
     sessionId: string,
     query: string,
     preserveActiveMatch: boolean,
@@ -948,7 +1280,7 @@ export class LogsService implements OnDestroy {
       const matches =
         normalizedQuery.length === 0
           ? []
-          : current.status.tailPreviewLines.flatMap((line, index) =>
+          : current.status.livePreviewLines.flatMap((line, index) =>
               line.toLowerCase().includes(normalizedQuery)
                 ? [{ lineNumber: index, preview: line }]
                 : [],
@@ -967,18 +1299,19 @@ export class LogsService implements OnDestroy {
         searchNextCursor: 0,
         searchIsComplete: current.status.isComplete,
         activeMatchIndex,
-        requestedScrollLine:
+        scrollCommand:
           activeMatchIndex >= 0
-            ? matches[activeMatchIndex]?.lineNumber ?? null
+            ? this.createLineScrollCommand(matches[activeMatchIndex]?.lineNumber ?? 0)
             : null,
+        liveFollowMode:
+          activeMatchIndex >= 0 && current.mode === 'live'
+            ? 'paused-by-navigation'
+            : current.liveFollowMode,
       };
     });
   }
 
-  private moveTailPreviewSearchMatch(
-    viewer: LargeViewerState,
-    direction: -1 | 1,
-  ): void {
+  private moveLivePreviewSearchMatch(viewer: LargeViewerState, direction: -1 | 1): void {
     if (viewer.searchMatches.length === 0) {
       return;
     }
@@ -1000,10 +1333,27 @@ export class LogsService implements OnDestroy {
         ? {
             ...current,
             activeMatchIndex: nextIndex,
-            requestedScrollLine: activeMatch.lineNumber,
+            scrollCommand: this.createLineScrollCommand(activeMatch.lineNumber),
+            liveFollowMode:
+              current.mode === 'live' ? 'paused-by-navigation' : current.liveFollowMode,
           }
         : current,
     );
+  }
+
+  private createBottomScrollCommand(): LogLargeViewerScrollCommand {
+    return {
+      kind: 'bottom',
+      requestId: ++this.nextLargeViewerScrollCommandId,
+    };
+  }
+
+  private createLineScrollCommand(lineNumber: number): LogLargeViewerScrollCommand {
+    return {
+      kind: 'line',
+      lineNumber,
+      requestId: ++this.nextLargeViewerScrollCommandId,
+    };
   }
 
   private async closeLargeViewer(): Promise<void> {
@@ -1031,7 +1381,9 @@ export class LogsService implements OnDestroy {
       const chunk = await this.readEntryContent(entry);
       if (chunk.failureReason) {
         this.selectedContentState.set(null);
-        this.selectedContentErrorState.set(getBlobFailureMessage(this.i18n, chunk.failureReason));
+        this.selectedContentErrorState.set(
+          getBlobFailureMessage(this.i18n, chunk.failureReason),
+        );
         return;
       }
       if (
@@ -1055,7 +1407,9 @@ export class LogsService implements OnDestroy {
       }
 
       this.selectedContentState.set(null);
-      this.selectedContentErrorState.set(this.i18n.translate('logs.service.loadContentFailedGeneric'));
+      this.selectedContentErrorState.set(
+        this.i18n.translate('logs.service.loadContentFailedGeneric'),
+      );
     } finally {
       if (
         connectionLoadToken === this.connectionLoadToken &&
@@ -1074,11 +1428,15 @@ export class LogsService implements OnDestroy {
     this.selectedContentState.set(null);
 
     try {
-      const chunks = await Promise.all(entries.map((entry) => this.readEntryContent(entry, entry.size)));
+      const chunks = await Promise.all(
+        entries.map((entry) => this.readEntryContent(entry, entry.size)),
+      );
       const failedChunk = chunks.find((chunk) => chunk.failureReason);
       if (failedChunk?.failureReason) {
         this.selectedContentState.set(null);
-        this.selectedContentErrorState.set(getBlobFailureMessage(this.i18n, failedChunk.failureReason));
+        this.selectedContentErrorState.set(
+          getBlobFailureMessage(this.i18n, failedChunk.failureReason),
+        );
         return;
       }
       if (
@@ -1089,7 +1447,9 @@ export class LogsService implements OnDestroy {
       }
 
       const mergedContent = entries
-        .map((entry, index) => buildMergedEntryContent(entry.blobName, chunks[index]?.content ?? ''))
+        .map((entry, index) =>
+          buildMergedEntryContent(entry.blobName, chunks[index]?.content ?? ''),
+        )
         .join('\n');
       const totalSize = entries.reduce((sum, entry) => sum + entry.size, 0);
 
@@ -1108,7 +1468,9 @@ export class LogsService implements OnDestroy {
       }
 
       this.selectedContentState.set(null);
-      this.selectedContentErrorState.set(this.i18n.translate('logs.service.loadContentFailedGeneric'));
+      this.selectedContentErrorState.set(
+        this.i18n.translate('logs.service.loadContentFailedGeneric'),
+      );
     } finally {
       if (
         connectionLoadToken === this.connectionLoadToken &&
@@ -1131,6 +1493,7 @@ export class LogsService implements OnDestroy {
       accountName: entry.storageAccountName,
       containerName: entry.containerName,
       blobName: entry.blobName,
+      ...(entry.versionId ? { versionId: entry.versionId } : {}),
       startOffset: count === undefined ? null : 0,
       count: count ?? null,
     });
@@ -1175,12 +1538,18 @@ export class LogsService implements OnDestroy {
     );
   }
 
-  private mapBlobToEntry(blob: AzureBlobItem, accountName: string, containerName: string): LogEntry {
+  private mapBlobToEntry(
+    blob: AzureBlobItem,
+    accountName: string,
+    containerName: string,
+  ): LogEntry {
     const createdAt = this.resolveCreatedAt(blob);
     const lastModified = blob.lastModified;
 
     return {
-      id: blob.name,
+      id: blob.deleted
+        ? `${blob.name}::deleted::${blob.deletedAt || blob.versionId || 'soft-delete'}`
+        : blob.name,
       container: containerName,
       blobName: blob.name,
       createdAt,
@@ -1189,6 +1558,12 @@ export class LogsService implements OnDestroy {
       lastModifiedLabel: this.formatTimestampLabel(lastModified),
       size: blob.size,
       contentType: blob.contentType,
+      isDeleted: blob.deleted,
+      deletedAt: blob.deletedAt || undefined,
+      remainingRetentionDays:
+        blob.deleted && blob.deletedAt ? blob.remainingRetentionDays : undefined,
+      versionId: blob.versionId,
+      hasVersionsOnly: blob.hasVersionsOnly,
       path: `${accountName}/${containerName}/${blob.name}`,
       createdRelative: createdAt ? this.relativeTime(createdAt) : undefined,
       storageAccountName: accountName,
@@ -1221,7 +1596,11 @@ export class LogsService implements OnDestroy {
     if (isYesterday) {
       return `${this.i18n.translate('common.date.yesterday')}, ${time}`;
     }
-    return this.i18n.formatDate(date, { month: 'short', day: 'numeric', year: 'numeric' });
+    return this.i18n.formatDate(date, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   }
 
   private relativeTime(iso: string): string {
@@ -1230,6 +1609,31 @@ export class LogsService implements OnDestroy {
     }
     return this.i18n.formatRelativeFromNow(iso);
   }
+}
+
+function resolveLivePhase(status: BlobViewSessionStatus): LivePhase {
+  return status.livePreviewLines.length > 0 ? 'preview' : 'indexed';
+}
+
+function calculateBottomViewportStartLine(
+  indexedLineCount: number,
+  viewportLineCount: number,
+): number {
+  return Math.max(
+    indexedLineCount - Math.max(viewportLineCount, DEFAULT_LINE_WINDOW_SIZE),
+    0,
+  );
+}
+
+function resolveLiveFollowModeFromViewport(
+  current: LiveFollowMode | null,
+  nearBottom: boolean,
+): LiveFollowMode {
+  if (nearBottom) {
+    return 'following';
+  }
+
+  return current === 'following' ? 'paused-by-user' : (current ?? 'paused-by-user');
 }
 
 function areSelectionsEqual(left: readonly string[], right: readonly string[]): boolean {

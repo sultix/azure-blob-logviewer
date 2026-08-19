@@ -1,0 +1,10 @@
+# Abhaengigkeiten und Renderergebnisse bleiben ausserhalb der Versionsverwaltung
+node_modules/
+out/
+audio/
+remotion/public/
+remotion/node_modules/
+*.log
+
+# API-Schluessel
+.env

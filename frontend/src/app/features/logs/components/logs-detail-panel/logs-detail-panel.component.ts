@@ -34,7 +34,7 @@ interface ContentSearchVm {
   readonly html: string;
 }
 
-interface RenderedTailPreviewLineVm {
+interface RenderedLivePreviewLineVm {
   readonly lineNumber: number;
   readonly html: string;
 }
@@ -54,9 +54,10 @@ type LogLevelTone = 'info' | 'error' | 'warn';
 
 const CONTENT_SEARCH_DELAY_MS = 120;
 const LARGE_VIEW_OVERSCAN_LINES = 16;
+const LARGE_VIEWPORT_EMIT_THROTTLE_MS = 60;
 const LOG_LEVEL_TOKEN_PATTERN = /\[(info|(error|eror)|warn)\]/gi;
 const MIN_CONTENT_SEARCH_QUERY_LENGTH = 3;
-const TAIL_AUTO_SCROLL_BOTTOM_TOLERANCE_PX = 4;
+const LIVE_AUTO_SCROLL_BOTTOM_TOLERANCE_PX = 50;
 
 @Component({
   selector: 'app-logs-detail-panel',
@@ -75,9 +76,10 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly status = input.required<LogsStatus>();
   readonly errorMessage = input<string | null>(null);
   readonly hasSelection = input(false);
-  readonly tailAvailable = input(false);
-  readonly tailEnabled = input(false);
-  readonly tailRefreshIntervalSeconds = input(10);
+  readonly liveAvailable = input(false);
+  readonly liveEnabled = input(false);
+  readonly liveUpdating = input(false);
+  readonly liveRefreshIntervalSeconds = input(5);
   readonly selectionKey = input('');
   readonly toolbar = input<LogToolbarVm | null>(null);
   readonly largeViewer = input<LogLargeViewerVm | null>(null);
@@ -92,18 +94,23 @@ export class LogsDetailPanelComponent implements OnDestroy {
   readonly largeSearchChanged = output<string>();
   readonly previousLargeMatchRequested = output<void>();
   readonly nextLargeMatchRequested = output<void>();
-  readonly largeViewportChanged = output<{ startLine: number; lineCount: number }>();
+  readonly largeViewportChanged = output<{
+    startLine: number;
+    lineCount: number;
+    nearBottom: boolean;
+  }>();
   readonly largeScrollHandled = output<void>();
-  readonly tailToggled = output<boolean>();
+  readonly liveToggled = output<boolean>();
 
   private contentSearchApplyTimer: ReturnType<typeof setTimeout> | null = null;
+  private viewportEmitTimer: ReturnType<typeof setTimeout> | null = null;
+  private viewportEmitFrame: number | null = null;
+  private lastViewportEmitAt = 0;
   private lastScrolledMatchKey: string | null = null;
   private lastActiveMatch: HTMLElement | null = null;
   private lastLargeViewportKey: string | null = null;
-  private lastRequestedLargeScrollLine: number | null = null;
+  private lastHandledLargeScrollCommandId: number | null = null;
   private lastAppliedSelectionKey: string | null = null;
-  private lastTailContextKey: string | null = null;
-  private tailAutoScrollEnabled = false;
   private readonly contentElement = viewChild('contentElement', {
     read: ElementRef<HTMLPreElement>,
   });
@@ -111,37 +118,27 @@ export class LogsDetailPanelComponent implements OnDestroy {
     read: ElementRef<HTMLDivElement>,
   });
   readonly contentSearchInput = signal('');
+  readonly liveToggleValue = signal(false);
   private readonly contentSearchQuery = signal('');
   private readonly requestedMatchIndex = signal(0);
-  readonly wordWrapEnabled = computed(() => this.settings.logs().wordWrapEnabled);
   readonly logLevelHighlightingEnabled = computed(
     () => this.settings.logs().logLevelHighlightingEnabled,
   );
-  readonly contentClass = computed(() => {
-    if (this.tailEnabled()) {
-      return 'whitespace-pre leading-[18px]';
-    }
-
-    return this.wordWrapEnabled() ? 'whitespace-pre-wrap break-all' : 'whitespace-pre';
-  });
+  readonly contentClass = computed(() =>
+    this.liveEnabled() ? 'whitespace-pre leading-[18px]' : 'whitespace-pre',
+  );
   readonly largeLineContentClass = computed(
     () => 'inline-block min-w-full whitespace-pre leading-[18px]',
   );
-  readonly canToggleWordWrap = computed(
-    () => this.largeViewer() === null && !this.tailEnabled(),
-  );
   readonly isLargeViewer = computed(() => this.largeViewer() !== null);
   readonly largeViewerInfoLabel = computed(() => {
-    const viewer = this.largeViewer();
-    if (!viewer) {
+    if (this.largeViewer()?.mode !== 'live') {
       return '';
     }
 
-    return viewer.mode === 'tail'
-      ? this.i18n.translate('logs.detail.viewer.tailRefresh', {
-          seconds: this.tailRefreshIntervalSeconds(),
-        })
-      : this.i18n.translate('logs.detail.viewer.wordWrapUnavailable');
+    return this.i18n.translate('logs.detail.viewer.liveRefresh', {
+      seconds: this.liveRefreshIntervalSeconds(),
+    });
   });
   readonly normalizedToolbar = computed<NormalizedToolbarVm | null>(() => {
     const toolbar = this.toolbar();
@@ -175,7 +172,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
       ].filter((badge): badge is string => badge !== null),
     };
   });
-  readonly renderedTailPreviewLines = computed<RenderedTailPreviewLineVm[]>(() => {
+  readonly renderedLivePreviewLines = computed<RenderedLivePreviewLineVm[]>(() => {
     const largeViewer = this.largeViewer();
     if (!largeViewer) {
       return [];
@@ -183,7 +180,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
     const query = largeViewer.searchQuery.trim();
     const logLevelHighlightingEnabled = this.logLevelHighlightingEnabled();
-    return largeViewer.tailPreviewLines.map((content, index) => ({
+    return largeViewer.livePreviewLines.map((content, index) => ({
       lineNumber: index,
       html: renderLargeLineHtml(
         content,
@@ -211,8 +208,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
       ),
     }));
   });
+  // Kept apart from the search base so a changing query reuses one lowercase
+  // copy of the content instead of rebuilding it per keystroke.
+  private readonly normalizedContent = computed(() => this.content().toLowerCase());
   private readonly contentSearchBase = computed(() =>
-    buildContentSearchBase(this.content(), this.contentSearchQuery().trim()),
+    buildContentSearchBase(this.content(), this.contentSearchQuery().trim(), () =>
+      this.normalizedContent(),
+    ),
   );
   private readonly activeContentSearchMatchIndex = computed(() => {
     const matchCount = this.contentSearchBase().matchCount;
@@ -255,34 +257,27 @@ export class LogsDetailPanelComponent implements OnDestroy {
       disabled: this.downloadDisabled(),
       command: () => this.downloadRequested.emit(),
     },
-    ...(this.tailAvailable()
+    ...(this.liveAvailable()
       ? [
           {
-            label: this.tailEnabled()
-              ? this.i18n.translate('logs.detail.mobileActions.tailOn')
-              : this.i18n.translate('logs.detail.mobileActions.tailOff'),
+            label: this.liveEnabled()
+              ? this.i18n.translate('logs.detail.mobileActions.liveOn')
+              : this.i18n.translate('logs.detail.mobileActions.liveOff'),
             icon: 'pi pi-sync',
-            command: () => this.toggleTail(),
+            disabled: this.liveUpdating(),
+            command: () => this.toggleLive(),
           },
         ]
       : []),
-    {
-      label: this.wordWrapEnabled()
-        ? this.i18n.translate('logs.detail.mobileActions.wordWrapOn')
-        : this.i18n.translate('logs.detail.mobileActions.wordWrapOff'),
-      icon: 'pi pi-align-left',
-      disabled: !this.canToggleWordWrap(),
-      command: () => this.toggleWordWrap(),
-    },
   ]);
   readonly contentSearchMatchText = computed(() => {
+    if (!this.isContentSearchReady()) {
+      return this.i18n.translate('logs.detail.zeroMatches');
+    }
+
     const largeViewer = this.largeViewer();
     if (largeViewer) {
       return largeViewer.searchStatusLabel;
-    }
-
-    if (!this.isContentSearchReady()) {
-      return '';
     }
 
     if (this.isContentSearchPending()) {
@@ -301,6 +296,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
   constructor() {
     effect(() => {
+      const confirmedLiveValue = this.liveEnabled();
+      if (!this.liveUpdating()) {
+        this.liveToggleValue.set(confirmedLiveValue);
+      }
+    });
+
+    effect(() => {
       const nextSelectionKey = this.selectionKey();
       if (this.lastAppliedSelectionKey === nextSelectionKey) {
         return;
@@ -308,7 +310,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
 
       this.lastAppliedSelectionKey = nextSelectionKey;
       this.resetContentSearchState();
-      this.resetTailScrollState();
+      this.lastHandledLargeScrollCommandId = null;
     });
 
     afterRenderEffect(() => {
@@ -316,42 +318,45 @@ export class LogsDetailPanelComponent implements OnDestroy {
       const scrollContainer = this.contentScrollContainer()?.nativeElement;
 
       if (largeViewer && scrollContainer) {
-        if (largeViewer.mode === 'tail' && largeViewer.tailPreviewLines.length > 0) {
-          this.handleTailViewerRender(scrollContainer, largeViewer);
+        // Opening live mode creates the viewer state before its first line window
+        // has finished loading. Do not consume the pending bottom-scroll command
+        // against the loading placeholder: doing so leaves the real content at
+        // the top and the subsequent viewport measurement pauses live following.
+        const indexedWindowIsPending =
+          largeViewer.scrollCommand?.kind === 'bottom' &&
+          largeViewer.livePreviewLines.length === 0 &&
+          largeViewer.totalLines > 0 &&
+          largeViewer.lines.length === 0;
+        if (this.contentLoading() || indexedWindowIsPending) {
+          this.clearScheduledViewportEmit();
+          this.lastLargeViewportKey = null;
           return;
         }
 
-        if (largeViewer.mode === 'tail') {
-          this.initializeTailScrollContext(scrollContainer);
-        } else {
-          this.resetTailScrollState();
-        }
-        this.emitLargeViewport(scrollContainer, largeViewer);
-
+        const scrollCommandRequestId = largeViewer.scrollCommand?.requestId ?? null;
         if (
-          largeViewer.requestedScrollLine !== null &&
-          largeViewer.requestedScrollLine !== this.lastRequestedLargeScrollLine
+          scrollCommandRequestId !== null &&
+          scrollCommandRequestId !== this.lastHandledLargeScrollCommandId
         ) {
-          scrollContainer.scrollTo({
-            top: largeViewer.requestedScrollLine * LOG_VIRTUAL_LINE_HEIGHT_PX,
-            behavior: 'auto',
-          });
-          this.lastRequestedLargeScrollLine = largeViewer.requestedScrollLine;
-          if (largeViewer.mode === 'tail') {
-            this.tailAutoScrollEnabled = false;
-          }
+          this.clearScheduledViewportEmit();
+          this.executeLargeViewerScrollCommand(scrollContainer, largeViewer);
+          this.lastHandledLargeScrollCommandId = scrollCommandRequestId;
           this.largeScrollHandled.emit();
-        } else if (largeViewer.requestedScrollLine === null) {
-          this.lastRequestedLargeScrollLine = null;
-          if (largeViewer.mode === 'tail' && this.tailAutoScrollEnabled) {
-            this.scrollTailToBottom(scrollContainer);
-          }
+          // Programmatic scrolling and layout settle asynchronously in the Wails
+          // webview. Measure the viewport in the next frame instead of immediately
+          // interpreting the old scrollTop as a user pause.
+          this.scheduleLargeViewportEmit();
+          return;
+        } else if (scrollCommandRequestId === null) {
+          this.lastHandledLargeScrollCommandId = null;
         }
+
+        this.emitLargeViewport(scrollContainer, largeViewer);
         return;
       }
 
       this.lastLargeViewportKey = null;
-      this.resetTailScrollState();
+      this.lastHandledLargeScrollCommandId = null;
 
       if (this.contentLoading()) {
         this.lastActiveMatch = null;
@@ -391,20 +396,12 @@ export class LogsDetailPanelComponent implements OnDestroy {
     });
   }
 
-  onWordWrapChange(value: boolean): void {
-    this.updateWordWrap(value);
+  onLiveChange(value: boolean): void {
+    this.updateLive(value);
   }
 
-  onTailChange(value: boolean): void {
-    this.updateTail(value);
-  }
-
-  toggleWordWrap(): void {
-    this.updateWordWrap(!this.wordWrapEnabled());
-  }
-
-  toggleTail(): void {
-    this.updateTail(!this.tailEnabled());
+  toggleLive(): void {
+    this.updateLive(!this.liveEnabled());
   }
 
   onContentSearchChange(value: string): void {
@@ -467,31 +464,73 @@ export class LogsDetailPanelComponent implements OnDestroy {
   }
 
   onLargeViewerScroll(): void {
-    const largeViewer = this.largeViewer();
-    const scrollContainer = this.contentScrollContainer()?.nativeElement;
-    if (!largeViewer || !scrollContainer) {
-      return;
-    }
-
-    if (largeViewer.mode === 'tail') {
-      this.tailAutoScrollEnabled = this.isNearBottom(scrollContainer);
-      if (largeViewer.tailPreviewLines.length > 0) {
-        return;
-      }
-    }
-
-    this.emitLargeViewport(scrollContainer, largeViewer);
+    this.scheduleLargeViewportEmit();
   }
 
   ngOnDestroy(): void {
     this.clearContentSearchApplyTimer();
+    this.clearScheduledViewportEmit();
+  }
+
+  // Scroll fires far more often than a viewport window can usefully change, and
+  // every emit costs a backend round trip. Coalesce bursts into one trailing
+  // read, measured inside a frame so scroll metrics are read after layout.
+  private scheduleLargeViewportEmit(): void {
+    if (this.viewportEmitTimer !== null || this.viewportEmitFrame !== null) {
+      return;
+    }
+
+    const elapsed = performance.now() - this.lastViewportEmitAt;
+    const delay = Math.max(LARGE_VIEWPORT_EMIT_THROTTLE_MS - elapsed, 0);
+
+    this.viewportEmitTimer = setTimeout(() => {
+      this.viewportEmitTimer = null;
+      this.viewportEmitFrame = requestAnimationFrame(() => {
+        this.viewportEmitFrame = null;
+        this.lastViewportEmitAt = performance.now();
+
+        const largeViewer = this.largeViewer();
+        const scrollContainer = this.contentScrollContainer()?.nativeElement;
+        if (!largeViewer || !scrollContainer) {
+          return;
+        }
+
+        this.emitLargeViewport(scrollContainer, largeViewer);
+      });
+    }, delay);
+  }
+
+  private clearScheduledViewportEmit(): void {
+    if (this.viewportEmitTimer !== null) {
+      clearTimeout(this.viewportEmitTimer);
+      this.viewportEmitTimer = null;
+    }
+
+    if (this.viewportEmitFrame !== null) {
+      cancelAnimationFrame(this.viewportEmitFrame);
+      this.viewportEmitFrame = null;
+    }
   }
 
   private emitLargeViewport(
     scrollContainer: HTMLDivElement,
     largeViewer: LogLargeViewerVm,
   ): void {
-    if (largeViewer.tailPreviewLines.length > 0) {
+    const nearBottom = this.isNearBottom(scrollContainer);
+    const isLivePreview =
+      largeViewer.mode === 'live' && largeViewer.livePreviewLines.length > 0;
+    if (isLivePreview) {
+      const viewportKey = `preview:${nearBottom}:${largeViewer.livePreviewLines.length}`;
+      if (this.lastLargeViewportKey === viewportKey) {
+        return;
+      }
+
+      this.lastLargeViewportKey = viewportKey;
+      this.largeViewportChanged.emit({
+        startLine: 0,
+        lineCount: 0,
+        nearBottom,
+      });
       return;
     }
 
@@ -503,9 +542,9 @@ export class LogsDetailPanelComponent implements OnDestroy {
         LARGE_VIEW_OVERSCAN_LINES,
       0,
     );
-    const viewportKey = `${startLine}:${visibleLineCount}:${largeViewer.totalLines}`;
+    const viewportKey = `${startLine}:${visibleLineCount}:${largeViewer.totalLines}:${nearBottom}`;
     const shouldRetryEmptyViewport =
-      largeViewer.tailPreviewLines.length === 0 &&
+      largeViewer.livePreviewLines.length === 0 &&
       largeViewer.lines.length === 0 &&
       largeViewer.totalLines > 0;
     if (!shouldRetryEmptyViewport && this.lastLargeViewportKey === viewportKey) {
@@ -516,6 +555,7 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.largeViewportChanged.emit({
       startLine,
       lineCount: visibleLineCount,
+      nearBottom,
     });
   }
 
@@ -549,49 +589,13 @@ export class LogsDetailPanelComponent implements OnDestroy {
     this.lastScrolledMatchKey = null;
   }
 
-  private updateWordWrap(value: boolean): void {
-    if (!this.canToggleWordWrap()) {
+  private updateLive(value: boolean): void {
+    if (!this.liveAvailable() || this.liveUpdating()) {
       return;
     }
 
-    this.settings.updateLogsPreferences({ wordWrapEnabled: value });
-  }
-
-  private updateTail(value: boolean): void {
-    if (!this.tailAvailable()) {
-      return;
-    }
-
-    this.tailToggled.emit(value);
-  }
-
-  private handleTailViewerRender(
-    scrollContainer: HTMLDivElement,
-    largeViewer: LogLargeViewerVm,
-  ): void {
-    this.initializeTailScrollContext(scrollContainer);
-
-    if (
-      largeViewer.requestedScrollLine !== null &&
-      largeViewer.requestedScrollLine !== this.lastRequestedLargeScrollLine
-    ) {
-      scrollContainer.scrollTo({
-        top: largeViewer.requestedScrollLine * LOG_VIRTUAL_LINE_HEIGHT_PX,
-        behavior: 'auto',
-      });
-      this.lastRequestedLargeScrollLine = largeViewer.requestedScrollLine;
-      this.tailAutoScrollEnabled = false;
-      this.largeScrollHandled.emit();
-      return;
-    }
-
-    if (largeViewer.requestedScrollLine === null) {
-      this.lastRequestedLargeScrollLine = null;
-    }
-
-    if (this.tailAutoScrollEnabled) {
-      this.scrollTailToBottom(scrollContainer);
-    }
+    this.liveToggleValue.set(value);
+    this.liveToggled.emit(value);
   }
 
   private isNearBottom(scrollContainer: HTMLDivElement): boolean {
@@ -599,32 +603,32 @@ export class LogsDetailPanelComponent implements OnDestroy {
       scrollContainer.scrollHeight -
         scrollContainer.scrollTop -
         scrollContainer.clientHeight <=
-      TAIL_AUTO_SCROLL_BOTTOM_TOLERANCE_PX
+      LIVE_AUTO_SCROLL_BOTTOM_TOLERANCE_PX
     );
   }
 
-  private scrollTailToBottom(scrollContainer: HTMLDivElement): void {
-    scrollContainer.scrollTo({
-      top: scrollContainer.scrollHeight,
-      behavior: 'auto',
-    });
-  }
-
-  private resetTailScrollState(): void {
-    this.lastTailContextKey = null;
-    this.tailAutoScrollEnabled = false;
-    this.lastRequestedLargeScrollLine = null;
-  }
-
-  private initializeTailScrollContext(scrollContainer: HTMLDivElement): void {
-    const tailContextKey = this.selectionKey();
-    if (this.lastTailContextKey === tailContextKey) {
+  private executeLargeViewerScrollCommand(
+    scrollContainer: HTMLDivElement,
+    largeViewer: LogLargeViewerVm,
+  ): void {
+    const scrollCommand = largeViewer.scrollCommand;
+    if (!scrollCommand) {
       return;
     }
 
-    this.lastTailContextKey = tailContextKey;
-    this.tailAutoScrollEnabled = true;
-    this.scrollTailToBottom(scrollContainer);
+    const top =
+      scrollCommand.kind === 'bottom'
+        ? scrollContainer.scrollHeight
+        : scrollCommand.lineNumber * LOG_VIRTUAL_LINE_HEIGHT_PX;
+
+    // Setting scrollTop makes the position change synchronous in the Wails
+    // webview. scrollTo is retained so browsers dispatch their normal scroll
+    // event and the viewport can be measured after layout settles.
+    scrollContainer.scrollTop = top;
+    scrollContainer.scrollTo({
+      top,
+      behavior: 'auto',
+    });
   }
 }
 
@@ -635,7 +639,11 @@ interface ContentSearchBase {
   readonly matchIndices: readonly number[];
 }
 
-function buildContentSearchBase(content: string, query: string): ContentSearchBase {
+function buildContentSearchBase(
+  content: string,
+  query: string,
+  readNormalizedContent: () => string,
+): ContentSearchBase {
   if (query.length < MIN_CONTENT_SEARCH_QUERY_LENGTH || content.length === 0) {
     return {
       content,
@@ -645,7 +653,7 @@ function buildContentSearchBase(content: string, query: string): ContentSearchBa
     };
   }
 
-  const normalizedContent = content.toLowerCase();
+  const normalizedContent = readNormalizedContent();
   const normalizedQuery = query.toLowerCase();
   const matchIndices: number[] = [];
   let searchStart = 0;
@@ -682,36 +690,42 @@ function buildContentSearch(
     };
   }
 
-  let html = '';
+  const segments: string[] = [];
   let searchStart = 0;
 
   let matchNumber = 0;
 
   for (const matchIndex of matchIndices) {
     if (matchIndex > searchStart) {
-      html += renderLogContentHtml(
-        content.slice(searchStart, matchIndex),
-        logLevelHighlightingEnabled,
+      segments.push(
+        renderLogContentHtml(
+          content.slice(searchStart, matchIndex),
+          logLevelHighlightingEnabled,
+        ),
       );
     }
 
-    html += `<mark class="log-search-match ${
-      matchNumber === initialActiveMatchIndex ? 'active-search-match ' : ''
-    }bg-primary-container/20 text-on-surface">${escapeHtml(
-      content.slice(matchIndex, matchIndex + queryLength),
-    )}</mark>`;
+    const activeClass =
+      matchNumber === initialActiveMatchIndex ? ' active-search-match' : '';
+    segments.push(
+      `<mark class="log-search-match${activeClass}">${escapeHtml(
+        content.slice(matchIndex, matchIndex + queryLength),
+      )}</mark>`,
+    );
 
     searchStart = matchIndex + queryLength;
     matchNumber += 1;
   }
 
   if (searchStart < content.length) {
-    html += renderLogContentHtml(content.slice(searchStart), logLevelHighlightingEnabled);
+    segments.push(
+      renderLogContentHtml(content.slice(searchStart), logLevelHighlightingEnabled),
+    );
   }
 
   return {
     matchCount,
-    html,
+    html: segments.join(''),
   };
 }
 
@@ -743,7 +757,7 @@ function highlightContent(
   );
   const activeClass = isActive ? ' active-search-match' : '';
 
-  return `${before}<mark class="log-search-match${activeClass} bg-primary-container/20 text-on-surface">${match}</mark>${after}`;
+  return `${before}<mark class="log-search-match${activeClass}">${match}</mark>${after}`;
 }
 
 function renderLargeLineHtml(
@@ -767,7 +781,7 @@ function renderLogContentHtml(
     return escapeHtml(content);
   }
 
-  let html = '';
+  const segments: string[] = [];
   let searchStart = 0;
   LOG_LEVEL_TOKEN_PATTERN.lastIndex = 0;
 
@@ -780,14 +794,16 @@ function renderLogContentHtml(
     }
 
     if (matchIndex > searchStart) {
-      html += escapeHtml(content.slice(searchStart, matchIndex));
+      segments.push(escapeHtml(content.slice(searchStart, matchIndex)));
     }
 
     let tone = match[1].toLowerCase() as LogLevelTone;
     if (tone.includes('eror')) {
       tone = 'error';
     }
-    html += `<span class="log-level-token log-level-token--${tone} ${getLogLevelTokenClass(tone)}">${escapeHtml(matchedText)}</span>`;
+    segments.push(
+      `<span class="log-level-token log-level-token--${tone} ${getLogLevelTokenClass(tone)}">${escapeHtml(matchedText)}</span>`,
+    );
     searchStart = matchIndex + matchedText.length;
   }
 
@@ -796,20 +812,20 @@ function renderLogContentHtml(
   }
 
   if (searchStart < content.length) {
-    html += escapeHtml(content.slice(searchStart));
+    segments.push(escapeHtml(content.slice(searchStart)));
   }
 
-  return html;
+  return segments.join('');
 }
 
 function getLogLevelTokenClass(level: LogLevelTone): string {
   switch (level) {
     case 'info':
-      return 'font-semibold text-primary';
+      return 'font-medium text-primary';
     case 'error':
-      return 'font-semibold text-error';
+      return 'font-medium text-error';
     case 'warn':
-      return 'font-semibold text-tertiary';
+      return 'font-medium text-tertiary';
     default:
       return 'text-on-surface';
   }
@@ -833,11 +849,26 @@ function scrollMatchIntoView(
   });
 }
 
+const HTML_ESCAPE_TEST_PATTERN = /[&<>"']/;
+const HTML_ESCAPE_PATTERN = /[&<>"']/g;
+const HTML_ESCAPE_REPLACEMENTS: Readonly<Record<string, string>> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+// Log content is overwhelmingly plain text, so the common case should not copy
+// the string at all — and when it must, once rather than once per character
+// class.
 function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+  if (!HTML_ESCAPE_TEST_PATTERN.test(value)) {
+    return value;
+  }
+
+  return value.replace(
+    HTML_ESCAPE_PATTERN,
+    (character) => HTML_ESCAPE_REPLACEMENTS[character] ?? character,
+  );
 }

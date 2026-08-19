@@ -10,28 +10,61 @@ import type {
   AzureStorageAccount,
   AzureSubscription,
 } from '@app/features/settings/models/azure.model';
-import { initializeI18nForTests, provideTranslateTesting } from '@app/testing/translate-testing';
+import {
+  initializeI18nForTests,
+  provideTranslateTesting,
+} from '@app/testing/translate-testing';
 
 import { AzureService } from './azure.service';
 
 class AppApiServiceStub implements Partial<AppApiService> {
-  startAzureLogin = vi.fn<
-    () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: '' | 'cli_not_available' | 'not_logged_in' | 'token_request_failed' }>
-  >();
-  restoreAzureSession = vi.fn<
-    () => Promise<{ authenticated: boolean; errorMessage?: string; failureReason?: '' | 'cli_not_available' | 'not_logged_in' | 'token_request_failed' }>
-  >();
+  startAzureLogin =
+    vi.fn<
+      () => Promise<{
+        authenticated: boolean;
+        errorMessage?: string;
+        failureReason?:
+          | ''
+          | 'cli_not_available'
+          | 'not_logged_in'
+          | 'token_request_failed';
+      }>
+    >();
+  restoreAzureSession =
+    vi.fn<
+      () => Promise<{
+        authenticated: boolean;
+        errorMessage?: string;
+        failureReason?:
+          | ''
+          | 'cli_not_available'
+          | 'not_logged_in'
+          | 'token_request_failed';
+      }>
+    >();
   azureLogout = vi.fn<() => Promise<void>>();
   getAzureAuthState = vi.fn<() => Promise<{ authenticated: boolean }>>();
   listSubscriptions = vi.fn<() => Promise<AzureSubscription[]>>();
-  listStorageAccounts = vi.fn<(subscriptionId: string) => Promise<AzureStorageAccount[]>>();
-  listContainers = vi.fn<
-    (subscriptionId: string, resourceGroup: string, accountName: string) => Promise<AzureContainer[]>
-  >();
-  listBlobs = vi.fn<(accountName: string, containerName: string, prefix: string) => Promise<AzureBlobItem[]>>();
-  readBlobTextChunk = vi.fn<
-    (request: AzureBlobTextChunkRequest) => Promise<AzureBlobTextChunk>
-  >();
+  listStorageAccounts =
+    vi.fn<(subscriptionId: string) => Promise<AzureStorageAccount[]>>();
+  listContainers =
+    vi.fn<
+      (
+        subscriptionId: string,
+        resourceGroup: string,
+        accountName: string,
+      ) => Promise<AzureContainer[]>
+    >();
+  listBlobs =
+    vi.fn<
+      (
+        accountName: string,
+        containerName: string,
+        prefix: string,
+      ) => Promise<AzureBlobItem[]>
+    >();
+  readBlobTextChunk =
+    vi.fn<(request: AzureBlobTextChunkRequest) => Promise<AzureBlobTextChunk>>();
 }
 
 describe('AzureService', () => {
@@ -75,7 +108,9 @@ describe('AzureService', () => {
     await service.login();
 
     expect(service.authStep()).toBe('error');
-    expect(service.authError()).toBe('Azure CLI is not logged in. Run `az login` and try again.');
+    expect(service.authError()).toBe(
+      'Azure CLI is not logged in. Run `az login` and try again.',
+    );
     expect(service.authFailureReason()).toBe('not_logged_in');
     expect(service.azureCliMissing()).toBe(false);
   });
@@ -143,17 +178,31 @@ describe('AzureService', () => {
   });
 
   it('restores the startup session once without eagerly loading subscriptions', async () => {
-    let resolveRestore: ((value: { authenticated: boolean; failureReason?: '' | 'cli_not_available' | 'not_logged_in' | 'token_request_failed' }) => void) | null = null;
+    let resolveRestore:
+      | ((value: {
+          authenticated: boolean;
+          failureReason?:
+            | ''
+            | 'cli_not_available'
+            | 'not_logged_in'
+            | 'token_request_failed';
+        }) => void)
+      | null = null;
     api.restoreAzureSession.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveRestore = resolve;
-        })
+        }),
     );
     api.listSubscriptions.mockResolvedValue([createSubscription()]);
 
     const firstCall = service.initializeStartupAuth();
     const secondCall = service.initializeStartupAuth();
+
+    expect(service.authStep()).toBe('authenticating');
+    expect(service.authInProgress()).toBe(true);
+    expect(service.isAuthenticated()).toBe(false);
+
     resolveRestore?.({ authenticated: true });
     await firstCall;
     await secondCall;
@@ -194,6 +243,30 @@ describe('AzureService', () => {
     expect(service.azureCliMissing()).toBe(true);
   });
 
+  it('lets an interactive login win over an in-flight startup restore', async () => {
+    let resolveRestore: ((value: { authenticated: boolean }) => void) | null = null;
+    api.restoreAzureSession.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRestore = resolve;
+        }),
+    );
+    api.startAzureLogin.mockResolvedValue({ authenticated: true });
+    api.listSubscriptions.mockResolvedValue([createSubscription()]);
+
+    const startupRestore = service.initializeStartupAuth();
+    await service.login();
+
+    expect(service.authStep()).toBe('authenticated');
+
+    resolveRestore?.({ authenticated: false });
+    await startupRestore;
+    await flushAsync();
+
+    expect(service.authStep()).toBe('authenticated');
+    expect(service.authError()).toBeNull();
+  });
+
   it('cascades subscription, storage account, and container selection into downstream loads', async () => {
     const subscription = createSubscription();
     const account = createStorageAccount();
@@ -212,7 +285,11 @@ describe('AzureService', () => {
     service.selectStorageAccount(account);
     await flushAsync();
     expect(service.selectedStorageAccount()).toEqual(account);
-    expect(api.listContainers).toHaveBeenCalledWith(subscription.id, account.resourceGroup, account.name);
+    expect(api.listContainers).toHaveBeenCalledWith(
+      subscription.id,
+      account.resourceGroup,
+      account.name,
+    );
     expect(service.containers()).toEqual([container]);
 
     service.selectContainer(container);
@@ -247,8 +324,16 @@ describe('AzureService', () => {
     await firstStorageLoad;
     await secondStorageLoad;
 
-    const firstContainerLoad = service.loadContainers(subscription.id, account.resourceGroup, account.name);
-    const secondContainerLoad = service.loadContainers(subscription.id, account.resourceGroup, account.name);
+    const firstContainerLoad = service.loadContainers(
+      subscription.id,
+      account.resourceGroup,
+      account.name,
+    );
+    const secondContainerLoad = service.loadContainers(
+      subscription.id,
+      account.resourceGroup,
+      account.name,
+    );
     resolveContainers?.([createContainer()]);
     await firstContainerLoad;
     await secondContainerLoad;
@@ -284,7 +369,11 @@ describe('AzureService', () => {
     service.selectedStorageAccount.set(account);
     service.selectedContainer.set(container);
     api.readBlobTextChunk.mockResolvedValueOnce(
-      createBlobChunk({ content: 'line 1\nline 2', blobSize: 1024, endOffsetExclusive: 1024 }),
+      createBlobChunk({
+        content: 'line 1\nline 2',
+        blobSize: 1024,
+        endOffsetExclusive: 1024,
+      }),
     );
     api.readBlobTextChunk.mockRejectedValueOnce(new Error('network failed'));
 
@@ -293,7 +382,11 @@ describe('AzureService', () => {
     expect(service.selectedBlobName()).toBe('app.log');
     expect(service.blobContent()).toBe('line 1\nline 2');
     expect(service.blobContentChunk()).toEqual(
-      createBlobChunk({ content: 'line 1\nline 2', blobSize: 1024, endOffsetExclusive: 1024 }),
+      createBlobChunk({
+        content: 'line 1\nline 2',
+        blobSize: 1024,
+        endOffsetExclusive: 1024,
+      }),
     );
     expect(service.blobContentError()).toBeNull();
     expect(service.blobContentLoading()).toBe(false);
@@ -333,7 +426,9 @@ describe('AzureService', () => {
 
     expect(service.blobContent()).toBeNull();
     expect(service.blobContentChunk()).toBeNull();
-    expect(service.blobContentError()).toBe('The selected blob exceeds the supported size limit.');
+    expect(service.blobContentError()).toBe(
+      'The selected blob exceeds the supported size limit.',
+    );
   });
 
   it('skips blob download when no storage account or container is selected', async () => {
@@ -344,7 +439,9 @@ describe('AzureService', () => {
   });
 });
 
-function createSubscription(overrides: Partial<AzureSubscription> = {}): AzureSubscription {
+function createSubscription(
+  overrides: Partial<AzureSubscription> = {},
+): AzureSubscription {
   return {
     id: 'sub-1',
     displayName: 'Production',
@@ -385,11 +482,16 @@ function createBlob(overrides: Partial<AzureBlobItem> = {}): AzureBlobItem {
     createdAt: '2026-04-13T10:00:00Z',
     lastModified: '2026-04-13T10:30:00Z',
     blobType: 'BlockBlob',
+    deleted: false,
+    deletedAt: '',
+    remainingRetentionDays: 0,
     ...overrides,
   };
 }
 
-function createBlobChunk(overrides: Partial<AzureBlobTextChunk> = {}): AzureBlobTextChunk {
+function createBlobChunk(
+  overrides: Partial<AzureBlobTextChunk> = {},
+): AzureBlobTextChunk {
   return {
     content: 'preview',
     blobSize: 42,
